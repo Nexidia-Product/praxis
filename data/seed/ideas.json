@@ -1,0 +1,47 @@
+[
+  {
+    "idea_id": "d6406594-f4bb-4701-bdbc-e2959742726a",
+    "submitter_name": "Alex Rivera",
+    "submitter_email": "alex.rivera@example.com",
+    "idea_name": "Self-service customer health dashboard",
+    "description": "Customers currently call support to ask whether their account is healthy. A self-service dashboard showing key health signals (open tickets, outstanding actions, recent NPS) would deflect a lot of those calls and give customers a single place to check in.",
+    "urgency": "Medium",
+    "requested_target_date": null,
+    "key_stakeholders": "Customer Support, Product",
+    "submitted_at": "2026-05-06T17:43:57.786Z",
+    "status": "New",
+    "admin_comments": "",
+    "converted_to_project_id": null,
+    "ai_overlap_analysis": null
+  },
+  {
+    "idea_id": "0f173884-4018-4f49-8a35-66ba3792a703",
+    "submitter_name": "Priya Chen",
+    "submitter_email": "priya.chen@example.com",
+    "idea_name": "Automated complaint categorization",
+    "description": "Today every inbound complaint is hand-tagged for category and severity. An AI-assisted categorization pass would reduce intake time and surface duplicate complaints earlier. Should integrate with the existing complaints queue rather than replace it.",
+    "urgency": "High",
+    "requested_target_date": null,
+    "key_stakeholders": "Compliance, Customer Support",
+    "submitted_at": "2026-05-06T17:43:57.786Z",
+    "status": "Under Review",
+    "admin_comments": "Possible overlap with the Automated Insights tagging work — confirm scope before approving.",
+    "converted_to_project_id": null,
+    "ai_overlap_analysis": null
+  },
+  {
+    "idea_id": "cd4ebf5a-02c0-44ca-960b-321f278f1428",
+    "submitter_name": "Jordan Park",
+    "submitter_email": null,
+    "idea_name": "Add export-to-CSV on the activity log",
+    "description": "Compliance team has asked for a CSV export of the activity log filtered by date range and user. Currently the only option is a screenshot.",
+    "urgency": "Low",
+    "requested_target_date": null,
+    "key_stakeholders": "Compliance",
+    "submitted_at": "2026-05-06T17:43:57.786Z",
+    "status": "New",
+    "admin_comments": "",
+    "converted_to_project_id": null,
+    "ai_overlap_analysis": null
+  }
+]

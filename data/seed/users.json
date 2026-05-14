@@ -1,0 +1,26 @@
+[
+  {
+    "user_id": "92fc58fd-47e2-4535-b666-dcbedc89fada",
+    "email": "admin@example.com",
+    "name": "Default Admin",
+    "role": "Admin",
+    "password_hash": "$2a$12$8U.iJYhhQ.SBEAJcP0HKC.Q6jZxcnA5otxHTyQ.ZuL6GbB3Pwbp/O",
+    "active": true,
+    "invite_token": null,
+    "invite_token_expires_at": null,
+    "password_reset_token": null,
+    "password_reset_token_expires_at": null,
+    "notification_preferences": {
+      "TaskAssigned": "InAppOnly",
+      "TaskDueSoon": "InAppOnly",
+      "TaskOverdue": "InAppOnly",
+      "ProjectBlocked": "InAppOnly",
+      "DependencyBlocked": "InAppOnly",
+      "HealthScoreChanged": "InAppOnly",
+      "IdeaStatusChanged": "InAppOnly"
+    },
+    "digest_mode": false,
+    "created_at": "2026-05-06T17:43:57.786Z",
+    "updated_at": "2026-05-06T17:43:57.786Z"
+  }
+]

@@ -1,0 +1,812 @@
+/* ──────────────────────────────────────────────────────────────────
+   POLARIS FOUNDATION
+   ──────────────────────────────────────────────────────────────────
+   Token layer + control primitives for the Innovation Initiative
+   Management application. Mirrors the NICE NIA / QC system that the
+   IIM app deliberately sits inside — identical tokens, identical
+   primitive class names. Treat the canonical brief
+   (NIA_Polaris_Vibe_Coding_Master_4.md) as the source of truth.
+
+   New components reach for these classes BEFORE inventing any new
+   styling:
+
+     pol-btn / pol-btn-primary / -secondary / -ghost / -danger
+     pol-input / pol-select / pol-textarea
+     pol-tag (with -green / -yellow / -blue / -red / -pink / -teal / -gray)
+     section-label
+     col-header
+     grid-row
+     kpi-card / kpi-value / kpi-label
+     pol-card / pol-card-title / pol-card-body
+     pol-modal / pol-modal-header / pol-modal-body / pol-modal-footer
+     toolbar
+     pol-divider
+
+   Tailwind utilities still work alongside these — the Tailwind color
+   palette is wired through to the same tokens (see tailwind.config.ts)
+   so existing utility classes naturally pick up the Polaris look. */
+
+/* ── Tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Surface */
+  --bg: #f4f8fa;
+  --card: #ffffff;
+  --hover: rgba(0, 123, 189, 0.05);
+  --selected: rgba(0, 123, 189, 0.1);
+
+  /* Text */
+  --t1: #2e2e2e;
+  --t2: #526b7a;
+  --tm: #859ead;
+
+  /* Brand */
+  --brand: #007bbd;
+  --brand-dark: #006da8;
+  --header: #1878b4;
+  --border: #e2e6e9;
+
+  /* Status */
+  --ok: #00703c;
+  --ok-bg: #e7f3ef;
+  --warn: #fcb91d;
+  --warn-bg: #fff0d1;
+  --warn-text: #8a6200;
+  --err: #d4341c;
+  --err-bg: #fcedf0;
+
+  /* Tone (for charting / accent fills) */
+  --neg: #f9d4c8;
+  --neg-hi: #9fc8df;
+  --pos: #cee4f0;
+  --pos-hi: #9fc8df;
+
+  /* Shape */
+  --pol-radius: 3px;
+  --input-h: 28px;
+
+  /* Type */
+  --fs-xs: 10px;
+  --fs-sm: 12px;
+  --fs-base: 14px;
+  --fs-md: 18px;
+  --fs-lg: 22px;
+  --fs-xl: 28px;
+
+  /* Layout chrome */
+  --rail-w: 220px;
+  --rail-collapsed: 52px;
+  --header-h: 40px;
+  --breadcrumb-h: 28px;
+  --tab-h: 36px;
+}
+
+/* ── Base ────────────────────────────────────────────────────── */
+html {
+  font-family: "Open Sans", system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-base);
+  color: var(--t1);
+  background: var(--bg);
+}
+
+body {
+  font-family: "Open Sans", system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-base);
+  color: var(--t1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Compact, slate scrollbars matching the NIA reference. */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tm);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.pol-btn {
+  height: var(--input-h);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+  background: var(--card);
+  color: var(--t1);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.pol-btn:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--brand);
+}
+.pol-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.pol-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pol-btn-primary {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+.pol-btn-primary:hover:not(:disabled) {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  color: #fff;
+}
+
+.pol-btn-secondary {
+  background: var(--card);
+  color: var(--t1);
+  border-color: var(--border);
+}
+.pol-btn-secondary:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--brand);
+}
+
+.pol-btn-ghost {
+  background: transparent;
+  color: var(--t2);
+  border-color: transparent;
+}
+.pol-btn-ghost:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--border);
+  color: var(--t1);
+}
+
+.pol-btn-danger {
+  background: var(--card);
+  color: var(--err);
+  border-color: var(--border);
+}
+.pol-btn-danger:hover:not(:disabled) {
+  background: var(--err-bg);
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.pol-btn-sm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.pol-btn-icon {
+  width: var(--input-h);
+  padding: 0;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────── */
+.pol-input,
+.pol-select,
+.pol-textarea {
+  height: var(--input-h);
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+  background: var(--card);
+  color: var(--t1);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 8px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+
+.pol-input:focus,
+.pol-select:focus,
+.pol-textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.pol-input::placeholder,
+.pol-textarea::placeholder {
+  color: var(--tm);
+}
+
+.pol-input:disabled,
+.pol-select:disabled,
+.pol-textarea:disabled {
+  background: var(--bg);
+  color: var(--tm);
+  cursor: not-allowed;
+}
+
+.pol-textarea {
+  height: auto;
+  padding: 6px 8px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Native select chevron */
+.pol-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='%23859ead'%3E%3Cpath d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 8px;
+  padding-right: 24px;
+}
+
+/* Checkbox / radio: native, but recolored. */
+input[type="checkbox"].pol-check,
+input[type="radio"].pol-check {
+  accent-color: var(--brand);
+}
+
+/* ── Tags ────────────────────────────────────────────────────── */
+.pol-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: var(--pos);
+  color: var(--brand-dark);
+}
+.pol-tag-green {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.pol-tag-yellow {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+.pol-tag-red {
+  background: var(--err-bg);
+  color: var(--err);
+}
+.pol-tag-blue {
+  background: var(--pos);
+  color: var(--brand-dark);
+}
+.pol-tag-pink {
+  background: var(--neg);
+  color: #8a2020;
+}
+.pol-tag-teal {
+  background: #e0f4f4;
+  color: #0a6e6e;
+}
+.pol-tag-gray {
+  background: #f0f2f3;
+  color: var(--t2);
+}
+
+/* ── Section labels ──────────────────────────────────────────── */
+.section-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tm);
+}
+
+/* ── Lists / tables ──────────────────────────────────────────── */
+.col-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tm);
+  padding: 8px 0;
+  border-bottom: 2px solid var(--border);
+  user-select: none;
+}
+
+.grid-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  cursor: default;
+  transition: background 0.1s;
+}
+.grid-row:hover {
+  background: var(--hover);
+}
+.grid-row:last-child {
+  border-bottom: none;
+}
+.grid-row.selected {
+  background: var(--selected);
+}
+.grid-row.is-link {
+  cursor: pointer;
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.pol-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+}
+
+.pol-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--t1);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pol-card-body {
+  padding: 14px 16px;
+}
+
+.pol-card-pad {
+  padding: 14px 16px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+  padding: 8px 12px;
+}
+
+/* ── KPI cards ───────────────────────────────────────────────── */
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+  padding: 12px 14px;
+}
+.kpi-value {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-label {
+  font-size: var(--fs-xs);
+  color: var(--tm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kpi-delta {
+  font-size: var(--fs-sm);
+  margin-top: 4px;
+}
+.kpi-delta.up {
+  color: var(--ok);
+}
+.kpi-delta.down {
+  color: var(--err);
+}
+
+/* ── Modal ───────────────────────────────────────────────────── */
+.pol-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(46, 46, 46, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+}
+.pol-modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--pol-radius);
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  margin: auto;
+}
+.pol-modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.pol-modal-title {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--t1);
+}
+.pol-modal-close {
+  color: var(--tm);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 4px;
+}
+.pol-modal-close:hover {
+  color: var(--t1);
+}
+.pol-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 70vh;
+}
+.pol-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Notifications / banners ─────────────────────────────────── */
+.pol-notice {
+  display: flex;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--pol-radius);
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border);
+  align-items: flex-start;
+  line-height: 1.5;
+}
+.pol-notice-ok {
+  background: var(--ok-bg);
+  border-color: #b0d9c8;
+  color: var(--ok);
+}
+.pol-notice-warn {
+  background: var(--warn-bg);
+  border-color: #f5d98a;
+  color: var(--warn-text);
+}
+.pol-notice-info {
+  background: var(--pos);
+  border-color: var(--pos-hi);
+  color: var(--brand-dark);
+}
+.pol-notice-err {
+  background: var(--err-bg);
+  border-color: #f5b8b8;
+  color: var(--err);
+}
+
+/* ── Dividers ────────────────────────────────────────────────── */
+.pol-divider {
+  height: 1px;
+  background: var(--border);
+  border: 0;
+  margin: 0;
+}
+
+/* ── Form field stack ────────────────────────────────────────── */
+.form-field {
+  display: grid;
+  gap: 4px;
+}
+.form-label {
+  font-size: var(--fs-sm);
+  color: var(--t2);
+  font-weight: 600;
+}
+.form-help {
+  font-size: 11px;
+  color: var(--tm);
+}
+
+/* ── Monospaced IDs ──────────────────────────────────────────── */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 11px;
+}
+
+/* ── Page chrome (used by pages outside the shell) ───────────── */
+.page-eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tm);
+}
+.page-title {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -0.01em;
+}
+.page-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--t2);
+}
+
+/* ── Score / health pill ─────────────────────────────────────── */
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.score-pill-green {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.score-pill-yellow {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+.score-pill-red {
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+/* Status dot (used in nav, lists) */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot-active {
+  background: var(--ok);
+}
+.status-dot-warn {
+  background: var(--warn);
+}
+.status-dot-err {
+  background: var(--err);
+}
+.status-dot-muted {
+  background: var(--tm);
+}
+
+/* ── Global focus visibility ─────────────────────────────────
+   Keyboard users need a clear focus ring on every interactive
+   element. The `pol-btn` and `pol-input` primitives already
+   set their own; this catches everything else (links, native
+   anchors and buttons that don't reach for the primitives,
+   table-cell click targets) so a Tab-through is never blind.
+   `:focus-visible` is the right selector — it lights up only
+   for keyboard navigation, not for mouse clicks. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="option"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--pol-radius);
+}
+
+/* ── Skip-to-content link ────────────────────────────────────
+   Sits above the header but is translated off-screen until it
+   receives keyboard focus. Pressing Tab from the address bar
+   lands here first; pressing Enter jumps past the rail into the
+   main content. Sighted users never see it. */
+.skip-link:focus {
+  transform: translateY(0) !important;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* ── Screen-reader-only utility ──────────────────────────────
+   Tailwind ships its own .sr-only via @tailwind utilities, but
+   we declare a fallback here so the rule is available even if a
+   page is rendered before Tailwind's utility layer (e.g. the
+   global error boundary, which inlines its own styles). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Hoverable surfaces ──────────────────────────────────────
+   Used inside server components (e.g. the home-page KPI tiles
+   and quick-access rows) where attaching JS hover handlers is
+   not allowed because Server Components cannot serialize event
+   handlers. CSS-only hover keeps those surfaces interactive
+   without needing to mark them client. */
+
+/* Wraps a `kpi-card` with a `<Link>` so the whole card lights up. */
+.hoverable-card .kpi-card {
+  transition: background 0.1s;
+}
+.hoverable-card:hover .kpi-card {
+  background: var(--hover);
+}
+
+/* Standalone hover surface for nav rows / list items. */
+.hoverable-row {
+  transition: background 0.1s;
+}
+.hoverable-row:hover {
+  background: var(--hover);
+}
+
+/* ── Tailwind utility tightening ─────────────────────────────
+   The bulk of the migrated pages still use Tailwind utility
+   classes for spacing and structure (which is fine), but two
+   utilities — `rounded-lg`/`rounded-md` and `shadow-sm`/`shadow` —
+   produce a softer, more SaaS look than the NICE NIA / QC system
+   calls for. Rather than chase every component and rewrite class
+   strings, we tighten those utilities here.
+
+   - All radii except `rounded-full` (kept for avatars and dots)
+     collapse to the Polaris `--pol-radius` (3px). `rounded-2xl`
+     and `rounded-3xl` are left at their Tailwind defaults since
+     they're only used for chart panel chrome where a softer
+     rounding still reads correctly inside a system card.
+   - Subtle shadows (`shadow-sm`, `shadow`) are removed. Cards
+     earn separation from the page background through their thin
+     border. Larger shadows (`shadow-md`, `shadow-lg`, `shadow-xl`)
+     are retained — they're used by modal overlays and dropdown
+     drawers where a real lift is part of the affordance.
+   - Border radius on form controls is normalized to 3px so a
+     stray `rounded-md` input on a legacy form doesn't break rank
+     with the `pol-input` controls beside it.
+
+   These rules use `!important` because Tailwind utilities are
+   themselves marked with the same priority by the JIT
+   compiler — without it, the cascade order would let the
+   Tailwind class win when both are applied. */
+.rounded,
+.rounded-md,
+.rounded-lg,
+.rounded-xl {
+  border-radius: var(--pol-radius) !important;
+}
+.shadow-sm,
+.shadow {
+  box-shadow: none !important;
+}
+input.rounded-md,
+select.rounded-md,
+textarea.rounded-md {
+  border-radius: var(--pol-radius) !important;
+}
+
+/* ── Primary CTA → brand blue ────────────────────────────────
+   The migrated pages use `bg-gray-900 text-white hover:bg-gray-800`
+   for primary actions — a near-black slate that's correct for the
+   "calm, neutral" half of the system but doesn't carry the brand
+   accent the canonical brief specifies for primary actions.
+
+   We re-point this exact combination (using the attribute selector
+   so it only catches buttons / links that have BOTH classes, not
+   incidental dark elements) to `--brand` / `--brand-dark`. Result:
+   a `Save`, `Create`, `Sign in`, `Submit` button anywhere in the
+   app picks up the Polaris blue automatically.
+
+   The matcher requires the element to be a button or anchor so
+   non-interactive dark-on-white surfaces don't get re-tinted. */
+button.bg-gray-900.text-white,
+a.bg-gray-900.text-white,
+button.bg-gray-800.text-white,
+a.bg-gray-800.text-white {
+  background-color: var(--brand) !important;
+  border-color: var(--brand) !important;
+}
+button.bg-gray-900.text-white:hover:not(:disabled),
+a.bg-gray-900.text-white:hover,
+button.bg-gray-800.text-white:hover:not(:disabled),
+a.bg-gray-800.text-white:hover {
+  background-color: var(--brand-dark) !important;
+  border-color: var(--brand-dark) !important;
+}
+button.bg-gray-900.text-white:disabled,
+button.bg-gray-800.text-white:disabled {
+  background-color: var(--tm) !important;
+  border-color: var(--tm) !important;
+}
+/* The "disabled:bg-gray-400" variant kicks in via specificity when
+   disabled, so leave it alone — it stays gray, which is what we want. */
+.bg-emerald-600,
+.bg-emerald-700,
+.bg-blue-600,
+.bg-sky-600 {
+  /* Already aliased to var(--brand) via the Tailwind palette
+     override, but the JIT may emit `--tw-bg-opacity` so we
+     normalize the resolved color here too for safety. */
+  background-color: var(--brand) !important;
+}
+button.bg-emerald-700:hover:not(:disabled),
+a.bg-emerald-700:hover {
+  background-color: var(--brand-dark) !important;
+}
+
+/* ── Buttons feel ─────────────────────────────────────────────
+   Tailwind buttons across the app pad themselves with px-3/py-1.5
+   etc. Without an explicit height set, they end up around 32–36px
+   tall, which clashes with the Polaris 28px control system. We
+   pin a tighter min-height that keeps padding behavior intact —
+   `min-height` instead of `height` so very busy buttons (with
+   icons + multi-line wrap) can still grow if they have to. */
+button.text-sm.font-medium,
+a.text-sm.font-medium[href] {
+  min-height: 28px;
+}
+button.text-xs.font-medium,
+a.text-xs.font-medium[href] {
+  min-height: 24px;
+}
+
+/* ── Inputs feel ─────────────────────────────────────────────
+   Same idea: native inputs inside legacy forms get a 28px height,
+   thin Polaris border, and brand focus ring so they harmonize
+   with `pol-input`. Targets only inputs that haven't already been
+   styled via `pol-input` (which sets these explicitly). */
+input[type="text"]:not(.pol-input):not([class*="pol-"]),
+input[type="email"]:not(.pol-input):not([class*="pol-"]),
+input[type="password"]:not(.pol-input):not([class*="pol-"]),
+input[type="number"]:not(.pol-input):not([class*="pol-"]),
+input[type="date"]:not(.pol-input):not([class*="pol-"]),
+input[type="search"]:not(.pol-input):not([class*="pol-"]),
+input[type="url"]:not(.pol-input):not([class*="pol-"]),
+select:not(.pol-select):not([class*="pol-"]),
+textarea:not(.pol-textarea):not([class*="pol-"]) {
+  border-color: var(--border);
+  font-size: var(--fs-sm);
+}
+input[type="text"]:not(.pol-input):focus,
+input[type="email"]:not(.pol-input):focus,
+input[type="password"]:not(.pol-input):focus,
+input[type="number"]:not(.pol-input):focus,
+input[type="date"]:not(.pol-input):focus,
+input[type="search"]:not(.pol-input):focus,
+input[type="url"]:not(.pol-input):focus,
+select:not(.pol-select):focus,
+textarea:not(.pol-textarea):focus {
+  outline: none;
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 1px var(--brand) !important;
+  --tw-ring-color: var(--brand) !important;
+}
+

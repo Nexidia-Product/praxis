@@ -1,0 +1,454 @@
+[
+  {
+    "project_id": "2026-001",
+    "name": "Auto Insights Application Build",
+    "description": "Create Claude Code project as a application with capability to import files for each customer.",
+    "application_product": "Automated Insights",
+    "project_type": "New Application",
+    "date_added": "2026-04-10",
+    "priority": "High",
+    "status": "Completed",
+    "phase": "Application Development",
+    "primary_stakeholders": [
+      "Brett",
+      "Jeremy",
+      "Presales Team"
+    ],
+    "project_lead": "Min",
+    "additional_resources": [
+      "Josh"
+    ],
+    "resource_allocations": {},
+    "target_date": "2026-04-24",
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.502Z"
+  },
+  {
+    "project_id": "2026-002",
+    "name": "Regulatory Complaint",
+    "description": "Create application to handle model development, testing and improvement. Includes capability to push output in the IPM format for Nexidia. Classification layer required; methodology TBD.",
+    "application_product": "Complaints",
+    "project_type": "New Application",
+    "date_added": "2026-04-10",
+    "priority": "High",
+    "status": "In Progress",
+    "phase": "Planning",
+    "primary_stakeholders": [
+      "Katie"
+    ],
+    "project_lead": "Josh",
+    "additional_resources": [
+      "Josh"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Red",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Red"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.521Z"
+  },
+  {
+    "project_id": "2026-003",
+    "name": "Benchmarking",
+    "description": "Create new Benchmarking dashboard for incorporation into Automated Insights",
+    "application_product": "Automated Insights",
+    "project_type": "New Feature",
+    "date_added": "2026-04-10",
+    "priority": "High",
+    "status": "In Progress",
+    "phase": "Data Modeling",
+    "primary_stakeholders": [],
+    "project_lead": "Josh",
+    "additional_resources": [
+      "Trish",
+      "Min",
+      "Savannah",
+      "Philip"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Red",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Red"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.527Z"
+  },
+  {
+    "project_id": "2026-004",
+    "name": "Topic AI Version",
+    "description": "Create our own version of topic AI",
+    "application_product": "TopicAI",
+    "project_type": "New Application",
+    "date_added": "2026-04-10",
+    "priority": "High",
+    "status": "Not Started",
+    "phase": "Prioritization",
+    "primary_stakeholders": [
+      "Mark",
+      "Vanessa",
+      "Isabel"
+    ],
+    "project_lead": "Josh",
+    "additional_resources": [
+      "Savannah",
+      "Philip"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.535Z"
+  },
+  {
+    "project_id": "2026-005",
+    "name": "Agent Burnout",
+    "description": "Create new Agent Burnout methodology and dashboard for incorporation into Automated Insights",
+    "application_product": "Automated Insights",
+    "project_type": "New Feature",
+    "date_added": "2026-04-10",
+    "priority": "High",
+    "status": "In Progress",
+    "phase": "Data Modeling",
+    "primary_stakeholders": [],
+    "project_lead": "Trish",
+    "additional_resources": [
+      "Josh",
+      "Min"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Yellow",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Yellow"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.543Z"
+  },
+  {
+    "project_id": "2026-006",
+    "name": "Agent Builder Functionality",
+    "description": "Update conversational UI in the internal Automated Insights application (not the product) to have a push button version of the bot build and push to Cognigy",
+    "application_product": "Automated Insights",
+    "project_type": "New Feature",
+    "date_added": "2026-04-10",
+    "priority": "Medium",
+    "status": "Not Started",
+    "phase": "Prioritization",
+    "primary_stakeholders": [
+      "Brett",
+      "Jeremy",
+      "Presales Team"
+    ],
+    "project_lead": "Philip",
+    "additional_resources": [
+      "Min"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.555Z"
+  },
+  {
+    "project_id": "2026-007",
+    "name": "Proactive Outbound Application Build",
+    "description": "Create new application to identify intents suitable for proactive outbound, create journeys and create bots for Cognigy",
+    "application_product": "Proactive Outbound",
+    "project_type": "New Application",
+    "date_added": "2026-04-10",
+    "priority": "Medium",
+    "status": "In Progress",
+    "phase": "Application Development",
+    "primary_stakeholders": [
+      "Giles Bryan",
+      "Glen Foster",
+      "Ian Haddon",
+      "Bassel Mokabel"
+    ],
+    "project_lead": "Savannah",
+    "additional_resources": [
+      "Trish",
+      "Josh"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.566Z"
+  },
+  {
+    "project_id": "2026-008",
+    "name": "Anomaly Detection",
+    "description": "Create new Anomaly Detection dashboard",
+    "application_product": "Automated Insights",
+    "project_type": "New Feature",
+    "date_added": "2026-04-14",
+    "priority": "Medium",
+    "status": "In Progress",
+    "phase": "Customer Validation",
+    "primary_stakeholders": [
+      "Brett",
+      "Jeremy",
+      "Presales Team"
+    ],
+    "project_lead": "Min",
+    "additional_resources": [
+      "Ryan Irons"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.574Z"
+  },
+  {
+    "project_id": "2026-009",
+    "name": "Topic AI Validation process",
+    "description": "Automate the existing manual process for TopicAI using a Claude application",
+    "application_product": "TopicAI",
+    "project_type": "New Prototype",
+    "date_added": "2026-04-21",
+    "priority": "High",
+    "status": "In Progress",
+    "phase": "Application Development",
+    "primary_stakeholders": [
+      "Mark",
+      "Vanessa",
+      "Isabel"
+    ],
+    "project_lead": "",
+    "additional_resources": [],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.582Z"
+  },
+  {
+    "project_id": "2026-010",
+    "name": "Agent Work Avoidance",
+    "description": "Create new Agent Work Avoidance methodology and dashboard for incorporation into Automated Insights",
+    "application_product": "Automated Insights",
+    "project_type": "New Feature",
+    "date_added": "2026-04-22",
+    "priority": "High",
+    "status": "In Progress",
+    "phase": "Data Modeling",
+    "primary_stakeholders": [],
+    "project_lead": "Trish",
+    "additional_resources": [
+      "Josh",
+      "Min"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.592Z"
+  },
+  {
+    "project_id": "2026-011",
+    "name": "QA Form Automation",
+    "description": "Create tool to automatically analyze QA forms for LLM automation feasibility",
+    "application_product": "Quality Central",
+    "project_type": "New Feature",
+    "date_added": "2026-04-27",
+    "priority": "Medium",
+    "status": "In Progress",
+    "phase": "Application Development",
+    "primary_stakeholders": [
+      "Brett"
+    ],
+    "project_lead": "Savannah",
+    "additional_resources": [
+      "Philip"
+    ],
+    "resource_allocations": {},
+    "target_date": null,
+    "ai_complexity_score": null,
+    "ai_time_estimate": null,
+    "roadmap_bucket": null,
+    "roadmap_timeline_start": null,
+    "github_issue_id": null,
+    "jira_issue_id": null,
+    "health_score": "Green",
+    "health_score_history": [
+      {
+        "date": "2026-05-08",
+        "score": "Green"
+      }
+    ],
+    "status_history": [],
+    "depends_on": [],
+    "dependencies": [],
+    "document_links": [],
+    "custom_fields": {},
+    "created_by": "seed-import",
+    "updated_at": "2026-05-08T14:38:17.602Z"
+  }
+]

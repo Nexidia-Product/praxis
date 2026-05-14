@@ -1,0 +1,20 @@
+/**
+ * Application stylesheet entry point.
+ *
+ * The Polaris foundation (tokens + pol-* primitives) is the canonical
+ * style layer for the IIM application. Tailwind utilities are still
+ * available — they're tuned in `tailwind.config.ts` to resolve into
+ * the same Polaris tokens — but new visual work should reach for
+ * pol-btn / pol-input / pol-tag / col-header / grid-row / kpi-card /
+ * section-label first.
+ *
+ * Import order matters: Tailwind base/components first so its preflight
+ * doesn't override the Polaris base type rules, then polaris.css last
+ * so its tokens win.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./polaris.css";

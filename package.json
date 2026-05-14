@@ -1,0 +1,59 @@
+{
+  "name": "iim-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Innovation Initiative Management (IIM) application",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "smoke:db": "tsx scripts/smoke-db.ts",
+    "smoke:projects": "tsx scripts/smoke-projects.ts",
+    "smoke:tasks": "tsx scripts/smoke-tasks.ts",
+    "smoke:roadmap": "tsx scripts/smoke-roadmap.ts",
+    "smoke:export": "tsx scripts/smoke-export.ts",
+    "smoke:decisions": "tsx scripts/smoke-decisions.ts",
+    "smoke:notifications": "tsx scripts/smoke-notifications.ts",
+    "smoke:health": "tsx scripts/smoke-health.ts",
+    "smoke:velocity": "tsx scripts/smoke-velocity.ts",
+    "smoke:admin-exclusion": "tsx scripts/smoke-admin-exclusion.ts",
+    "smoke:ideas": "tsx scripts/smoke-ideas.ts",
+    "smoke:template": "tsx scripts/smoke-template.ts",
+    "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
+    "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",
+    "migrate:auth-users": "tsx --env-file=.env.local scripts/migrate-users-to-auth.ts",
+    "import:spreadsheet": "tsx --env-file=.env.local scripts/import-spreadsheet.ts",
+    "admin:update-email": "tsx --env-file=.env.local scripts/update-admin-email.ts",
+    "admin:recovery-link": "tsx --env-file=.env.local scripts/issue-recovery-link.ts",
+    "admin:delete-user": "tsx --env-file=.env.local scripts/delete-user.ts",
+    "admin:bulk-create": "tsx --env-file=.env.local scripts/bulk-create-users.ts",
+    "prepare:branding": "tsx scripts/prepare-branding.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "html2canvas": "^1.4.1",
+    "next": "15.5.18",
+    "pptxgenjs": "^4.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^6.12.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "exceljs": "^4.4.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "uuid": "^14.0.0"
+  }
+}
