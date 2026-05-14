@@ -16,6 +16,10 @@ import { TemplateRepository } from "@/lib/db";
 import { TemplatesAdmin } from "@/components/admin/templates-admin";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
+// Session-bound page — must not be statically pre-rendered at build
+// time, where Supabase env vars may not be available.
+export const dynamic = "force-dynamic";
+
 export default async function TemplatesAdminPage() {
   const session = await requirePagePermission("admin.templates.manage");
   const { permissions } = await getCurrentUserPermissions();

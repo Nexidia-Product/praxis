@@ -14,6 +14,10 @@ import {
 import { NotificationsAdmin } from "@/components/admin/notifications-admin";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
+// Session-bound page — must not be statically pre-rendered at build
+// time, where Supabase env vars may not be available.
+export const dynamic = "force-dynamic";
+
 export default async function NotificationsAdminPage() {
   const session = await requirePagePermission("admin.notifications.run_sweep");
   const { permissions } = await getCurrentUserPermissions();

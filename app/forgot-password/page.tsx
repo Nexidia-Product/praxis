@@ -18,6 +18,10 @@ import { auth } from "@/auth";
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
 import { PublicChrome } from "@/components/polaris/PublicChrome";
 
+// Calls `auth()` to bounce signed-in users home; that reads cookies,
+// so the page is per-request and must not be pre-rendered.
+export const dynamic = "force-dynamic";
+
 export default async function ForgotPasswordPage() {
   const session = await auth();
   if (session?.user) {

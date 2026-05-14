@@ -19,6 +19,11 @@ import { auth } from "@/auth";
 import { LoginForm } from "@/components/login-form";
 import { PublicChrome } from "@/components/polaris/PublicChrome";
 
+// Calls `auth()` to redirect-if-already-signed-in; that reads
+// cookies, so the page is per-request and must not be pre-rendered
+// at build time.
+export const dynamic = "force-dynamic";
+
 interface LoginPageProps {
   searchParams: Promise<{
     callbackUrl?: string;
