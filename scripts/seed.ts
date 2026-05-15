@@ -432,6 +432,7 @@ function transformProjects(
       status_history: [],
       depends_on: [],
       dependencies: [],
+      external_dependencies: [],
       document_links: [],
       custom_fields: {},
       created_by: SEED_USER_ID,

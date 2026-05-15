@@ -85,6 +85,7 @@ async function main() {
     jira_issue_id: null,
     depends_on: [],
     dependencies: [],
+    external_dependencies: [],
     document_links: [],
     custom_fields: {},
     created_by: admin.user_id,

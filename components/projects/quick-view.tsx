@@ -593,10 +593,11 @@ export function ProjectQuickView({
                 project={project}
                 allProjects={allProjects}
               />
+              <ExternalDependenciesPanel project={project} />
               {canEdit ? (
                 <p className="mt-3 text-[11px] text-gray-500">
                   Edit dependencies from the project form (Edit project,
-                  then scroll to "Depends on").
+                  then scroll to "Depends on" or "External dependencies").
                 </p>
               ) : null}
             </div>
@@ -1025,5 +1026,85 @@ function StatusHistoryRow({ entry }: { entry: StatusHistoryEntry }) {
         ) : null}
       </div>
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// External dependencies panel
+// ---------------------------------------------------------------------------
+
+/**
+ * Read-only display of the project's external dependencies. Sits
+ * under the internal-dependencies chain on the Dependencies tab.
+ * Edits happen in the project form modal (per the workspace's
+ * "edit happens in the modal" rule, mirroring `DependencyEditor`
+ * vs the internal-deps chain panel).
+ */
+function ExternalDependenciesPanel({ project }: { project: Project }) {
+  const items = project.external_dependencies ?? [];
+
+  return (
+    <section className="mt-6 border-t border-gray-200 pt-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+        External dependencies
+      </h3>
+      {items.length === 0 ? (
+        <p className="mt-2 text-sm text-gray-500">
+          None recorded. Add one from the project form when this project is
+          waiting on something outside Praxis.
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {items.map((d) => (
+            <li
+              key={d.external_dependency_id}
+              className="rounded-md border border-gray-200 bg-white px-3 py-2"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-medium text-gray-900 break-words">
+                      {d.label}
+                    </span>
+                    {d.url ? (
+                      <a
+                        href={d.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-blue-700 underline-offset-2 hover:underline"
+                      >
+                        link ↗
+                      </a>
+                    ) : null}
+                  </div>
+                  <div className="mt-0.5 text-[12px] text-gray-600">
+                    {d.owner ? <>Owner: {d.owner}</> : <em>No owner</em>}
+                    {d.target_date ? (
+                      <> · Expected {d.target_date}</>
+                    ) : null}
+                  </div>
+                  {d.description ? (
+                    <p className="mt-1 whitespace-pre-wrap text-[12px] text-gray-700">
+                      {d.description}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  className={
+                    d.status === "Resolved"
+                      ? "pol-tag pol-tag-green"
+                      : d.status === "In Progress"
+                        ? "pol-tag pol-tag-blue"
+                        : "pol-tag pol-tag-yellow"
+                  }
+                >
+                  {d.status}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

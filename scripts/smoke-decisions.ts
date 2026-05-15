@@ -406,6 +406,7 @@ async function main() {
       status_history: [],
       depends_on: [],
       dependencies: [],
+      external_dependencies: [],
       document_links: [],
       custom_fields: {},
       created_by: "user-1",

@@ -28,6 +28,7 @@ import {
   type CreateProjectInput,
   type CustomFieldDefinition,
   type DocumentLink,
+  type ExternalDependency,
   type Priority,
   type Project,
   type ProjectDependency,
@@ -52,6 +53,10 @@ import {
   LinkValidationError,
   validateDocumentLinks,
 } from "@/lib/projects/links";
+import {
+  ExternalDependencyValidationError,
+  validateExternalDependencies,
+} from "@/lib/projects/external-dependencies";
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
 import { todayIso } from "@/lib/db/store";
@@ -153,6 +158,13 @@ export interface ProjectCreatePayload {
   depends_on?: unknown;
   /** Step 6 (Section 5.14): array of {label, url, link_type}. */
   document_links?: unknown;
+  /**
+   * External dependencies — things outside Praxis we're waiting on
+   * (Jira tickets on other teams, vendor work, etc.). Array of
+   * `ExternalDependency`-shaped objects; new entries omit the id and
+   * created-at fields and the validator stamps them in.
+   */
+  external_dependencies?: unknown;
 }
 
 export interface ProjectUpdatePayload extends ProjectCreatePayload {
@@ -425,6 +437,13 @@ async function validateAndShape(
     { userId: ctx.createdBy, now: nowIsoTimestamp() },
   );
 
+  // --- External dependencies (Section 5.10 follow-up).
+  const external_dependencies = safeValidateExternal(
+    payload.external_dependencies,
+    [],
+    { userId: ctx.createdBy, now: nowIsoTimestamp() },
+  );
+
   return {
     name,
     description,
@@ -446,6 +465,7 @@ async function validateAndShape(
     jira_issue_id: null,
     depends_on,
     dependencies,
+    external_dependencies,
     document_links,
     custom_fields,
     created_by: ctx.createdBy,
@@ -538,6 +558,27 @@ function safeValidateLinks(
     return validateDocumentLinks(raw, existing, ctx);
   } catch (err) {
     if (err instanceof LinkValidationError) {
+      throw new ValidationError(err.message);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Same wrap pattern for the external-dependencies validator. The
+ * inner validator accepts a nullable user_id (for system / seed
+ * paths); the project service always has a concrete user, so we
+ * narrow on the way in.
+ */
+function safeValidateExternal(
+  raw: unknown,
+  existing: ExternalDependency[],
+  ctx: { userId: UserId | null; now: string },
+): ExternalDependency[] {
+  try {
+    return validateExternalDependencies(raw, existing, ctx);
+  } catch (err) {
+    if (err instanceof ExternalDependencyValidationError) {
       throw new ValidationError(err.message);
     }
     throw err;
@@ -746,12 +787,13 @@ export async function updateProject(
   }
 
   // --- Step 6: dependencies and document links. -----------------------
-  // We only need to read the current record / project graph if either
-  // dependency input was supplied; otherwise skip the work to keep the
+  // We only need to read the current record / project graph if any of
+  // these inputs was supplied; otherwise skip the work to keep the
   // hot path (inline status edit) cheap.
   const dependencyTouched =
     payload.dependencies !== undefined || payload.depends_on !== undefined;
   const linksTouched = payload.document_links !== undefined;
+  const externalTouched = payload.external_dependencies !== undefined;
 
   // Always load the prior record so the post-write notification hook can
   // see the true pre-state. The repositories re-read the JSON file each
@@ -762,7 +804,7 @@ export async function updateProject(
   const existing = await ProjectRepository.getById(id);
   if (!existing) throw new ValidationError(`Project ${id} not found.`);
 
-  if (dependencyTouched || linksTouched) {
+  if (dependencyTouched || linksTouched || externalTouched) {
     if (dependencyTouched) {
       const allProjects = await ProjectRepository.getAll();
       const { dependencies, depends_on } = resolveDependencyShape(
@@ -789,6 +831,14 @@ export async function updateProject(
       patch.document_links = safeValidateLinks(
         payload.document_links,
         existing.document_links,
+        { userId: ctx.userId, now: nowIsoTimestamp() },
+      );
+    }
+
+    if (externalTouched) {
+      patch.external_dependencies = safeValidateExternal(
+        payload.external_dependencies,
+        existing.external_dependencies,
         { userId: ctx.userId, now: nowIsoTimestamp() },
       );
     }
@@ -986,6 +1036,7 @@ export async function updateProject(
             "roadmap_timeline_start",
             "roadmap_bucket",
             "ai_complexity_score",
+            "external_dependencies",
           ],
         },
       ),

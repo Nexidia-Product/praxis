@@ -200,6 +200,41 @@ export interface ProjectDependency {
 }
 
 /**
+ * External dependency on something we don't own — a Jira ticket in
+ * another team's project, a vendor commitment, a SaaS feature
+ * request. Distinct from `ProjectDependency` (which is
+ * project→project inside Praxis) because there's no internal record
+ * to point at and the resolution criterion isn't "reaches a phase"
+ * — it's "the external team marks it done."
+ *
+ * Stored as an array on the Project record. Each entry carries the
+ * minimum the team needs to remember the dependency exists and
+ * follow up on it. The whole shape is loosely structured (free-text
+ * fields) because external systems vary wildly.
+ */
+export type ExternalDependencyStatus = "Open" | "In Progress" | "Resolved";
+
+export interface ExternalDependency {
+  external_dependency_id: string;
+  /** Short title — e.g. "Search API v2 wildcards". */
+  label: string;
+  /** Optional long-form context. */
+  description: string;
+  /** Who's responsible upstream — team name, vendor, person, etc. */
+  owner: string;
+  /** Optional link to a tracking item (Jira, GitHub issue, vendor portal). */
+  url: string | null;
+  status: ExternalDependencyStatus;
+  /** Expected resolution date if upstream gave one; null otherwise. */
+  target_date: IsoDate | null;
+  created_at: IsoTimestamp;
+  /** UserId who added the dependency. `null` for legacy / system seeds. */
+  created_by: UserId | null;
+  /** Set when status transitions to Resolved; null while still Open / In Progress. */
+  resolved_at: IsoTimestamp | null;
+}
+
+/**
  * One snapshot of a project's health score. Stored as a rolling array on
  * the Project record (Section 5.13). Capped to roughly 30 entries by the
  * repository write path.
@@ -355,6 +390,13 @@ export interface Project {
   depends_on: ProjectId[];
   /** Source of truth for dependency type and required phase. */
   dependencies: ProjectDependency[];
+  /**
+   * Things we're waiting on that live outside Praxis — Jira tickets
+   * on other teams, vendor deliveries, SaaS feature requests, etc.
+   * Distinct from `dependencies` (which references other Praxis
+   * projects) because there's no internal record to link to.
+   */
+  external_dependencies: ExternalDependency[];
 
   // ---- Other ----
   document_links: DocumentLink[];

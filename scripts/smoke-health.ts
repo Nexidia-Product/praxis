@@ -168,6 +168,7 @@ async function main() {
       jira_issue_id: null,
       depends_on: overrides.depends_on ?? [],
       dependencies: overrides.dependencies ?? [],
+      external_dependencies: overrides.external_dependencies ?? [],
       document_links: overrides.document_links ?? [],
       custom_fields: overrides.custom_fields ?? {},
       created_by: "smoke-test",

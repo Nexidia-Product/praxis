@@ -80,6 +80,7 @@ export const ProjectRepository = {
         jira_issue_id: input.jira_issue_id,
         depends_on: input.depends_on,
         dependencies: input.dependencies,
+        external_dependencies: input.external_dependencies,
         document_links: input.document_links,
         custom_fields: input.custom_fields,
         created_by: input.created_by,

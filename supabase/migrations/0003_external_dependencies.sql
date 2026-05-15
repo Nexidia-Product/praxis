@@ -1,0 +1,35 @@
+-- =============================================================================
+-- External dependencies on projects.
+-- =============================================================================
+--
+-- Section 5.10 covers project→project dependencies. This adds a
+-- parallel concept for project→external-system dependencies: a
+-- project might be waiting on functionality in a tool we don't own
+-- (Jira ticket on another team, SaaS feature request, vendor
+-- delivery, etc.). The team needs to record those so the project's
+-- status accurately reflects "we're blocked on an outside thing,"
+-- not just "we haven't started."
+--
+-- Shape: an array of objects on the project record, structurally
+-- similar to the existing `document_links` jsonb column.
+--
+--   {
+--     "external_dependency_id": "<uuid>",
+--     "label":                  "Search API v2 launch",
+--     "description":            "Need wildcard support before we can ship",
+--     "owner":                  "Platform Team",
+--     "url":                    "https://jira.example.com/...",
+--     "status":                 "Open" | "In Progress" | "Resolved",
+--     "target_date":            "2026-08-15" | null,
+--     "created_at":             "<ISO timestamp>",
+--     "created_by":             "<UserId>",
+--     "resolved_at":            "<ISO timestamp> | null"
+--   }
+--
+-- Validation lives in the project service layer (lib/projects/service.ts)
+-- — the column is a flexible jsonb so older records read cleanly and
+-- new records with unrecognized fields don't fail on write. Same
+-- pattern as document_links, dependencies, and status_history.
+
+alter table public.projects
+  add column if not exists external_dependencies jsonb not null default '[]'::jsonb;

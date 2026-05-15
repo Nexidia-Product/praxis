@@ -210,6 +210,7 @@ async function main() {
       status_history: p.status_history ?? [],
       depends_on: p.depends_on ?? [],
       dependencies: p.dependencies ?? [],
+      external_dependencies: p.external_dependencies ?? [],
       document_links: p.document_links ?? [],
       custom_fields: p.custom_fields ?? {},
       created_by: p.created_by ?? "seed",

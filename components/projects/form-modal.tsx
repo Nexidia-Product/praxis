@@ -31,6 +31,7 @@ import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
   DocumentLink,
+  ExternalDependency,
   Priority,
   Project,
   ProjectDependency,
@@ -41,6 +42,7 @@ import type {
 } from "@/lib/db";
 import { DependencyEditor } from "./dependency-editor";
 import { DocumentLinksEditor } from "./document-links-editor";
+import { ExternalDependenciesEditor } from "./external-dependencies-editor";
 
 interface ProjectFormModalProps {
   /** When set, the modal is in edit mode against this project. */
@@ -123,6 +125,8 @@ interface FormState {
   dependencies: ProjectDependency[];
   /** Step 6 (Section 5.14). */
   document_links: DocumentLink[];
+  /** External (non-Praxis) blockers — Jira on other teams, vendor work, etc. */
+  external_dependencies: ExternalDependency[];
 }
 
 function emptyState(customFields: CustomFieldDefinition[]): FormState {
@@ -144,6 +148,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     custom_fields: defaultCustomFieldValues(customFields),
     dependencies: [],
     document_links: [],
+    external_dependencies: [],
   };
 }
 
@@ -220,6 +225,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     },
     dependencies: p.dependencies,
     document_links: p.document_links,
+    external_dependencies: p.external_dependencies ?? [],
   };
 }
 
@@ -255,6 +261,7 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     // server views in sync.
     dependencies: s.dependencies,
     document_links: s.document_links,
+    external_dependencies: s.external_dependencies,
   };
   // Only attach template_id on create, and only when the user picked one.
   // On edit it would be ignored by the service layer anyway, but stripping
@@ -818,6 +825,12 @@ export function ProjectFormModal({
           <DocumentLinksEditor
             value={state.document_links}
             onChange={(links) => update("document_links", links)}
+            disabled={saving}
+          />
+
+          <ExternalDependenciesEditor
+            value={state.external_dependencies}
+            onChange={(deps) => update("external_dependencies", deps)}
             disabled={saving}
           />
 
