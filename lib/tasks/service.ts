@@ -769,7 +769,96 @@ export async function updateTask(
     });
   }
 
+  // If this update flipped the task INTO Complete, clear the block
+  // on every downstream task whose `blocker_task_id` pointed at us.
+  // The cascade only handles task→task blocks — project- and
+  // free-text-blocker references are left alone since we can't
+  // reason about when those are "resolved."
+  const completedNow =
+    patch.status === "Complete" && existing.status !== "Complete";
+  if (completedNow) {
+    await unblockDependentTasks(id, ctx).catch((err) => {
+      console.warn(
+        `[tasks] auto-unblock cascade failed for ${id}:`,
+        err,
+      );
+    });
+  }
+
   return updated;
+}
+
+/**
+ * When a task transitions into `Complete`, walk every task whose
+ * `blocker_task_id` references the just-completed task and clear
+ * the block. Side effects per unblocked task:
+ *
+ *   - `blocked = false`
+ *   - `blocker_type`, `blocker_task_id`, `blocker_issue_task`
+ *     cleared (no longer relevant — the block is resolved)
+ *   - If the downstream task was sitting at `status = "Blocked"`,
+ *     bump it back to `"Not Started"` so the assignee notices it's
+ *     actionable again. Other statuses are left alone (someone may
+ *     have been working on the task despite the blocked flag).
+ *   - Audit log entry attributing the change to the user who
+ *     completed the blocker.
+ *   - Health-score recalc on the downstream task's parent project
+ *     (blocked-count is an input to the score).
+ *
+ * Failures on individual downstream tasks are logged and skipped;
+ * one stuck row mustn't prevent the rest from being unblocked.
+ */
+async function unblockDependentTasks(
+  completedTaskId: TaskId,
+  ctx: { userId: UserId; userName?: string | null },
+): Promise<void> {
+  // PostgREST `.eq()` filter is the cheap way to find dependents.
+  // We pull the full row because we need the existing status and
+  // task_name for the patch + audit.
+  const { getServiceRoleClient } = await import("@/lib/supabase/server");
+  const { data, error } = await getServiceRoleClient()
+    .from("tasks")
+    .select("*")
+    .eq("blocker_type", "task")
+    .eq("blocker_task_id", completedTaskId);
+  if (error) {
+    console.warn(
+      `[tasks] unblockDependentTasks lookup failed: ${error.message}`,
+    );
+    return;
+  }
+  const downstreams = (data ?? []) as Task[];
+  if (downstreams.length === 0) return;
+
+  for (const t of downstreams) {
+    const patch: UpdateTaskInput = {
+      blocked: false,
+      blocker_type: null,
+      blocker_task_id: null,
+      blocker_issue_task: "",
+    };
+    if (t.status === "Blocked") {
+      patch.status = "Not Started";
+    }
+    try {
+      await TaskRepository.update(t.task_id, patch);
+      await audit({
+        actorId: ctx.userId,
+        actorName: ctx.userName,
+        entityType: "Task",
+        entityId: t.task_id,
+        entityLabel: t.task_name,
+        action: "update",
+        summary: `Auto-unblocked: blocking task ${completedTaskId} is now Complete.`,
+      });
+      await fireHealthRecalc(t.project_id);
+    } catch (err) {
+      console.warn(
+        `[tasks] auto-unblock of ${t.task_id} (blocked by ${completedTaskId}) failed:`,
+        err,
+      );
+    }
+  }
 }
 
 export async function deleteTask(
