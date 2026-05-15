@@ -27,9 +27,28 @@
    so existing utility classes naturally pick up the Polaris look. */
 
 /* ── Tokens ──────────────────────────────────────────────────── */
+/*
+ * Updated to match the Lyra design language (SKILL.lyra 1.md):
+ *
+ *   - Page background is neutral gray (was the old Polaris pale
+ *     blue-gray). White cards rise off it via shadow + border.
+ *   - Card radius bumped from 3px to 12px (Lyra's "soft" surface
+ *     shape). Pill-style tags use their own larger radius so they
+ *     still read as chips, not as miniature buttons.
+ *   - Card shadow restored (the Polaris-era stylesheet stripped
+ *     `shadow-sm` / `shadow` Tailwind utilities; Lyra wants a soft
+ *     lift in light mode). The override below in the
+ *     "Tailwind utility tightening" section was relaxed
+ *     accordingly.
+ *
+ * Dark mode is intentionally not wired up here yet — the brief
+ * called for a deferred phase. When that lands, every token in
+ * this :root will get a `:root[data-theme="dark"]` companion and
+ * components will pick up the right value automatically.
+ */
 :root {
   /* Surface */
-  --bg: #f4f8fa;
+  --bg: #e4e5e7;
   --card: #ffffff;
   --hover: rgba(0, 123, 189, 0.05);
   --selected: rgba(0, 123, 189, 0.1);
@@ -61,8 +80,16 @@
   --pos-hi: #9fc8df;
 
   /* Shape */
-  --pol-radius: 3px;
+  --pol-radius: 12px;
+  --pol-radius-pill: 999px; /* fully pill chips/tags */
   --input-h: 28px;
+
+  /* Elevation (Lyra) — soft lift for cards in light mode. No
+     equivalent in dark; dark separates via surface contrast, not
+     shadow (per SKILL.lyra 1.md surface rules). */
+  --pol-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06),
+                     0 1px 2px rgba(15, 23, 42, 0.04);
+  --pol-shadow-popover: 0 8px 24px rgba(15, 23, 42, 0.10);
 
   /* Type */
   --fs-xs: 10px;
@@ -139,7 +166,7 @@ body {
 }
 .pol-btn:focus-visible {
   outline: 2px solid var(--brand);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 .pol-btn:disabled {
   cursor: not-allowed;
@@ -263,11 +290,18 @@ input[type="radio"].pol-check {
 }
 
 /* ── Tags ────────────────────────────────────────────────────── */
+/*
+ * Lyra severity chips are described as fully pill-shaped (SKILL.lyra
+ * 1.md "Chips, badges, and stat tiles"). Padding bumped slightly
+ * from 1px/7px to 2px/8px so the rounded ends visually balance the
+ * label height; the chip still reads as compact metadata, not as a
+ * button-equivalent.
+ */
 .pol-tag {
   display: inline-flex;
   align-items: center;
-  padding: 1px 7px;
-  border-radius: 2px;
+  padding: 2px 8px;
+  border-radius: var(--pol-radius-pill);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.5;
@@ -321,7 +355,7 @@ input[type="radio"].pol-check {
   letter-spacing: 0.05em;
   color: var(--tm);
   padding: 8px 0;
-  border-bottom: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
   user-select: none;
 }
 
@@ -346,10 +380,19 @@ input[type="radio"].pol-check {
 }
 
 /* ── Cards ───────────────────────────────────────────────────── */
+/*
+ * Lyra light-mode surface rule: white card on neutral page bg with
+ * a soft lift shadow + 12px rounded corners. The border stays as a
+ * 1px hairline so the card edge still reads on monitors where the
+ * shadow is barely visible (e.g. low-contrast displays). In dark
+ * mode the shadow drops and the value contrast carries separation;
+ * that swap will land when the dark-mode token pass ships.
+ */
 .pol-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--pol-radius);
+  box-shadow: var(--pol-shadow-card);
 }
 
 .pol-card-title {
@@ -381,11 +424,21 @@ input[type="radio"].pol-check {
 }
 
 /* ── KPI cards ───────────────────────────────────────────────── */
+/*
+ * Lyra "stat tile" rule (SKILL.lyra 1.md, "Chips, badges, and stat
+ * tiles"): the active/selected tile gets a blue outline + a blue
+ * value color. We were already tinting the value; the `.is-active`
+ * modifier adds the border. Box-sizing: border-box means switching
+ * border color (not width) keeps the tile from shifting siblings.
+ */
 .kpi-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--pol-radius);
   padding: 12px 14px;
+}
+.kpi-card.is-active {
+  border-color: var(--brand);
 }
 .kpi-value {
   font-size: var(--fs-xl);
@@ -680,18 +733,23 @@ button:focus-visible,
    strings, we tighten those utilities here.
 
    - All radii except `rounded-full` (kept for avatars and dots)
-     collapse to the Polaris `--pol-radius` (3px). `rounded-2xl`
-     and `rounded-3xl` are left at their Tailwind defaults since
-     they're only used for chart panel chrome where a softer
-     rounding still reads correctly inside a system card.
-   - Subtle shadows (`shadow-sm`, `shadow`) are removed. Cards
-     earn separation from the page background through their thin
-     border. Larger shadows (`shadow-md`, `shadow-lg`, `shadow-xl`)
-     are retained — they're used by modal overlays and dropdown
-     drawers where a real lift is part of the affordance.
-   - Border radius on form controls is normalized to 3px so a
-     stray `rounded-md` input on a legacy form doesn't break rank
-     with the `pol-input` controls beside it.
+     collapse to the global `--pol-radius` (12px under Lyra).
+     `rounded-2xl` and `rounded-3xl` are left at their Tailwind
+     defaults since they're only used for chart panel chrome
+     where a softer rounding still reads correctly inside a
+     system card.
+   - Subtle shadows (`shadow-sm`, `shadow`) are remapped to the
+     Lyra card shadow token so legacy Tailwind utility classes
+     pick up the same soft lift as `.pol-card`. The pre-Lyra
+     pass stripped these to `none`; Lyra's light-mode surfaces
+     get a hairline border + a 1–3px ambient shadow. Larger
+     shadows (`shadow-md`, `shadow-lg`, `shadow-xl`) are left
+     at the Tailwind defaults — they're used by modal overlays
+     and dropdown drawers where a real lift is part of the
+     affordance.
+   - Border radius on form controls is normalized to the global
+     `--pol-radius` so a stray `rounded-md` input on a legacy form
+     doesn't break rank with the `pol-input` controls beside it.
 
    These rules use `!important` because Tailwind utilities are
    themselves marked with the same priority by the JIT
@@ -705,7 +763,7 @@ button:focus-visible,
 }
 .shadow-sm,
 .shadow {
-  box-shadow: none !important;
+  box-shadow: var(--pol-shadow-card) !important;
 }
 input.rounded-md,
 select.rounded-md,

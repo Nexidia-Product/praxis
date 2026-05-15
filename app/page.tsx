@@ -371,8 +371,10 @@ function Kpi({
       : accent === "active"
         ? "var(--brand)"
         : "var(--t1)";
+  const className =
+    accent === "active" ? "kpi-card is-active" : "kpi-card";
   const inner = (
-    <div className="kpi-card">
+    <div className={className}>
       <div className="kpi-value" style={{ color: accentColor }}>
         {value}
       </div>
