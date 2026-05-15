@@ -22,7 +22,7 @@
  * RolePermissionsEditor, ResourceThresholdsAdmin) is reused as-is.
  */
 
-import { toAdminUser } from "@/lib/auth/admin-user-view";
+import { buildLastSignInIndex, toAdminUser } from "@/lib/auth/admin-user-view";
 import {
   getCurrentUserPermissions,
   requireAnyPagePermission,
@@ -35,6 +35,7 @@ import {
   normalizeRolePermissions,
 } from "@/lib/auth/role-permissions";
 import { SettingsRepository, UserRepository, type UserRole } from "@/lib/db";
+import { getServiceRoleClient } from "@/lib/supabase/server";
 import {
   ResourceManagementWorkspace,
   type ResourceManagementTab,
@@ -74,20 +75,31 @@ export default async function ResourceManagementPage({
       ? (params.tab as ResourceManagementTab)
       : "users";
 
-  // Load every tab's data on the server in parallel. Same model as the
-  // per-page loads we used to do — no client-side fetches added.
-  const [allUsers, settings] = await Promise.all([
+  // Load every tab's data on the server in parallel. The third call
+  // (auth.admin.listUsers) is what feeds `pending_invite` — it
+  // returns each user's `last_sign_in_at`, which is null for users
+  // who have never signed in (= still pending an invite) and an
+  // ISO timestamp once they have. The page goes through three round
+  // trips to the database/auth service on render; small datasets so
+  // it's fine.
+  const supabase = getServiceRoleClient();
+  const [allUsers, settings, authPage] = await Promise.all([
     UserRepository.getAll(),
     SettingsRepository.get(),
+    supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
-  // Users tab data. `toAdminUser` decorates with `pending_invite`
-  // derived from auth.users.last_sign_in_at; the live value comes
-  // through the admin GET /api/admin/users response, so for SSR we
-  // pass `null` (= "no recent sign-in") and let the table refresh
-  // pick up the real state once mounted.
+  const lastSignInById = buildLastSignInIndex(
+    (authPage.data?.users ?? []).map((u) => ({
+      id: u.id,
+      last_sign_in_at: u.last_sign_in_at ?? null,
+    })),
+  );
+
   allUsers.sort((a, b) => a.name.localeCompare(b.name));
-  const users = allUsers.map((u) => toAdminUser(u, null));
+  const users = allUsers.map((u) =>
+    toAdminUser(u, lastSignInById.get(u.user_id) ?? null),
+  );
 
   // Roles & permissions tab data
   const matrix = normalizeRolePermissions(settings.role_permissions);
