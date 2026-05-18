@@ -25,8 +25,10 @@ import { CustomFieldsAdmin } from "@/components/admin/custom-fields-admin";
 import { ProjectValuesEditor } from "@/components/admin/project-values-editor";
 import { PortfolioQuadrantsAdmin } from "@/components/admin/portfolio-quadrants-admin";
 import { HealthThresholdsAdmin } from "@/components/admin/health-thresholds-admin";
+import { AiConfigAdmin } from "@/components/admin/ai-config-admin";
 
 import type {
+  AiConfig,
   CustomFieldDefinition,
   EnumExtensionsMap,
   ExtensibleEnumKey,
@@ -39,7 +41,8 @@ export type ConfigurationTab =
   | "custom-fields"
   | "project-values"
   | "portfolio-quadrants"
-  | "health-thresholds";
+  | "health-thresholds"
+  | "ai";
 
 export const CONFIGURATION_TABS: ReadonlyArray<{
   id: ConfigurationTab;
@@ -66,6 +69,11 @@ export const CONFIGURATION_TABS: ReadonlyArray<{
     label: "Health thresholds",
     permission: "admin.health_thresholds.manage",
   },
+  {
+    id: "ai",
+    label: "AI",
+    permission: "admin.ai.manage",
+  },
 ];
 
 interface ConfigurationWorkspaceProps {
@@ -86,6 +94,10 @@ interface ConfigurationWorkspaceProps {
   // Health thresholds tab
   initialHealthThresholds: HealthScoreThresholds;
   defaultHealthThresholds: HealthScoreThresholds;
+
+  // AI tab
+  initialAiConfig: AiConfig;
+  defaultAiConfig: AiConfig;
 }
 
 export function ConfigurationWorkspace({
@@ -98,6 +110,8 @@ export function ConfigurationWorkspace({
   defaultQuadrantLabels,
   initialHealthThresholds,
   defaultHealthThresholds,
+  initialAiConfig,
+  defaultAiConfig,
 }: ConfigurationWorkspaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,6 +159,10 @@ export function ConfigurationWorkspace({
           initialThresholds={initialHealthThresholds}
           defaults={defaultHealthThresholds}
         />
+      ) : null}
+
+      {activeTab === "ai" ? (
+        <AiConfigAdmin initialConfig={initialAiConfig} defaults={defaultAiConfig} />
       ) : null}
     </div>
   );

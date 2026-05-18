@@ -16,10 +16,12 @@
  * stores the link in both directions (idea has `converted_to_project_id`,
  * project has `created_by` set to the converting admin).
  *
- * The AI Overlap Check (Section 5.18) is wired through `aiOverlapAnalysis`
- * — today it returns a stub explanation since Step 10 is deferred. When
- * Step 10 lands, only that one function changes. Everything else — the
- * route, the cache field on the record, the UI banner — stays the same.
+ * The AI Overlap Check (Section 5.18) is wired through `aiOverlapAnalysis`.
+ * When AI is enabled it calls Bedrock via `lib/ai/overlap.ts`; when AI is
+ * disabled (the default — see lib/ai/feature-flag.ts) it falls back to a
+ * keyword-overlap heuristic so the route still returns something useful.
+ * The shape it returns (`{ analysis, source }`) is identical in both
+ * cases so the route and the UI banner don't change.
  */
 
 import {
@@ -44,6 +46,7 @@ import {
 } from "@/lib/projects/service";
 import { notifyIdeaStatusChanged } from "@/lib/notifications/service";
 import { audit } from "@/lib/audit/service";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
 
 // ---------------------------------------------------------------------------
 // Constants — kept in sync with the enum aliases in lib/db/types.ts.
@@ -582,6 +585,40 @@ export async function aiOverlapAnalysis(
 ): Promise<OverlapAnalysisResult> {
   const idea = await IdeaRepository.getById(ideaId);
   if (!idea) throw new NotFoundError(`Idea ${ideaId} not found.`);
+
+  // When AI is on we hand off to Bedrock. We import inside the function
+  // so AI-disabled environments don't pay for evaluating the AWS SDK at
+  // module load time. The heuristic below stays intact for fallback.
+  if (isAiEnabled()) {
+    const { analyzeOverlap } = await import("@/lib/ai/overlap");
+    try {
+      const result = await analyzeOverlap(ideaId);
+      const header = result.overlaps_with.length === 0
+        ? "AI overlap check: no meaningful overlap detected.\n"
+        : `AI overlap check found ${result.overlaps_with.length} potential overlap${result.overlaps_with.length === 1 ? "" : "s"}.\n`;
+      const matchLines = result.overlaps_with.map(
+        (m) => `- ${m.type} ${m.id} (${m.label}): ${m.reason}`,
+      );
+      const analysis = [
+        header,
+        result.summary,
+        matchLines.length > 0 ? "\nMatches:\n" + matchLines.join("\n") : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+      await IdeaRepository.update(ideaId, { ai_overlap_analysis: analysis });
+      return { analysis, source: "ai" };
+    } catch (err) {
+      // If Bedrock fails (throttle, transient network, etc.) fall through
+      // to the heuristic so the reviewer still gets *something*. Log the
+      // model error to the console so it's visible during local dev.
+      console.error(
+        `[ai/overlap] Bedrock call failed for idea ${ideaId}; falling back to heuristic.`,
+        err,
+      );
+    }
+  }
 
   const projects = await ProjectRepository.getAll();
 

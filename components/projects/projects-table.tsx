@@ -54,6 +54,7 @@ import type {
   TaskTemplate,
   UserRole,
 } from "@/lib/db";
+import { AiPriorityReviewModal } from "./ai-priority-review";
 import { ProjectFormModal } from "./form-modal";
 import { ProjectQuickView } from "./quick-view";
 import {
@@ -218,6 +219,7 @@ export function ProjectsTable({
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAiReview, setShowAiReview] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   // Health-recalculation button state. We keep an in-flight flag so
   // the button can show a "Recalculating…" affordance, and a small
@@ -666,6 +668,16 @@ export function ProjectsTable({
           >
             {recalcBusy ? "Recalculating…" : "↻ Recalc health"}
           </button>
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={() => setShowAiReview(true)}
+              className="pol-btn pol-btn-secondary"
+              title="Ask the AI Advisor to rank open projects with rationales. Advisory only — nothing is auto-applied."
+            >
+              ✦ AI priority review
+            </button>
+          ) : null}
           <ExportMenu onExport={exportFile} />
           {canCreate ? (
             <button
@@ -1069,6 +1081,16 @@ export function ProjectsTable({
           }
         />
       ) : null}
+
+      <AiPriorityReviewModal
+        open={showAiReview}
+        onClose={() => setShowAiReview(false)}
+        projects={projects}
+        onSelectProject={(id) => {
+          setShowAiReview(false);
+          setQuickViewId(id);
+        }}
+      />
 
       {/* Create / edit modal */}
       {showCreateModal ? (

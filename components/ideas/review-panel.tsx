@@ -366,8 +366,9 @@ export function IdeaReviewPanel({
           </div>
         ) : (
           <p className="mt-3 text-xs text-gray-500">
-            No analysis run yet. The AI integration is pending — until then,
-            this runs a deterministic keyword-overlap heuristic.
+            No analysis run yet. When AI is enabled, this calls Bedrock and
+            looks for semantic overlap; otherwise it falls back to a
+            keyword-overlap heuristic so reviewers still get a signal.
           </p>
         )}
       </section>

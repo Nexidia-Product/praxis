@@ -11,6 +11,7 @@
 
 import {
   DEFAULT_RESOURCE_SETTINGS,
+  type AiConfig,
   type AppSettings,
   type EnumExtensionsMap,
   type NotificationPreferences,
@@ -68,6 +69,7 @@ const DEFAULT_ROLE_PERMISSIONS_SEED: RolePermissionsMap = {
     "admin.health_thresholds.manage",
     "admin.resource_thresholds.manage",
     "admin.project_values.manage",
+    "admin.ai.manage",
   ],
   "Project Lead": [
     "projects.view",
@@ -112,6 +114,21 @@ const DEFAULT_ENUM_EXTENSIONS: EnumExtensionsMap = {
 
 const DEFAULT_RESOURCE_SETTINGS_SEED: ResourceSettings = DEFAULT_RESOURCE_SETTINGS;
 
+/**
+ * Default AI model assignment.
+ *
+ * Haiku for the high-volume "every project save runs this" estimate
+ * feature; Sonnet for the two reasoning-heavy on-demand features.
+ * These IDs are cross-region inference profiles ("global." prefix)
+ * so Bedrock can route across regions for capacity. An admin can
+ * change any of the three from Admin → AI without a code change.
+ */
+const DEFAULT_AI_CONFIG: AiConfig = {
+  estimate_model_id: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  prioritize_model_id: "global.anthropic.claude-sonnet-4-6",
+  overlap_model_id: "global.anthropic.claude-sonnet-4-6",
+};
+
 const DEFAULTS: AppSettings = {
   health_score_thresholds: {
     yellow_blocked_or_overdue_pct: 20,
@@ -142,6 +159,7 @@ const DEFAULTS: AppSettings = {
     fill_in: "Fill-In",
     deprioritize: "Deprioritize",
   },
+  ai_config: DEFAULT_AI_CONFIG,
 };
 
 export const SettingsRepository = {
@@ -189,6 +207,7 @@ export const SettingsRepository = {
         partial.portfolio_quadrants,
         defaults.portfolio_quadrants,
       ),
+      ai_config: mergeAiConfig(partial.ai_config, defaults.ai_config),
     };
   },
 
@@ -325,6 +344,26 @@ function mergeResourceSettings(
       stored.performance_window_days,
       defaults.performance_window_days,
     ),
+  };
+}
+
+function mergeAiConfig(
+  stored: Partial<AiConfig> | undefined,
+  defaults: AiConfig,
+): AiConfig {
+  if (!stored || typeof stored !== "object") return defaults;
+  const pick = (v: unknown, fallback: string): string => {
+    if (typeof v !== "string") return fallback;
+    const trimmed = v.trim();
+    return trimmed === "" ? fallback : trimmed;
+  };
+  return {
+    estimate_model_id: pick(stored.estimate_model_id, defaults.estimate_model_id),
+    prioritize_model_id: pick(
+      stored.prioritize_model_id,
+      defaults.prioritize_model_id,
+    ),
+    overlap_model_id: pick(stored.overlap_model_id, defaults.overlap_model_id),
   };
 }
 

@@ -36,6 +36,7 @@ const VALID_TABS: ReadonlyArray<ConfigurationTab> = [
   "project-values",
   "portfolio-quadrants",
   "health-thresholds",
+  "ai",
 ];
 
 interface PageProps {
@@ -48,6 +49,7 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
     "admin.project_values.manage",
     "admin.portfolio_quadrants.manage",
     "admin.health_thresholds.manage",
+    "admin.ai.manage",
   ]);
   const { permissions } = await getCurrentUserPermissions();
   const params = await searchParams;
@@ -99,6 +101,8 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
         defaultQuadrantLabels={defaults.portfolio_quadrants}
         initialHealthThresholds={settings.health_score_thresholds}
         defaultHealthThresholds={defaults.health_score_thresholds}
+        initialAiConfig={settings.ai_config}
+        defaultAiConfig={defaults.ai_config}
       />
     </PolarisShell>
   );

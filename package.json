@@ -29,9 +29,13 @@
     "admin:recovery-link": "tsx --env-file=.env.local scripts/issue-recovery-link.ts",
     "admin:delete-user": "tsx --env-file=.env.local scripts/delete-user.ts",
     "admin:bulk-create": "tsx --env-file=.env.local scripts/bulk-create-users.ts",
+    "ai:list-models": "tsx --env-file=.env.local scripts/ai-list-models.ts",
     "prepare:branding": "tsx scripts/prepare-branding.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.1048.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1048.0",
+    "@aws-sdk/credential-providers": "^3.1048.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "html2canvas": "^1.4.1",

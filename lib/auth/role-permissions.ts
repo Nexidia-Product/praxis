@@ -71,6 +71,7 @@ export type PermissionKey =
   | "admin.resource_thresholds.manage"
   | "admin.project_values.manage"
   | "admin.portfolio_quadrants.manage"
+  | "admin.ai.manage"
   | "admin.notifications.run_sweep"
   | "admin.audit_log.view";
 
@@ -252,6 +253,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     label: "Manage portfolio quadrants",
     description:
       "Rename the four strategic-position labels (Quick Win / Major Bet / Fill-In / Deprioritize) shown in the Projects table, Kanban cards, and bubble chart.",
+    category: "Administration",
+  },
+  {
+    key: "admin.ai.manage",
+    label: "Manage AI model selection",
+    description:
+      "Choose which Bedrock model each AI feature (complexity estimate, priority recommendation, idea overlap) uses, from the live list of models the account can invoke.",
     category: "Administration",
   },
   {

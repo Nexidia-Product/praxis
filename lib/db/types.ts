@@ -852,6 +852,45 @@ export interface AppSettings {
    * Admin Console → Portfolio quadrants.
    */
   portfolio_quadrants: PortfolioQuadrantLabels;
+  /**
+   * Per-feature Bedrock model selection. Editable from Admin Console
+   * → AI. Each key holds the model ID passed to InvokeModel / Converse
+   * — either a bare foundation-model ID or a cross-region inference
+   * profile ID (`global.…`, `us.…`, etc). The Admin AI page pulls the
+   * live list from Bedrock so the picker reflects what the account
+   * can actually invoke.
+   */
+  ai_config: AiConfig;
+}
+
+/**
+ * Bedrock model assignment for each AI-driven feature.
+ *
+ * The three features map cleanly to the three "AI Advisor" use cases
+ * in §5.18 of the design doc:
+ *
+ *   estimate    — complexity + time estimate for a single project.
+ *                 Runs on every project save that touches the
+ *                 description; bounded, low-cost; defaults to the
+ *                 cheapest/fastest model available.
+ *   prioritize  — ranks all open projects with reasoning. Run
+ *                 on-demand from the Projects page; the model needs
+ *                 to reason across the whole project list, so this
+ *                 defaults to a mid-tier reasoning model.
+ *   overlap     — compares one submitted idea against the existing
+ *                 project + idea corpus. Similar reasoning shape to
+ *                 prioritize; low volume; defaults to the same
+ *                 mid-tier model.
+ *
+ * All three model IDs may be the same in practice — the only reason
+ * for three independent fields is so an admin can promote estimate
+ * to a stronger model (or demote prioritize to a cheaper one)
+ * without affecting the others.
+ */
+export interface AiConfig {
+  estimate_model_id: string;
+  prioritize_model_id: string;
+  overlap_model_id: string;
 }
 
 /**

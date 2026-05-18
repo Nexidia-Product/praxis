@@ -29,6 +29,7 @@ import {
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
+  ComplexityScore,
   CustomFieldDefinition,
   DocumentLink,
   ExternalDependency,
@@ -127,6 +128,15 @@ interface FormState {
   document_links: DocumentLink[];
   /** External (non-Praxis) blockers — Jira on other teams, vendor work, etc. */
   external_dependencies: ExternalDependency[];
+  /**
+   * AI-generated complexity tier and time estimate. Held in form state
+   * so the "Generate estimate" button can populate them inline and the
+   * Save call persists them along with the description. Null means
+   * "no estimate" — both for new projects and when the user explicitly
+   * clears the field.
+   */
+  ai_complexity_score: ComplexityScore | null;
+  ai_time_estimate: string | null;
 }
 
 function emptyState(customFields: CustomFieldDefinition[]): FormState {
@@ -149,6 +159,8 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     dependencies: [],
     document_links: [],
     external_dependencies: [],
+    ai_complexity_score: null,
+    ai_time_estimate: null,
   };
 }
 
@@ -226,6 +238,8 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     dependencies: p.dependencies,
     document_links: p.document_links,
     external_dependencies: p.external_dependencies ?? [],
+    ai_complexity_score: p.ai_complexity_score ?? null,
+    ai_time_estimate: p.ai_time_estimate ?? null,
   };
 }
 
@@ -262,6 +276,12 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     dependencies: s.dependencies,
     document_links: s.document_links,
     external_dependencies: s.external_dependencies,
+    // AI fields: only send when the user has set a value. The service
+    // accepts null to clear; omitting them on save leaves whatever's
+    // persisted alone, which is what we want for forms that don't
+    // touch the AI suggestion.
+    ai_complexity_score: s.ai_complexity_score,
+    ai_time_estimate: s.ai_time_estimate,
   };
   // Only attach template_id on create, and only when the user picked one.
   // On edit it would be ignored by the service layer anyway, but stripping
@@ -324,6 +344,16 @@ export function ProjectFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * AI estimate state. Tracks the in-flight request and the most
+   * recent rationale (which we don't persist — it's transient
+   * advisory copy shown under the AI Suggestion banner). The
+   * complexity tier and time estimate themselves live in
+   * FormState so Save persists them.
+   */
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiRationale, setAiRationale] = useState<string | null>(null);
 
   // Resolve dropdown sources. When the parent passes merged option
   // lists (the normal case from `app/projects/page.tsx`) we use them so
@@ -361,6 +391,46 @@ export function ProjectFormModal({
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function generateAiEstimate() {
+    if (aiBusy) return;
+    setAiError(null);
+    setAiRationale(null);
+    if (state.description.trim().length < 20) {
+      setAiError("Add a longer description (20+ characters) before estimating.");
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const resp = await fetch("/api/ai/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: state.description,
+          projectType: state.project_type,
+        }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        complexity?: ComplexityScore;
+        time_estimate?: string;
+        rationale?: string;
+        error?: string;
+      };
+      if (!resp.ok || !data.complexity) {
+        throw new Error(data.error ?? `Estimate failed (HTTP ${resp.status})`);
+      }
+      setState((prev) => ({
+        ...prev,
+        ai_complexity_score: data.complexity ?? null,
+        ai_time_estimate: data.time_estimate ?? null,
+      }));
+      setAiRationale(data.rationale ?? null);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Estimate failed.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function updateCustom(key: string, value: string | number | boolean | null) {
@@ -492,23 +562,23 @@ export function ProjectFormModal({
             </div>
           ) : null}
 
-          {isEdit &&
-          (project!.ai_complexity_score || project!.ai_time_estimate) ? (
+          {state.ai_complexity_score || state.ai_time_estimate ? (
             <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
               <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
                 AI Suggestion
               </p>
               <p className="mt-1">
-                {project!.ai_complexity_score
-                  ? `Complexity: ${project!.ai_complexity_score}`
+                {state.ai_complexity_score
+                  ? `Complexity: ${state.ai_complexity_score}`
                   : null}
-                {project!.ai_complexity_score && project!.ai_time_estimate
-                  ? " · "
-                  : null}
-                {project!.ai_time_estimate
-                  ? `Time estimate: ${project!.ai_time_estimate}`
+                {state.ai_complexity_score && state.ai_time_estimate ? " · " : null}
+                {state.ai_time_estimate
+                  ? `Time estimate: ${state.ai_time_estimate}`
                   : null}
               </p>
+              {aiRationale ? (
+                <p className="mt-2 text-xs text-sky-800">{aiRationale}</p>
+              ) : null}
             </div>
           ) : null}
 
@@ -533,9 +603,26 @@ export function ProjectFormModal({
               disabled={saving}
               className={baseInput}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Used by the AI Advisor to estimate complexity and time.
-            </p>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <p className="text-xs text-gray-500">
+                Used by the AI Advisor to estimate complexity and time.
+              </p>
+              <button
+                type="button"
+                onClick={generateAiEstimate}
+                disabled={aiBusy || saving}
+                className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {aiBusy
+                  ? "Generating…"
+                  : state.ai_complexity_score
+                    ? "Regenerate AI estimate"
+                    : "Generate AI estimate"}
+              </button>
+            </div>
+            {aiError ? (
+              <p className="mt-1 text-xs text-red-600">{aiError}</p>
+            ) : null}
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
