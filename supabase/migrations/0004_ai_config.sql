@@ -19,9 +19,15 @@
 -- defaults defensively, so a hand-edited row missing the key still
 -- reads cleanly.
 
+-- US-region inference profiles rather than `global.` so the
+-- invocation stays inside the US (us-east-1 / us-east-2 /
+-- us-west-2). Many enterprise AWS accounts carry a region-whitelist
+-- deny policy that fires whenever Bedrock routes a global profile
+-- outside the whitelist — region-scoped profiles avoid that class
+-- of failure.
 alter table public.settings
   add column if not exists ai_config jsonb not null default jsonb_build_object(
-    'estimate_model_id',   'global.anthropic.claude-haiku-4-5-20251001-v1:0',
-    'prioritize_model_id', 'global.anthropic.claude-sonnet-4-6',
-    'overlap_model_id',    'global.anthropic.claude-sonnet-4-6'
+    'estimate_model_id',   'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    'prioritize_model_id', 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    'overlap_model_id',    'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
   );

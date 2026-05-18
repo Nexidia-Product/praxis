@@ -45,6 +45,28 @@ import {
 import { bedrockControlClient, bedrockRegion } from "./bedrock";
 
 export type ModelType = "on-demand" | "inference-profile";
+/**
+ * Where the underlying invocation actually runs:
+ *   - "single-region": bare on-demand foundation model, no routing.
+ *   - "us-regional":   `us.*` inference profile — routes only within
+ *                       us-east-1 / us-east-2 / us-west-2.
+ *   - "eu-regional" / "apac-regional": same pattern for those geos.
+ *   - "global":         `global.*` profile — routes worldwide; will
+ *                       trip a region-whitelist deny policy unless
+ *                       every supported region is whitelisted.
+ *
+ * Surfaced to the UI so an admin can tell apart two profiles that
+ * point at the same underlying model but route differently — the
+ * label "Anthropic Claude Sonnet 4.5" alone hides the routing
+ * scope, and that scope is the difference between a working call
+ * and an `AccessDenied` from the deny policy.
+ */
+export type ModelScope =
+  | "single-region"
+  | "us-regional"
+  | "eu-regional"
+  | "apac-regional"
+  | "global";
 
 export interface AvailableModel {
   /** Identifier to pass to InvokeModel / Converse. */
@@ -54,6 +76,7 @@ export interface AvailableModel {
   /** Vendor: "anthropic", "meta", "amazon", "mistral", etc. */
   provider: string;
   type: ModelType;
+  scope: ModelScope;
   /**
    * For on-demand models: the model's home region (always the
    * client's service region here). For inference profiles: the
@@ -96,6 +119,7 @@ async function listOnDemandModels(
       name: m.modelName ?? m.modelId ?? "(unnamed)",
       provider: m.providerName ?? inferProviderFromId(m.modelId ?? ""),
       type: "on-demand",
+      scope: "single-region",
       regionInfo: bedrockRegion,
       capabilities: describeCapabilities(m),
     });
@@ -142,9 +166,22 @@ function toAvailableFromProfile(p: InferenceProfileSummary): AvailableModel {
     name: p.inferenceProfileName ?? id,
     provider,
     type: "inference-profile",
+    scope: scopeFromProfileId(id),
     regionInfo: regions,
     capabilities: p.description ?? "",
   };
+}
+
+function scopeFromProfileId(id: string): ModelScope {
+  const prefix = id.split(".")[0]?.toLowerCase() ?? "";
+  if (prefix === "global") return "global";
+  if (prefix === "us") return "us-regional";
+  if (prefix === "eu") return "eu-regional";
+  if (prefix === "apac") return "apac-regional";
+  // Unknown / custom prefix — fall back to "global" because that's
+  // the most permissive routing assumption and surfaces the broadest
+  // warning in the picker.
+  return "global";
 }
 
 function isGenerativeTextModel(m: FoundationModelSummary): boolean {

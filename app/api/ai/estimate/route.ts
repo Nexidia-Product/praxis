@@ -17,6 +17,9 @@ import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { AiDisabledError, isAiEnabled } from "@/lib/ai/feature-flag";
 import { estimateComplexity } from "@/lib/ai/estimate";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const POST = withAuth(async (request: Request) => {
   await requirePermission("projects.create");
 

@@ -17,19 +17,48 @@ import { useEffect, useState } from "react";
 
 import type { AiConfig } from "@/lib/db";
 
+type ModelScope =
+  | "single-region"
+  | "us-regional"
+  | "eu-regional"
+  | "apac-regional"
+  | "global";
+
 interface AvailableModelDTO {
   modelId: string;
   name: string;
   provider: string;
   type: "on-demand" | "inference-profile";
+  scope: ModelScope;
   regionInfo: string;
   capabilities: string;
+}
+
+function scopeLabel(scope: ModelScope): string {
+  switch (scope) {
+    case "single-region":
+      return "on-demand";
+    case "us-regional":
+      return "us";
+    case "eu-regional":
+      return "eu";
+    case "apac-regional":
+      return "apac";
+    case "global":
+      return "global";
+  }
 }
 
 interface Props {
   initialConfig: AiConfig;
   defaults: AiConfig;
 }
+
+// Track the last-saved values separately from the editable form
+// state, so the "currently saved" echo under each dropdown reflects
+// what's actually in the database even after the user starts
+// editing. The echo is the cheapest way to make UI-vs-DB drift
+// visible without an explicit "verify" round trip.
 
 const FEATURES: Array<{ key: keyof AiConfig; label: string; help: string }> = [
   {
@@ -51,6 +80,7 @@ const FEATURES: Array<{ key: keyof AiConfig; label: string; help: string }> = [
 
 export function AiConfigAdmin({ initialConfig, defaults }: Props) {
   const [config, setConfig] = useState<AiConfig>(initialConfig);
+  const [savedConfig, setSavedConfig] = useState<AiConfig>(initialConfig);
   const [models, setModels] = useState<AvailableModelDTO[] | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [loadingModels, setLoadingModels] = useState(true);
@@ -105,6 +135,18 @@ export function AiConfigAdmin({ initialConfig, defaults }: Props) {
           error?: string;
         };
         throw new Error(data.error ?? `HTTP ${resp.status}`);
+      }
+      const data = (await resp.json().catch(() => ({}))) as {
+        ai_config?: AiConfig;
+      };
+      // Reflect the server's view back into the form so subsequent
+      // "currently saved" echoes are authoritative. If the server
+      // happened to clamp / normalize anything, the form sees it.
+      if (data.ai_config) {
+        setSavedConfig(data.ai_config);
+        setConfig(data.ai_config);
+      } else {
+        setSavedConfig(config);
       }
       setSaveMessage("Saved.");
     } catch (err) {
@@ -197,8 +239,7 @@ export function AiConfigAdmin({ initialConfig, defaults }: Props) {
                 ) : null}
                 {models.map((m) => (
                   <option key={m.modelId} value={m.modelId}>
-                    [{m.type === "inference-profile" ? "global" : "on-demand"}]{" "}
-                    {m.provider} — {m.name}
+                    [{scopeLabel(m.scope)}] {m.modelId}
                   </option>
                 ))}
               </select>
@@ -214,6 +255,21 @@ export function AiConfigAdmin({ initialConfig, defaults }: Props) {
                 style={{ width: "100%", maxWidth: 600, fontFamily: "monospace" }}
               />
             )}
+            <p
+              style={{
+                fontSize: 11,
+                color:
+                  config[f.key] === savedConfig[f.key]
+                    ? "var(--tm)"
+                    : "var(--err)",
+                marginTop: 4,
+                fontFamily: "monospace",
+              }}
+            >
+              {config[f.key] === savedConfig[f.key]
+                ? `Saved: ${savedConfig[f.key]}`
+                : `Unsaved — currently in DB: ${savedConfig[f.key]}`}
+            </p>
           </div>
         ))}
       </div>

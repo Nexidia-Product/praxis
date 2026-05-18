@@ -20,6 +20,12 @@ import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { AiDisabledError, isAiEnabled } from "@/lib/ai/feature-flag";
 import { recommendPriorities } from "@/lib/ai/prioritize";
 
+// Force every request to read fresh state. Without this, Next.js can
+// reuse a cached response — which masks the "I updated the settings
+// but the route still sends the old modelId" failure mode.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const POST = withAuth(async () => {
   await requirePermission("projects.edit");
 

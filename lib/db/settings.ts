@@ -119,14 +119,21 @@ const DEFAULT_RESOURCE_SETTINGS_SEED: ResourceSettings = DEFAULT_RESOURCE_SETTIN
  *
  * Haiku for the high-volume "every project save runs this" estimate
  * feature; Sonnet for the two reasoning-heavy on-demand features.
- * These IDs are cross-region inference profiles ("global." prefix)
- * so Bedrock can route across regions for capacity. An admin can
- * change any of the three from Admin → AI without a code change.
+ *
+ * These IDs are US-region inference profiles (`us.` prefix) rather
+ * than global (`global.` prefix) so the invocation stays inside the
+ * us-east-1 / us-east-2 / us-west-2 set. Many enterprise AWS
+ * accounts carry a region-whitelist deny policy that fires whenever
+ * Bedrock routes a global profile to a non-whitelisted region —
+ * region-scoped profiles avoid that class of failure entirely.
+ *
+ * An admin can change any of the three from Admin → AI without a
+ * code change; this just sets the floor for a fresh install.
  */
 const DEFAULT_AI_CONFIG: AiConfig = {
-  estimate_model_id: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-  prioritize_model_id: "global.anthropic.claude-sonnet-4-6",
-  overlap_model_id: "global.anthropic.claude-sonnet-4-6",
+  estimate_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  prioritize_model_id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  overlap_model_id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
 };
 
 const DEFAULTS: AppSettings = {
