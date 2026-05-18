@@ -25,6 +25,7 @@ import {
   TemplateRepository,
 } from "@/lib/db";
 import { getIdea, NotFoundError } from "@/lib/ideas/service";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
 import { IdeaReviewPanel } from "@/components/ideas/review-panel";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -105,6 +106,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         phaseOptions={phaseOptions}
         priorityOptions={priorityOptions}
         canConvert={permissions["ideas.convert"] === true}
+        aiEnabled={isAiEnabled()}
       />
     </PolarisShell>
   );

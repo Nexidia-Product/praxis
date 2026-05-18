@@ -21,6 +21,7 @@ import {
   getCurrentUserPermissions,
   requireAnyPagePermission,
 } from "@/lib/auth/permissions";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { SettingsRepository } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
 import {
@@ -103,6 +104,7 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
         defaultHealthThresholds={defaults.health_score_thresholds}
         initialAiConfig={settings.ai_config}
         defaultAiConfig={defaults.ai_config}
+        aiEnabled={isAiEnabled()}
       />
     </PolarisShell>
   );

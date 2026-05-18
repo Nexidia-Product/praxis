@@ -70,6 +70,16 @@ interface IdeaReviewPanelProps {
    * rejected it.
    */
   canConvert: boolean;
+  /**
+   * Whether AI Advisor is enabled in this environment. When false,
+   * the "Run overlap check" button is hidden so production users
+   * don't trigger a route that would either 503 (if we routed
+   * through the AI path) or run the legacy keyword heuristic with
+   * misleading "AI" branding. The persisted overlap analysis
+   * (`idea.ai_overlap_analysis`) still renders when present — it
+   * was generated locally by a reviewer with AI on.
+   */
+  aiEnabled?: boolean;
 }
 
 export function IdeaReviewPanel({
@@ -82,6 +92,7 @@ export function IdeaReviewPanel({
   phaseOptions,
   priorityOptions,
   canConvert,
+  aiEnabled = false,
 }: IdeaReviewPanelProps) {
   const router = useRouter();
   const [idea, setIdea] = useState(initialIdea);
@@ -336,42 +347,52 @@ export function IdeaReviewPanel({
         ) : null}
       </section>
 
-      {/* ---- AI overlap check ---- */}
-      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Overlap check
-            </h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Compares the idea against existing projects to flag potential
-              duplicates or related work.
-            </p>
+      {/* ---- AI overlap check ----
+          Section is only rendered when there's something to show: either
+          AI is enabled (so the trigger button is meaningful) or an
+          analysis was previously saved (so the cached result is worth
+          surfacing even though the trigger is hidden). In production
+          with AI off and no cached analysis, the section collapses
+          entirely. */}
+      {(aiEnabled || idea.ai_overlap_analysis) ? (
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                Overlap check
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Compares the idea against existing projects to flag potential
+                duplicates or related work.
+              </p>
+            </div>
+            {aiEnabled ? (
+              <button
+                type="button"
+                onClick={handleOverlapCheck}
+                disabled={overlapBusy}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {overlapBusy ? "Checking…" : idea.ai_overlap_analysis ? "Re-run check" : "Run overlap check"}
+              </button>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={handleOverlapCheck}
-            disabled={overlapBusy}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {overlapBusy ? "Checking…" : idea.ai_overlap_analysis ? "Re-run check" : "Run overlap check"}
-          </button>
-        </div>
 
-        {idea.ai_overlap_analysis ? (
-          <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-              {idea.ai_overlap_analysis}
-            </pre>
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-gray-500">
-            No analysis run yet. When AI is enabled, this calls Bedrock and
-            looks for semantic overlap; otherwise it falls back to a
-            keyword-overlap heuristic so reviewers still get a signal.
-          </p>
-        )}
-      </section>
+          {idea.ai_overlap_analysis ? (
+            <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+                {idea.ai_overlap_analysis}
+              </pre>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-gray-500">
+              No analysis run yet. Click &quot;Run overlap check&quot; to call
+              the AI Advisor; results are saved on the idea record and
+              visible to every reviewer afterward.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {/* ---- Convert form ---- */}
       {showConvert && canConvert ? (

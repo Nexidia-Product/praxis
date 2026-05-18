@@ -98,6 +98,14 @@ interface ConfigurationWorkspaceProps {
   // AI tab
   initialAiConfig: AiConfig;
   defaultAiConfig: AiConfig;
+  /**
+   * Whether AI Advisor is enabled in this environment. The AI tab is
+   * still listed in CONFIGURATION_TABS but only renders when this is
+   * true — no point configuring Bedrock models in production where
+   * AI_ENABLED is unset. Permission still gates above this; this is
+   * an environment gate, not a permission one.
+   */
+  aiEnabled: boolean;
 }
 
 export function ConfigurationWorkspace({
@@ -112,13 +120,23 @@ export function ConfigurationWorkspace({
   defaultHealthThresholds,
   initialAiConfig,
   defaultAiConfig,
+  aiEnabled,
 }: ConfigurationWorkspaceProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const visibleTabs = useMemo(
-    () => CONFIGURATION_TABS.filter((t) => permissions[t.permission] === true),
-    [permissions],
+    () =>
+      CONFIGURATION_TABS.filter((t) => {
+        if (permissions[t.permission] !== true) return false;
+        // The AI tab is permission-gated above; it's also
+        // environment-gated here so production (AI_ENABLED unset)
+        // hides it entirely until the AI integration is reachable
+        // in that environment.
+        if (t.id === "ai" && !aiEnabled) return false;
+        return true;
+      }),
+    [permissions, aiEnabled],
   );
 
   const activeTab: ConfigurationTab =

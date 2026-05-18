@@ -19,6 +19,7 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
 import {
   ProjectRepository,
   SettingsRepository,
@@ -85,6 +86,7 @@ export default async function ProjectsPage() {
         templates={templates}
         enumOptions={enumOptions}
         quadrantLabels={settings.portfolio_quadrants}
+        aiEnabled={isAiEnabled()}
       />
     </PolarisShell>
   );

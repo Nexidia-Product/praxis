@@ -200,6 +200,17 @@ interface ProjectsTableProps {
    * labels.
    */
   quadrantLabels: PortfolioQuadrantLabels;
+  /**
+   * Whether AI Advisor features are enabled in this environment.
+   * Resolved server-side from process.env.AI_ENABLED and passed down
+   * so the AI priority review button (here) and the Generate AI
+   * estimate button (inside the form modal) can hide themselves in
+   * production. Persisted AI output — the AI Suggestion banner on
+   * the project form, the overlap analysis on idea records — still
+   * renders for everyone regardless of this flag; we're only
+   * gating the *trigger* affordances.
+   */
+  aiEnabled: boolean;
 }
 
 export function ProjectsTable({
@@ -210,6 +221,7 @@ export function ProjectsTable({
   templates,
   enumOptions,
   quadrantLabels,
+  aiEnabled,
 }: ProjectsTableProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
@@ -668,7 +680,7 @@ export function ProjectsTable({
           >
             {recalcBusy ? "Recalculating…" : "↻ Recalc health"}
           </button>
-          {canCreate ? (
+          {canCreate && aiEnabled ? (
             <button
               type="button"
               onClick={() => setShowAiReview(true)}
@@ -1104,6 +1116,7 @@ export function ProjectsTable({
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}
+          aiEnabled={aiEnabled}
           onClose={() => setShowCreateModal(false)}
           onSaved={(p) => {
             applyCreated(p);
@@ -1123,6 +1136,7 @@ export function ProjectsTable({
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}
+          aiEnabled={aiEnabled}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdated(p);

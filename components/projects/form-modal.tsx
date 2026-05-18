@@ -71,6 +71,16 @@ interface ProjectFormModalProps {
    * "Depends on" picker and resolve upstream names + statuses for chips.
    */
   allProjects: Project[];
+  /**
+   * Whether the "Generate AI estimate" button under the description
+   * is shown. Resolved server-side from process.env.AI_ENABLED and
+   * passed down. When false, the button is hidden so production
+   * users (where AI_ENABLED is unset) don't see a button that would
+   * 503. The AI Suggestion banner that displays previously-
+   * persisted complexity / time_estimate is unaffected — those
+   * values render whenever they're present on the record.
+   */
+  aiEnabled?: boolean;
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -335,6 +345,7 @@ export function ProjectFormModal({
   priorityOptions,
   templates,
   allProjects,
+  aiEnabled = false,
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
@@ -605,20 +616,24 @@ export function ProjectFormModal({
             />
             <div className="mt-1 flex items-center justify-between gap-2">
               <p className="text-xs text-gray-500">
-                Used by the AI Advisor to estimate complexity and time.
+                {aiEnabled
+                  ? "Used by the AI Advisor to estimate complexity and time."
+                  : "Description text only — AI estimation is disabled in this environment."}
               </p>
-              <button
-                type="button"
-                onClick={generateAiEstimate}
-                disabled={aiBusy || saving}
-                className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {aiBusy
-                  ? "Generating…"
-                  : state.ai_complexity_score
-                    ? "Regenerate AI estimate"
-                    : "Generate AI estimate"}
-              </button>
+              {aiEnabled ? (
+                <button
+                  type="button"
+                  onClick={generateAiEstimate}
+                  disabled={aiBusy || saving}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {aiBusy
+                    ? "Generating…"
+                    : state.ai_complexity_score
+                      ? "Regenerate AI estimate"
+                      : "Generate AI estimate"}
+                </button>
+              ) : null}
             </div>
             {aiError ? (
               <p className="mt-1 text-xs text-red-600">{aiError}</p>

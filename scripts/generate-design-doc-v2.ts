@@ -42,16 +42,16 @@ const paragraphs: Para[] = [
   { style: "Title", text: "Praxis" },
   { style: "Subtitle", text: "Design Document & Implementation Requirements" },
   { style: "Normal", text: "" },
-  { style: "Normal", text: `Version 2.0  |  May 2026` },
+  { style: "Normal", text: `Version 2.1  |  May 2026` },
   { style: "Normal", text: "" },
-  { style: "Normal", text: "Supersedes the April 2026 v1.0 Innovation Initiative Management (IIM) Application Design Document. The application has since been renamed Praxis, migrated from a JSON file store to a Supabase Postgres database, moved auth from NextAuth to Supabase Auth, and deployed to Vercel. This document reflects the as-built state of the application as of May 2026." },
+  { style: "Normal", text: "Supersedes the April 2026 v1.0 Innovation Initiative Management (IIM) Application Design Document. The application has since been renamed Praxis, migrated from a JSON file store to a Supabase Postgres database, moved auth from NextAuth to Supabase Auth, deployed to Vercel, and integrated AWS Bedrock for the three AI Advisor features (complexity estimate, priority recommendation, idea overlap). This document reflects the as-built state of the application as of mid-May 2026." },
   { style: "Normal", text: "" },
 
   // -------------------------------------------------------------- 1
   { style: "Heading1", text: "1. Executive Summary" },
   { style: "Normal", text: "Praxis is a lightweight, purpose-built platform for tracking, managing, and prioritizing innovation projects, tasks, and submitted ideas within a single team. It replaces a spreadsheet-based workflow with a structured web application that is fast to use day-to-day and provides multiple roadmap views, role-based access control, an open public idea-submission portal, an audit trail, project and resource health analytics, and a Lyra-aligned visual layer." },
   { style: "Normal", text: "The original v1 design assumed a JSON file store with an abstraction layer that would let the team swap to a database later. That swap has happened: Praxis now runs on Supabase Postgres in production and is hosted on Vercel, with a daily Vercel Cron job driving notification sweeps. The repository pattern from v1 is intact — every page, component, and API route continues to read and write through lib/db/* — and the swap proved out the v1 architectural decision exactly as planned." },
-  { style: "Normal", text: "AI-assisted features (complexity scoring, priority recommendation, overlap detection) are designed and modeled in the data layer but are not yet wired to a live AI provider; integration is paused pending stable AWS Bedrock credentials. Field placeholders exist on every relevant record so AI output can be added without further schema work." },
+  { style: "Normal", text: "The AI Advisor features (complexity scoring, priority recommendation, idea overlap) are live in local development against AWS Bedrock. Each feature uses an admin-selectable model from the live Bedrock model list, persisted in settings.ai_config. AI features are intentionally OFF in production: Bedrock authentication uses IAM Identity Center SSO which cannot be refreshed in the Vercel serverless runtime. Production credential strategy is open." },
 
   // -------------------------------------------------------------- 2
   { style: "Heading1", text: "2. Guiding Principles" },
@@ -72,6 +72,7 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "Supabase Postgres as the system of record for all entities (projects, tasks, ideas, users/profiles, notifications, decisions, templates, audit log, settings). Row Level Security enabled on every table; server-side calls use the service-role key and bypass RLS. The browser does not talk to Postgres directly today." },
   { style: "ListParagraph", text: "Supabase Auth for identity (sign-in, OTP-based recovery, invite, password reset). The browser uses @supabase/ssr's createBrowserClient so session cookies stay in sync with the server. Middleware refreshes the access token on every request." },
   { style: "ListParagraph", text: "Resend (transactional email provider) installed for future use. Today, invitation and password-recovery emails are sent by Supabase's built-in email layer; per-event in-app notifications are persisted to the database but not yet emailed." },
+  { style: "ListParagraph", text: "AWS SDK for Bedrock (@aws-sdk/client-bedrock, @aws-sdk/client-bedrock-runtime, @aws-sdk/credential-providers). Credentials are resolved via the SDK's default Node provider chain, picking up an SSO profile from ~/.aws/config so temporary credentials refresh transparently during local dev." },
   { style: "ListParagraph", text: "pptxgenjs + html2canvas for PowerPoint export of any roadmap view." },
   { style: "ListParagraph", text: "ExcelJS for spreadsheet import (initial seed and ongoing imports from the New Project Ideas tab)." },
   { style: "ListParagraph", text: "Vercel for hosting (serverless functions, edge middleware). Vercel Cron drives one scheduled job: a daily notifications sweep at 07:00 UTC." },
@@ -80,6 +81,7 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "Production runs on Vercel. The Next.js app is deployed as serverless functions for routes and edge middleware for the auth gate." },
   { style: "ListParagraph", text: "All persistent state lives in Supabase (Postgres + Auth). No filesystem state is required on Vercel — the JSON-file regime from v1 has been retired in production." },
   { style: "ListParagraph", text: "Required environment variables (production and local): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SITE_URL (used for password-reset and invite link callbacks), CRON_SECRET (bearer token validated by the daily sweep endpoint), and optionally RESEND_API_KEY for future transactional email." },
+  { style: "ListParagraph", text: "Local-dev-only environment variables for the AI Advisor: AI_ENABLED=true to turn the features on, AWS_PROFILE=<sso-profile-name> for credential refresh from the SSO cache, BEDROCK_REGION=<region> for the Bedrock service-call region (independent of the SSO region inside the profile). None of these are set in production." },
   { style: "ListParagraph", text: "Vercel Cron is defined in vercel.json; the only scheduled job is POST /api/admin/notifications/sweep at 07:00 UTC, which fires due-soon, overdue, and health-change notifications and recalculates project health for projects whose tasks changed." },
   { style: "ListParagraph", text: "The middleware allow-lists /api/admin/notifications/sweep so the cron's Bearer-token auth handler runs instead of the session-cookie gate." },
 
@@ -275,11 +277,40 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "Detail page: per-user breakdown — assignment list, open task count, past-due count, bottleneck count (tasks blocking other people), and the inputs that drove the workload/performance score." },
   { style: "ListParagraph", text: "Workload weights and bucket thresholds are not hard-coded; settings.resource_settings holds tunable weights (project assignment, open task, past-due, bottleneck, complexity multipliers, priority multipliers) plus the bucket cutoffs and the on-time-rate / blocked-rate weights for performance. Editable from Admin → Resource thresholds." },
 
-  { style: "Heading2", text: "5.18 AI Advisor (deferred)" },
-  { style: "Normal", text: "Complexity scoring, priority recommendation, and idea-overlap analysis were designed for the original IIM application and remain valid for Praxis. All record-level placeholders are wired (ai_complexity_score, ai_time_estimate, ai_overlap_analysis); the AI provider integration itself is paused pending stable AWS Bedrock credentials. The Anthropic Claude API is no longer assumed as the only AI provider; the integration will go through Bedrock so the team can use any model offered there." },
-  { style: "ListParagraph", text: "When integration resumes, three server-side endpoints will be added: POST /api/ai/estimate (description + type → complexity + time estimate), POST /api/ai/prioritize (all open projects → ranked list with reasoning), POST /api/ai/overlap (idea + all project descriptions → overlap analysis)." },
-  { style: "ListParagraph", text: "Existing UI affordances (the AI Suggestion badge on project forms, the Overlap Check button in Idea review, the Next Up widget on the home page) are stubbed out and will activate once the endpoints return real data." },
-  { style: "ListParagraph", text: "Storage: AI outputs continue to be cached on the entity record (Project.ai_complexity_score, ProjectIdea.ai_overlap_analysis) for audit trail and to avoid re-charging for the same prompt." },
+  { style: "Heading2", text: "5.18 AI Advisor" },
+  { style: "Normal", text: "Three AI features are live in local development against AWS Bedrock. They are gated behind the AI_ENABLED feature flag and intentionally OFF in production (Vercel cannot refresh the IAM Identity Center SSO credentials that Bedrock authentication currently requires). Each feature reads its model selection from settings.ai_config; an admin chooses which Bedrock model each feature uses without a code change." },
+
+  { style: "Heading3", text: "5.18.1 Complexity & Time Estimate" },
+  { style: "ListParagraph", text: "Triggered by the 'Generate AI estimate' button under the description field on the project form modal. Sends the description + project_type to POST /api/ai/estimate." },
+  { style: "ListParagraph", text: "Returns: { complexity: Low | Medium | High | Very High, time_estimate: free-form range string, rationale: 1-3 sentences }." },
+  { style: "ListParagraph", text: "Result populates the AI Suggestion banner inline (complexity tier + time estimate + rationale). On Save, complexity and time_estimate are persisted to the project record (ai_complexity_score, ai_time_estimate); rationale is transient advisory copy and not persisted." },
+  { style: "ListParagraph", text: "Default model: anthropic.claude-3-haiku-20240307-v1:0 (single-region on-demand). The high call volume makes a small, cheap model the right default." },
+
+  { style: "Heading3", text: "5.18.2 Priority Recommendation" },
+  { style: "ListParagraph", text: "Triggered from the 'AI priority review' button on the Projects page toolbar. Opens a modal; clicking 'Run review' calls POST /api/ai/prioritize." },
+  { style: "ListParagraph", text: "Inputs sent to the model: every open project's name, status, phase, priority, application/product, project lead, target/start dates, complexity, time estimate, and the depends_on + external_dependencies graphs. Full project descriptions are truncated to ~600 chars per project to keep the prompt token budget bounded." },
+  { style: "ListParagraph", text: "Returns: { ranked: Array<{ project_id, recommended_rank, rationale }>, cohort_notes: string, modelId }. The list is sorted by recommended_rank ascending. Rationales explain why each project landed where it did (dependency block, target-date proximity, strategic value, etc.)." },
+  { style: "ListParagraph", text: "Output is advisory only — clicking a row opens that project's quick view; nothing on the project record is auto-updated. Re-running the review is one click." },
+  { style: "ListParagraph", text: "Default model: anthropic.claude-3-sonnet-20240229-v1:0 (single-region on-demand). The reasoning load benefits from the stronger model; volume is low (admins run this on-demand)." },
+
+  { style: "Heading3", text: "5.18.3 Idea Overlap" },
+  { style: "ListParagraph", text: "Triggered by the 'Run overlap check' button on the Idea Review page. Calls POST /api/ideas/[id]/overlap." },
+  { style: "ListParagraph", text: "Inputs: the submitted idea + every existing project (id, name, status, application/product, truncated description) and every non-rejected idea in the queue." },
+  { style: "ListParagraph", text: "Returns: a human-readable summary plus a structured overlaps_with array (type, id, label, reason per match). If nothing meaningfully overlaps, returns an empty list and a clear 'no overlap' summary so the reviewer can promote without hedging." },
+  { style: "ListParagraph", text: "Cached on the idea record (idea.ai_overlap_analysis) so reopening the detail page doesn't re-run the call. The button is labeled 'Re-run check' once a prior analysis is cached." },
+  { style: "ListParagraph", text: "Fallback: when AI_ENABLED is false, the route falls back to a keyword-overlap heuristic so the button still produces a useful result for environments without Bedrock access. The same shape ({ analysis, source: 'ai' | 'heuristic' }) is returned in both cases." },
+  { style: "ListParagraph", text: "Default model: same Sonnet model as priority recommendation." },
+
+  { style: "Heading3", text: "5.18.4 Model selection (Admin → Configuration → AI)" },
+  { style: "ListParagraph", text: "An admin can pick which Bedrock model each of the three features uses, from the live Bedrock model list. The picker calls GET /api/admin/ai/models which merges ListFoundationModels (single-region on-demand) and ListInferenceProfiles (cross-region us-/eu-/apac-/global routing) into one list, tagged with a routing scope so the admin can distinguish a us-regional profile from a global one — they look identical by name otherwise." },
+  { style: "ListParagraph", text: "Each saved selection is echoed under its dropdown in monospace so DB-vs-UI drift is always visible. Saving writes to settings.ai_config via PUT /api/admin/ai-config; an audit log entry summarizes per-feature changes." },
+  { style: "ListParagraph", text: "Permission: admin.ai.manage." },
+
+  { style: "Heading3", text: "5.18.5 Credentials and region constraints" },
+  { style: "ListParagraph", text: "Bedrock is reached via the AWS SDK v3 default Node provider chain. For local dev with IAM Identity Center, AWS_PROFILE points at an SSO profile in ~/.aws/config and the SDK refreshes credentials from the SSO cache as long as the SSO session is valid (a daily `aws sso login --profile <name>` per workday)." },
+  { style: "ListParagraph", text: "BEDROCK_REGION sets the service-call region. The SSO region inside the profile is independent — it is consulted only during credential refresh, not for the service call itself." },
+  { style: "ListParagraph", text: "Org-level region whitelist policies can block invocation of cross-region inference profiles whenever Bedrock routes the call to a non-whitelisted region. Single-region on-demand model IDs are the only invocation path guaranteed to work under a tight whitelist; the picker's routing-scope tag is the team's signal for which selections are safe." },
+  { style: "ListParagraph", text: "Production: AI_ENABLED is unset on Vercel; the assertAiEnabled() gate at every entry point short-circuits with a 503 if the routes are ever called there. Production credential strategy is open — see Section 10." },
 
   { style: "Heading2", text: "5.19 Idea Submission Portal (/submit)" },
   { style: "ListParagraph", text: "Publicly accessible — no authentication required. Allow-listed in middleware." },
@@ -304,6 +335,7 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "Resource thresholds (/admin/resource-thresholds): tune the workload-score weights and bucket cutoffs, the on-time/blocked-rate weights and Red/Yellow/Green cutoffs for performance, the default per-assignment allocation percent, and the performance look-back window." },
   { style: "ListParagraph", text: "Portfolio quadrants (/admin/portfolio-quadrants): customize the user-facing labels for the four strategic-position buckets (Quick Win / Major Bet / Fill-In / Deprioritize)." },
   { style: "ListParagraph", text: "Project values (/admin/project-values): admin-extend each of the four extensible project enums (status, phase, priority, application_product) without a code change. Each extension carries a stable id, a display label, an archive flag (hide from new dropdowns, preserve on existing records), and a small enum-specific metadata bag (is_open / is_terminal for statuses, rank for priorities, order for phases, etc.)." },
+  { style: "ListParagraph", text: "AI (Configuration → AI tab): per-feature Bedrock model selection (Section 5.18.4). Picker lists every model the AWS account can invoke, tagged with routing scope so the admin can tell single-region from cross-region. Permission: admin.ai.manage." },
   { style: "ListParagraph", text: "Audit Log (/admin/audit-log): paginated, filterable view of every system event (Section 5.22)." },
   { style: "ListParagraph", text: "Branding for PPTX exports: logo, primary color, secondary color, font; lives in settings.branding (no separate page today — edited via the configuration workspace)." },
 
@@ -395,6 +427,15 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "External Dependencies feature added (migration 0003, validator, editor panel in quick-view). Section 5.11." },
   { style: "ListParagraph", text: "Lyra light-mode design refinements applied (Section 7)." },
 
+  { style: "Heading2", text: "Phase 5 (May 2026): AI Advisor (local-dev)" },
+  { style: "ListParagraph", text: "Three AI features wired to AWS Bedrock: complexity estimate (Haiku), priority recommendation (Sonnet), idea overlap (Sonnet)." },
+  { style: "ListParagraph", text: "Bedrock authentication uses IAM Identity Center via the AWS SDK's default Node provider chain, with AWS_PROFILE pointing at an SSO profile in ~/.aws/config. Credentials auto-refresh from the SSO cache for the duration of the SSO session." },
+  { style: "ListParagraph", text: "Three new server modules (lib/ai/estimate.ts, prioritize.ts, overlap.ts) and one shared Converse runner (lib/ai/converse.ts) that handles the Bedrock response shape, strips markdown fences when models leak them, and parses JSON output." },
+  { style: "ListParagraph", text: "Discovery script (scripts/ai-list-models.ts, npm run ai:list-models) prints the merged list of foundation models + inference profiles the account can reach." },
+  { style: "ListParagraph", text: "Admin → Configuration → AI tab lets an admin pick the model per feature from the live list. Routing scope tag distinguishes single-region on-demand from us-regional / global inference profiles, which matters under tight org region-whitelist policies." },
+  { style: "ListParagraph", text: "Migration 0004 adds settings.ai_config; the AppSettings type and SettingsRepository.get() merge logic were extended to match. New admin.ai.manage permission key." },
+  { style: "ListParagraph", text: "Features are gated by AI_ENABLED and intentionally OFF in production until a Vercel-compatible credential strategy is decided. The overlap feature falls back to a keyword heuristic when AI is off so the button always returns something useful." },
+
   // -------------------------------------------------------------- 10
   { style: "Heading1", text: "10. Risks & Mitigations" },
   { style: "ListParagraph", text: "Email delivery rate limits: Supabase free tier caps invite/recovery emails at 2/hour. Mitigation: scripts/bulk-create-users.ts bypasses this for initial onboarding by creating Auth users without sending a verification email; an Admin can then issue a recovery link individually as needed." },
@@ -403,7 +444,8 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "Service-role key exposure. Mitigation: SUPABASE_SERVICE_ROLE_KEY is server-only, never sent to the client; .env.example contains placeholders only; the team's process is to rotate the key if it is ever pasted into a file that gets committed." },
   { style: "ListParagraph", text: "Vercel Hobby plan 10-second function timeout. Mitigation: long-running operations (recompute-all health, bulk imports) are run via tsx scripts against the database directly, not via web routes." },
   { style: "ListParagraph", text: "Single-tenant assumption baked into role enforcement. Mitigation: documented in Section 2; multi-tenant support is out of scope and would be a major design change requiring an org/workspace concept across every entity." },
-  { style: "ListParagraph", text: "AI provider integration paused pending stable Bedrock credentials (12-hour STS tokens are not workable in a deployed environment). Mitigation: all data placeholders exist; UI affordances are stubbed; resuming integration is a contained change in lib/ai/* and the three /api/ai/* routes." },
+  { style: "ListParagraph", text: "AI features unavailable in production. Bedrock authentication uses IAM Identity Center, which requires an interactive `aws sso login` to refresh — Vercel cannot do this. Mitigation today: AI_ENABLED is unset on Vercel; the assertAiEnabled() gate short-circuits production calls with a 503. Open question: production credential strategy. Realistic options are (a) provision a dedicated AWS sandbox account with a long-lived IAM user just for Bedrock, (b) stand up a credential-vending service (Lambda elsewhere we can create) and push refreshed creds to Vercel's env-var API on a schedule, (c) switch the integration to call the Anthropic API directly, sidestepping Bedrock and the AWS-side credential problem." },
+  { style: "ListParagraph", text: "Org region-whitelist deny policies can block Bedrock inference profiles that route across regions. Mitigation: the admin AI picker tags each model with its routing scope (single-region on-demand vs us-/eu-/apac-/global inference profile) so the admin can pick a model whose routing stays inside the allowed region set. In tightly-restricted environments (e.g. us-east-1 only), only bare on-demand model IDs are reliable, which limits model selection to older Claude 3 (or whatever the account has on-demand access to). Expanding the whitelist or switching to the Anthropic API are the only paths to newer models." },
 
   // -------------------------------------------------------------- 11
   { style: "Heading1", text: "11. Operational Scripts" },
@@ -418,14 +460,16 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "npm run admin:bulk-create — bulk-create initial team users without triggering individual invite emails." },
   { style: "ListParagraph", text: "npm run smoke:* — per-feature smoke tests (db, projects, tasks, roadmap, export, decisions, notifications, health, velocity, admin-exclusion, ideas, template, supabase)." },
   { style: "ListParagraph", text: "tsx scripts/run-notifications-sweep.ts — run the daily sweep manually (useful in development since the Vercel Cron only runs in production)." },
+  { style: "ListParagraph", text: "npm run ai:list-models — list every Bedrock model the account can invoke from the configured region (merges on-demand foundation models with cross-region inference profiles, tagged by routing scope). Useful to confirm what's available before choosing model defaults in Admin → AI." },
   { style: "ListParagraph", text: "npm run prepare:branding — packages branding assets for PPTX export." },
 
   // -------------------------------------------------------------- 12
   { style: "Heading1", text: "Appendix A: Database Schema Reference" },
-  { style: "Normal", text: "Authoritative schema lives in supabase/migrations/. As of v2 there are three migrations:" },
+  { style: "Normal", text: "Authoritative schema lives in supabase/migrations/. As of v2.1 there are four migrations:" },
   { style: "ListParagraph", text: "0001_initial_schema.sql — every table (users, projects, tasks, ideas, decisions, notifications, templates, audit_log, settings), the next_project_id() / next_task_id() id-generator functions, the set_updated_at() trigger, indexes, and the per-table RLS enable (no policies — service role bypasses)." },
   { style: "ListParagraph", text: "0002_drop_legacy_auth_columns.sql — drops password_hash, invite_token, invite_token_expires_at, password_reset_token, password_reset_token_expires_at from public.users now that identity is owned by Supabase Auth." },
   { style: "ListParagraph", text: "0003_external_dependencies.sql — adds the external_dependencies jsonb column to projects." },
+  { style: "ListParagraph", text: "0004_ai_config.sql — adds the ai_config jsonb column to settings, with default per-feature Bedrock model assignments (Section 5.18). Defensive merge in SettingsRepository.get() handles rows missing the column on read." },
   { style: "Normal", text: "Every column's TypeScript shape is documented in lib/db/types.ts; the SQL column types are chosen to round-trip cleanly with PostgREST (text[] for primitive arrays, jsonb for arrays of objects, date for IsoDate, timestamptz for IsoTimestamp)." },
 
   { style: "Heading1", text: "Appendix B: Route Inventory" },
@@ -447,7 +491,8 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "/api/auth/callback (Supabase OTP/recovery handshake, HTML interstitial)." },
   { style: "ListParagraph", text: "/api/projects, /api/projects/[id], /api/projects/[id]/apply-template, /api/projects/[id]/decisions, /api/projects/export, /api/projects/recalculate-health." },
   { style: "ListParagraph", text: "/api/tasks, /api/tasks/[id]." },
-  { style: "ListParagraph", text: "/api/ideas, /api/ideas/[id], /api/ideas/[id]/convert, /api/ideas/[id]/overlap (AI stub)." },
+  { style: "ListParagraph", text: "/api/ideas, /api/ideas/[id], /api/ideas/[id]/convert, /api/ideas/[id]/overlap (AI overlap analysis — dispatches to Bedrock when AI is enabled, keyword heuristic otherwise)." },
+  { style: "ListParagraph", text: "/api/ai/estimate, /api/ai/prioritize — AI Advisor endpoints (Section 5.18). Gated by AI_ENABLED; 503 in production." },
   { style: "ListParagraph", text: "/api/public/ideas (rate-limited public submission)." },
   { style: "ListParagraph", text: "/api/notifications, /api/notifications/[id]/read, /api/profile/notifications." },
   { style: "ListParagraph", text: "/api/templates, /api/templates/[id]." },
@@ -456,6 +501,7 @@ const paragraphs: Para[] = [
   { style: "ListParagraph", text: "/api/search." },
   { style: "ListParagraph", text: "/api/export/pptx." },
   { style: "ListParagraph", text: "/api/admin/audit-log, /api/admin/custom-fields, /api/admin/health-thresholds, /api/admin/health-thresholds/recalculate, /api/admin/portfolio-quadrants, /api/admin/project-values, /api/admin/resource-thresholds, /api/admin/role-permissions, /api/admin/users, /api/admin/users/[id], /api/admin/users/[id]/reset-password." },
+  { style: "ListParagraph", text: "/api/admin/ai-config (PUT — write per-feature model selection), /api/admin/ai/models (GET — live Bedrock model list)." },
   { style: "ListParagraph", text: "/api/admin/notifications/sweep (Vercel Cron target, Bearer-authenticated)." },
 
   { style: "Heading1", text: "Appendix C: Phase & Status Reference" },
