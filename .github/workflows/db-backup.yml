@@ -1,0 +1,169 @@
+# Daily backup of the Praxis Supabase database.
+#
+# What this does:
+#   - Runs every day at 06:00 UTC (just past midnight US Pacific,
+#     well after any normal workday activity).
+#   - Connects to Supabase using the connection string in the
+#     SUPABASE_DB_URL repo secret.
+#   - pg_dumps the `public` schema (the application's data:
+#     projects, tasks, ideas, decisions, notifications, templates,
+#     audit_log, settings, public.users).
+#   - Gzips the dump and uploads it as a workflow artifact with a
+#     14-day retention window — long enough to cover the ~7-day
+#     recovery target with a buffer for missed days.
+#   - Can also be triggered manually from the GitHub Actions tab
+#     (workflow_dispatch) for ad-hoc backups.
+#
+# What this does NOT back up:
+#   - `auth.users` (Supabase-managed). If the entire Supabase
+#     project is lost, user accounts are lost too — recover by
+#     re-running scripts/bulk-create-users.ts against a fresh
+#     Supabase project. The public.users profile rows ARE in the
+#     dump, so role assignments and notification preferences are
+#     preserved; only the identity layer (email + password hash)
+#     would need re-establishing.
+#   - Storage / Edge Functions (not used by Praxis today).
+#
+# One-time setup required before the first run:
+#   1. Supabase dashboard → Project Settings → Database →
+#      Connection string → "Session pooler" mode (port 5432).
+#      Copy the URI; it looks like
+#        postgresql://postgres.<project-ref>:<password>@aws-0-...pooler.supabase.com:5432/postgres
+#      Session pooler is required: pg_dump's session-level
+#      expectations don't work with the transaction pooler (port
+#      6543), and the direct connection (port 5432 on the
+#      db.<project>.supabase.co host) is IPv6-only on free tier,
+#      which GitHub Actions runners can't reach.
+#   2. GitHub repo → Settings → Secrets and variables → Actions →
+#      New repository secret. Name: SUPABASE_DB_URL. Value: the
+#      URI from step 1.
+#   3. Trigger the workflow once manually from the Actions tab
+#      ("Database backup" → "Run workflow") to verify the setup.
+#      The first successful run uploads an artifact; download it
+#      from the run summary page to confirm the dump is non-empty
+#      and looks right (gzipped SQL, contains your table data).
+#
+# Restoring from a backup (catastrophic recovery flow):
+#   1. Download the artifact .sql.gz from the relevant run.
+#   2. gunzip to get a plain .sql file.
+#   3. Apply against the recovery target:
+#        psql "$RECOVERY_DB_URL" -f praxis-backup-<timestamp>.sql
+#      The dump uses --clean --if-exists so it drops the existing
+#      public schema's tables before recreating them. Make sure
+#      RECOVERY_DB_URL points at the right database before running.
+#   4. After data is restored, re-establish Supabase Auth users
+#      via scripts/bulk-create-users.ts (their user_ids must match
+#      the public.users.user_id values from the restored data, so
+#      use the email list from public.users as the source).
+name: Database backup
+
+on:
+  schedule:
+    # 06:00 UTC daily. Adjust if your team's typical work hours
+    # mean activity is still happening at this time — pg_dump is
+    # read-only but a backup taken mid-write captures a snapshot
+    # that may straddle a transaction boundary.
+    - cron: "0 6 * * *"
+  # Manual trigger from the Actions tab — useful for verifying
+  # setup and for pre-deployment snapshots before risky migrations.
+  workflow_dispatch: {}
+
+# Concurrency: never run two backups at once. If a manually-
+# triggered run is in flight when the cron fires, the cron is
+# canceled. Avoids two pg_dumps fighting over the same connection
+# pool and producing partial artifacts.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Install postgresql-client-17
+        # The Ubuntu runner ships with an older psql than Supabase
+        # runs in production (PG 15-17 depending on project age).
+        # Install the PGDG-published client to guarantee a recent
+        # pg_dump that's compatible with whatever version Supabase
+        # is on for this project — pg_dump version >= server
+        # version is the supported direction.
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Dump public schema
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set. See workflow file header for setup steps."
+            exit 1
+          fi
+
+          mkdir -p backups
+          TIMESTAMP=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
+          OUT="backups/praxis-${TIMESTAMP}.sql"
+
+          # Flags:
+          #   --no-owner / --no-privileges: strip role-specific
+          #     ownership and GRANT statements so the dump restores
+          #     cleanly into a database with a different owning
+          #     role (e.g. a recovery Supabase project).
+          #   --clean --if-exists: emit DROP IF EXISTS before each
+          #     CREATE so the dump is idempotent on re-apply.
+          #   --schema=public: restrict to application data;
+          #     auth/storage/realtime schemas are Supabase-managed
+          #     and not safely portable in a pg_dump.
+          #   --no-comments: trims the file size; Supabase's
+          #     auto-generated comments aren't load-bearing.
+          pg_dump \
+            --no-owner \
+            --no-privileges \
+            --clean \
+            --if-exists \
+            --schema=public \
+            --no-comments \
+            "${DATABASE_URL}" > "${OUT}"
+
+          # Safety check: a successful pg_dump against an empty or
+          # paused database produces only headers, on the order of
+          # ~1 KB. Anything below that suggests the connection
+          # worked but no real data came back — fail the run so the
+          # artifact upload is skipped and the failure surfaces.
+          SIZE=$(stat -c '%s' "${OUT}")
+          echo "Raw dump size: ${SIZE} bytes"
+          if [ "${SIZE}" -lt 2000 ]; then
+            echo "::error::pg_dump produced an unexpectedly small file (${SIZE} bytes). Database may be paused, empty, or the connection string may be wrong."
+            head -50 "${OUT}" || true
+            exit 1
+          fi
+
+          gzip "${OUT}"
+          ls -lh backups/
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # The run_number suffix is just so multiple manual runs
+          # on the same day don't collide; the timestamp inside
+          # the filename is the authoritative "when".
+          name: praxis-db-backup-${{ github.run_number }}
+          path: backups/*.sql.gz
+          # 14 days covers the 7-day recovery target with a buffer
+          # for missed days (long weekend + a couple of broken
+          # cron runs). Bump up if you ever want to dig further
+          # back; bump down if storage cost matters (free tier is
+          # generous but not infinite).
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0 # already gzipped
