@@ -84,12 +84,15 @@ jobs:
       contents: read
     steps:
       - name: Install postgresql-client-17
-        # The Ubuntu runner ships with an older psql than Supabase
-        # runs in production (PG 15-17 depending on project age).
-        # Install the PGDG-published client to guarantee a recent
-        # pg_dump that's compatible with whatever version Supabase
-        # is on for this project — pg_dump version >= server
-        # version is the supported direction.
+        # The Ubuntu runner ships with PG 16 client packages by
+        # default, but Supabase upgraded their managed Postgres to
+        # 17.x and pg_dump refuses to run against a newer server
+        # (the supported direction is client >= server). Install
+        # 17 from the official PGDG apt repo and call the
+        # versioned binary directly in the dump step — Ubuntu's
+        # /usr/bin/pg_dump is a wrapper that prefers the system-
+        # default version, which is still 16 even after the 17
+        # install lands alongside it.
         run: |
           set -euo pipefail
           sudo install -d /usr/share/postgresql-common/pgdg
@@ -99,6 +102,11 @@ jobs:
           sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client-17
+          # Verify the 17 binary is actually on disk before
+          # proceeding — if PGDG ever drops support for this
+          # Ubuntu release or the package name changes, we want
+          # the failure to surface here, not in the dump step.
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Dump public schema
         env:
@@ -126,7 +134,7 @@ jobs:
           #     and not safely portable in a pg_dump.
           #   --no-comments: trims the file size; Supabase's
           #     auto-generated comments aren't load-bearing.
-          pg_dump \
+          /usr/lib/postgresql/17/bin/pg_dump \
             --no-owner \
             --no-privileges \
             --clean \
