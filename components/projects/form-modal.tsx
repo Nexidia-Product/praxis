@@ -748,6 +748,57 @@ export function ProjectFormModal({
               </select>
             </Field>
 
+            {/* Complexity + time estimate are settable both manually here
+                and by the AI Advisor (when AI is enabled). The persisted
+                column is still `ai_complexity_score` — the name reflects
+                the original AI-only source, but the field is now a plain
+                editable input as well. Manual entries drive the Position
+                bucket on the projects table just like AI-generated ones
+                do; the matrix doesn't care where the value came from. */}
+            <Field id="proj-complexity" label="Complexity">
+              <select
+                id="proj-complexity"
+                value={state.ai_complexity_score ?? ""}
+                onChange={(e) =>
+                  update(
+                    "ai_complexity_score",
+                    e.target.value === ""
+                      ? null
+                      : (e.target.value as ComplexityScore),
+                  )
+                }
+                disabled={saving}
+                className={baseInput}
+              >
+                <option value="">— Not set —</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Very High">Very High</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Drives the strategic Position bucket on the Projects table
+                (Quick Win / Major Bet / Fill-In / Deprioritize).
+              </p>
+            </Field>
+
+            <Field id="proj-time-estimate" label="Time estimate">
+              <input
+                id="proj-time-estimate"
+                type="text"
+                value={state.ai_time_estimate ?? ""}
+                onChange={(e) =>
+                  update(
+                    "ai_time_estimate",
+                    e.target.value === "" ? null : e.target.value,
+                  )
+                }
+                disabled={saving}
+                placeholder="e.g. 3-5 weeks"
+                className={baseInput}
+              />
+            </Field>
+
             <Field id="proj-start" label="Start date">
               <input
                 id="proj-start"
