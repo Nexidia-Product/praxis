@@ -14,8 +14,14 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
-import { ProjectRepository, SettingsRepository } from "@/lib/db";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
+import {
+  ProjectRepository,
+  SettingsRepository,
+  TemplateRepository,
+} from "@/lib/db";
 import { isAdminProject } from "@/lib/projects/display";
+import { mergeEnumOptions } from "@/lib/projects/enum-options";
 import { RoadmapWorkspace } from "@/components/roadmap/workspace";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -24,10 +30,25 @@ export const dynamic = "force-dynamic";
 export default async function RoadmapPage() {
   const session = await requirePermission("roadmap.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings] = await Promise.all([
+  const [allProjects, settings, templates] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
+    TemplateRepository.getAll(),
   ]);
+
+  // Merged option lists (built-ins + admin extensions, archived
+  // values excluded). Threaded into the workspace so the edit modal
+  // — now reachable from the roadmap quick view — sees the same
+  // dropdown options as the Projects page form.
+  const enumOptions = {
+    status: mergeEnumOptions("status", settings.enum_extensions.status),
+    phase: mergeEnumOptions("phase", settings.enum_extensions.phase),
+    priority: mergeEnumOptions("priority", settings.enum_extensions.priority),
+    application_product: mergeEnumOptions(
+      "application_product",
+      settings.enum_extensions.application_product,
+    ),
+  };
 
   // Admin-typed / Admin-product projects track internal team cadence
   // (operational work, governance, tooling) that affects delivery but
@@ -62,6 +83,9 @@ export default async function RoadmapPage() {
         currentUserRole={session.user.role}
         permissions={permissions}
         quadrantLabels={settings.portfolio_quadrants}
+        enumOptions={enumOptions}
+        templates={templates}
+        aiEnabled={isAiEnabled()}
       />
     </PolarisShell>
   );

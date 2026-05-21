@@ -33,6 +33,7 @@ import { ProjectQuickView } from "@/components/projects/quick-view";
 import { ExportModal } from "@/components/roadmap/export-modal";
 import { RoadmapFilterBar } from "@/components/roadmap/filter-bar";
 import { RoadmapTabs } from "@/components/roadmap/tabs";
+import { ProjectFormModal } from "@/components/projects/form-modal";
 import { TimelineView } from "@/components/roadmap/timeline-view";
 import { KanbanView } from "@/components/roadmap/kanban-view";
 import { PortfolioView } from "@/components/roadmap/portfolio-view";
@@ -43,12 +44,14 @@ import {
   type RoadmapFilters,
 } from "@/lib/roadmap/filters";
 import type { RoadmapView } from "@/lib/roadmap/views";
+import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
   PortfolioQuadrantLabels,
   Project,
   ProjectStatus,
   SavedKanbanConfig,
+  TaskTemplate,
   UserRole,
 } from "@/lib/db";
 
@@ -71,6 +74,32 @@ interface RoadmapWorkspaceProps {
    * default-axis quadrant labels.
    */
   quadrantLabels: PortfolioQuadrantLabels;
+  /**
+   * Merged enum option lists (built-ins + admin extensions, archived
+   * excluded). Passed through to the project form modal opened from
+   * the roadmap quick view so admin-added status / phase / priority
+   * values appear in its dropdowns. Optional — when omitted the form
+   * falls back to the built-in arrays.
+   */
+  enumOptions?: {
+    status: EnumOption[];
+    phase: EnumOption[];
+    priority: EnumOption[];
+    application_product: EnumOption[];
+  };
+  /**
+   * Task templates. Used by the project form modal on Create (the
+   * modal is reachable from here only in Edit mode today, but
+   * threading the prop keeps create-from-roadmap easy to wire
+   * later). Optional.
+   */
+  templates?: TaskTemplate[];
+  /**
+   * Whether the AI Advisor is reachable in this environment. Threaded
+   * into the form modal so the Generate AI estimate button hides in
+   * production. Optional; defaults to false.
+   */
+  aiEnabled?: boolean;
 }
 
 export function RoadmapWorkspace({
@@ -80,8 +109,16 @@ export function RoadmapWorkspace({
   currentUserRole,
   permissions,
   quadrantLabels,
+  enumOptions,
+  templates,
+  aiEnabled = false,
 }: RoadmapWorkspaceProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  // Project being edited. When non-null, ProjectFormModal is mounted
+  // pre-loaded with this record. Distinct from `quickViewId` — the
+  // quick view is a read-mostly side panel; Edit pops a full modal
+  // that the user dismisses explicitly.
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [savedConfigs, setSavedConfigs] =
     useState<SavedKanbanConfig[]>(initialKanbanConfigs);
   const [filters, setFilters] =
@@ -353,11 +390,15 @@ export function RoadmapWorkspace({
           // hidden by the active filter.
           allProjects={projects}
           onClose={() => setQuickViewId(null)}
-          // Roadmap quick-view is read-mostly. The Edit button closes the
-          // panel and points the user at the projects table where the
-          // full form modal lives — duplicating it here would double the
-          // surface area of mutation-over-the-wire that needs review.
-          onEdit={() => setQuickViewId(null)}
+          // Edit pops the standard project form modal (same component
+          // the Projects page uses). We close the quick view first so
+          // the modal isn't competing for focus with the side panel;
+          // the modal is the deliberate place to make multi-field
+          // changes, the quick view stays read-mostly.
+          onEdit={() => {
+            setEditingProject(quickViewProject);
+            setQuickViewId(null);
+          }}
           onStatusChange={(status, summary) =>
             handleStatusChange(
               quickViewProject.project_id,
@@ -406,6 +447,35 @@ export function RoadmapWorkspace({
             month: "long",
             year: "numeric",
           })}`}
+        />
+      ) : null}
+
+      {/* Edit project modal. Opened from the quick view's Edit button.
+          Same component the Projects page uses — on save it returns
+          the updated record which we splice back into local state so
+          the roadmap surfaces reflect the change without a page
+          reload. */}
+      {editingProject ? (
+        <ProjectFormModal
+          project={editingProject}
+          customFields={customFields}
+          leadOptions={leadOptions}
+          applicationOptions={applicationOptions}
+          statusOptions={enumOptions?.status}
+          phaseOptions={enumOptions?.phase}
+          priorityOptions={enumOptions?.priority}
+          templates={templates}
+          allProjects={projects}
+          aiEnabled={aiEnabled}
+          onClose={() => setEditingProject(null)}
+          onSaved={(updated) => {
+            setProjects((prev) =>
+              prev.map((p) =>
+                p.project_id === updated.project_id ? updated : p,
+              ),
+            );
+            setEditingProject(null);
+          }}
         />
       ) : null}
     </div>
