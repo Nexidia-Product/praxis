@@ -106,6 +106,7 @@ type SortKey =
   | "priority"
   | "portfolio_position"
   | "project_lead"
+  | "roadmap_timeline_start"
   | "target_date"
   | "date_added";
 
@@ -151,6 +152,16 @@ function compareProjects(
     // unscheduled, so they belong at the bottom of "soonest first".
     const av = a.target_date ?? "";
     const bv = b.target_date ?? "";
+    if (av === bv) return 0;
+    if (av === "") return 1;
+    if (bv === "") return -1;
+    return av < bv ? -1 : 1;
+  }
+  if (key === "roadmap_timeline_start") {
+    // Same null-handling as target_date — unstarted projects belong at
+    // the bottom of "earliest start first".
+    const av = a.roadmap_timeline_start ?? "";
+    const bv = b.roadmap_timeline_start ?? "";
     if (av === bv) return 0;
     if (av === "") return 1;
     if (bv === "") return -1;
@@ -821,14 +832,13 @@ export function ProjectsTable({
                 >
                   Lead
                 </Th>
-                {/* Resources column: read-only display of
-                    additional_resources. Not sortable (it's a list,
-                    so a column-level sort would be ambiguous). The
-                    `<th>` matches the plain-header style of Health
-                    rather than the sortable `<Th>`. */}
-                <th scope="col" className="px-3 py-2">
-                  Resources
-                </th>
+                <Th
+                  active={sortKey === "roadmap_timeline_start"}
+                  dir={sortDir}
+                  onClick={() => handleSortClick("roadmap_timeline_start")}
+                >
+                  Start
+                </Th>
                 <Th
                   active={sortKey === "target_date"}
                   dir={sortDir}
@@ -1058,25 +1068,11 @@ export function ProjectsTable({
                     <td className="whitespace-nowrap px-3 py-2.5 text-gray-700">
                       {p.project_lead || "—"}
                     </td>
-                    {/* Resources cell. additional_resources is a
-                        free-form string array (mix of UserIds and
-                        names per the data model); we render it
-                        comma-joined and truncate via
-                        `max-w-[12rem] truncate` so a long list
-                        doesn't blow out the column. The full list
-                        is in the cell's `title` attribute so a
-                        tooltip reveals everything on hover. */}
-                    <td
-                      className="max-w-[12rem] truncate px-3 py-2.5 text-gray-700"
-                      title={
-                        p.additional_resources.length > 0
-                          ? p.additional_resources.join(", ")
-                          : undefined
-                      }
-                    >
-                      {p.additional_resources.length > 0
-                        ? p.additional_resources.join(", ")
-                        : "—"}
+                    {/* Start date cell. Renders project.roadmap_timeline_start
+                        (the field labelled "Start date" in the UI). Same
+                        ISO format and dash-on-null treatment as Target. */}
+                    <td className="whitespace-nowrap px-3 py-2.5 text-gray-700">
+                      {p.roadmap_timeline_start ?? "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-gray-700">
                       {p.target_date ?? "—"}
