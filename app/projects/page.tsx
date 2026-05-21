@@ -59,15 +59,12 @@ export default async function ProjectsPage() {
     ),
   };
 
-  // Initial sort: most recently added first. The client can re-sort via
-  // column headers, but this is the right default landing order so the
-  // newest work is at the top after a fresh project is created.
-  projects.sort((a, b) => {
-    if (a.date_added !== b.date_added) {
-      return a.date_added < b.date_added ? 1 : -1;
-    }
-    return a.project_id < b.project_id ? 1 : -1;
-  });
+  // Initial sort: by project_id ascending — oldest projects on top,
+  // newest at the bottom. project_id is YYYY-NNN, so string compare
+  // gives the right ordering both across years and within a year.
+  // The client can re-sort via column headers; this is just the
+  // default landing order.
+  projects.sort((a, b) => (a.project_id < b.project_id ? -1 : 1));
 
   return (
     <PolarisShell

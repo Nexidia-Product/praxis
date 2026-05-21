@@ -261,8 +261,8 @@ export function ProjectsTable({
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
   const [statusGroup, setStatusGroup] = useState<StatusGroup>("open");
-  const [sortKey, setSortKey] = useState<SortKey>("date_added");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortKey, setSortKey] = useState<SortKey>("project_id");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
