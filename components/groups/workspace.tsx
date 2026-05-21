@@ -519,17 +519,28 @@ function GroupFormModal({
     });
   }, [projects]);
 
+  // Visible candidate list: every project, filtered by the optional
+  // query. Selected projects stay in the list (with the checkbox
+  // checked) so unchecking them is a single click from where they
+  // are — that's the more common edit motion than scrolling up to a
+  // chip and clicking its ×.
   const candidateProjects = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
-    return sortedProjects.filter((p) => {
-      if (memberIds.includes(p.project_id)) return false;
-      if (q === "") return true;
-      return (
+    if (q === "") return sortedProjects;
+    return sortedProjects.filter(
+      (p) =>
         p.project_id.toLowerCase().includes(q) ||
-        p.name.toLowerCase().includes(q)
-      );
-    });
-  }, [sortedProjects, memberIds, pickerQuery]);
+        p.name.toLowerCase().includes(q),
+    );
+  }, [sortedProjects, pickerQuery]);
+
+  const memberIdSet = useMemo(() => new Set(memberIds), [memberIds]);
+
+  function toggleMember(id: ProjectId) {
+    setMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
+  }
 
   const projectsById = useMemo(() => {
     const m = new Map<ProjectId, Project>();
@@ -704,61 +715,101 @@ function GroupFormModal({
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               disabled={busy}
-              placeholder="Search projects by ID or name…"
-              style={{ width: "100%" }}
+              placeholder="Filter list… (optional)"
+              style={{ width: "100%", marginBottom: 6 }}
             />
-            {pickerQuery.trim() !== "" ? (
-              <div
-                style={{
-                  marginTop: 6,
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--pol-radius)",
-                }}
-              >
-                {candidateProjects.slice(0, 25).map((p) => (
-                  <button
-                    key={p.project_id}
-                    type="button"
-                    onClick={() => {
-                      setMemberIds((prev) => [...prev, p.project_id]);
-                      setPickerQuery("");
-                    }}
-                    disabled={busy}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "6px 10px",
-                      background: "none",
-                      border: "none",
-                      borderBottom: "1px solid var(--border)",
-                      cursor: "pointer",
-                      fontSize: "var(--fs-sm)",
-                    }}
-                    className="hoverable-row"
-                  >
-                    <strong style={{ fontFamily: "var(--font-mono, monospace)" }}>
-                      {p.project_id}
-                    </strong>{" "}
-                    {p.name}
-                  </button>
-                ))}
-                {candidateProjects.length === 0 ? (
-                  <div
-                    style={{
-                      padding: "6px 10px",
-                      fontSize: "var(--fs-sm)",
-                      color: "var(--tm)",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    No matches.
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            {/* Full project list with checkboxes. Selected projects
+                show as checked here AND as chips above so removal can
+                happen from whichever surface is more convenient. The
+                scroll container caps at ~320px so very long project
+                lists don't push the modal footer off-screen on small
+                viewports. */}
+            <div
+              role="listbox"
+              aria-label="Member projects"
+              aria-multiselectable="true"
+              style={{
+                maxHeight: 320,
+                overflowY: "auto",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--pol-radius)",
+                background: "var(--card)",
+              }}
+            >
+              {candidateProjects.length === 0 ? (
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    fontSize: "var(--fs-sm)",
+                    color: "var(--tm)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {pickerQuery.trim() !== ""
+                    ? "No projects match the filter."
+                    : "No projects in the system yet."}
+                </div>
+              ) : (
+                candidateProjects.map((p) => {
+                  const checked = memberIdSet.has(p.project_id);
+                  return (
+                    <label
+                      key={p.project_id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "20px 110px 1fr 130px",
+                        gap: 8,
+                        alignItems: "center",
+                        padding: "6px 12px",
+                        borderBottom: "1px solid var(--border)",
+                        cursor: "pointer",
+                        fontSize: "var(--fs-sm)",
+                        background: checked
+                          ? "var(--hover)"
+                          : "transparent",
+                      }}
+                      className="hoverable-row"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleMember(p.project_id)}
+                        disabled={busy}
+                        aria-label={`Toggle ${p.project_id} ${p.name}`}
+                      />
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono, monospace)",
+                          fontSize: 12,
+                          color: "var(--t2)",
+                        }}
+                      >
+                        {p.project_id}
+                      </span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          color: "var(--t1)",
+                        }}
+                      >
+                        {p.name}
+                      </span>
+                      <span
+                        style={{
+                          color: "var(--tm)",
+                          fontSize: "var(--fs-xs)",
+                          textAlign: "right",
+                        }}
+                      >
+                        {p.status}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {error ? (
