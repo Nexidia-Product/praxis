@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import {
+  ProjectGroupRepository,
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
@@ -34,10 +35,11 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [projects, settings, templates] = await Promise.all([
+  const [projects, settings, templates, groups] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
+    ProjectGroupRepository.getAll(),
   ]);
 
   // Merge built-in enum values with admin-added extensions (Section 5.19).
@@ -87,6 +89,7 @@ export default async function ProjectsPage() {
         enumOptions={enumOptions}
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
+        groups={groups}
       />
     </PolarisShell>
   );

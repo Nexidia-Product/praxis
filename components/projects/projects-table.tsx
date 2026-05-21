@@ -49,6 +49,7 @@ import type {
   PortfolioQuadrantLabels,
   Priority,
   Project,
+  ProjectGroup,
   ProjectPhase,
   ProjectStatus,
   TaskTemplate,
@@ -211,6 +212,14 @@ interface ProjectsTableProps {
    * gating the *trigger* affordances.
    */
   aiEnabled: boolean;
+  /**
+   * Every project group in the system. Used to render the small
+   * "in a group" indicator next to project names and to feed the
+   * Related groups panel inside the quick view. Optional so older
+   * callers that haven't been updated still type-check; missing
+   * means "no indicator, no panel."
+   */
+  groups?: ProjectGroup[];
 }
 
 export function ProjectsTable({
@@ -222,7 +231,22 @@ export function ProjectsTable({
   enumOptions,
   quadrantLabels,
   aiEnabled,
+  groups = [],
 }: ProjectsTableProps) {
+  // Index groups by their member project IDs once per render so the
+  // per-row indicator and the quick-view panel can both look up
+  // "what groups does this project belong to?" in O(1).
+  const groupsByProject = useMemo(() => {
+    const m = new Map<string, ProjectGroup[]>();
+    for (const g of groups) {
+      for (const pid of g.member_project_ids) {
+        const list = m.get(pid) ?? [];
+        list.push(g);
+        m.set(pid, list);
+      }
+    }
+    return m;
+  }, [groups]);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
   const [statusGroup, setStatusGroup] = useState<StatusGroup>("open");
@@ -857,6 +881,29 @@ export function ProjectsTable({
                             </span>
                           );
                         })()}
+                        {(() => {
+                          const memberOf = groupsByProject.get(p.project_id);
+                          if (!memberOf || memberOf.length === 0) return null;
+                          // Tooltip lists every group the project belongs
+                          // to so a hover reveals the cluster names
+                          // without needing to open the quick view.
+                          const tooltip =
+                            memberOf.length === 1
+                              ? `In group: ${memberOf[0].name}`
+                              : `In ${memberOf.length} groups: ${memberOf
+                                  .map((g) => g.name)
+                                  .join(", ")}`;
+                          return (
+                            <span
+                              role="img"
+                              aria-label={tooltip}
+                              title={tooltip}
+                              className="inline-flex items-center gap-0.5 rounded-full bg-sky-50 px-1.5 py-0 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200"
+                            >
+                              ◖{memberOf.length > 1 ? memberOf.length : ""}
+                            </span>
+                          );
+                        })()}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">
@@ -1079,11 +1126,15 @@ export function ProjectsTable({
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
+          groupsForProject={
+            groupsByProject.get(quickViewProject.project_id) ?? []
+          }
           onClose={() => setQuickViewId(null)}
           onEdit={() => {
             setModalProject(quickViewProject);
             setQuickViewId(null);
           }}
+          onSelectRelatedProject={(id) => setQuickViewId(id)}
           onStatusChange={(status, summary) =>
             changeStatus(quickViewProject, status, summary)
           }

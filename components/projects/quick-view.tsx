@@ -45,6 +45,8 @@ import type {
   CustomFieldDefinition,
   Priority,
   Project,
+  ProjectGroup,
+  ProjectId,
   ProjectPhase,
   ProjectStatus,
   StatusHistoryEntry,
@@ -73,6 +75,20 @@ interface ProjectQuickViewProps {
   statusOptions?: EnumOption[];
   phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
+  /**
+   * Every project group this project belongs to. Pre-computed by the
+   * parent (ProjectsTable indexes groups by member ID once). Empty
+   * array if the project isn't in any group; the panel still renders
+   * but with an empty state.
+   */
+  groupsForProject?: ProjectGroup[];
+  /**
+   * Called when a chip in the Related panel is clicked. The Projects
+   * page wires this to its own setQuickViewId so clicking a related
+   * project swaps the quick view without closing it — keeps the
+   * cluster-browsing motion fluid.
+   */
+  onSelectRelatedProject?: (id: ProjectId) => void;
   onClose: () => void;
   onEdit: () => void;
   /**
@@ -95,7 +111,13 @@ interface ProjectQuickViewProps {
  * want a more deliberate place to change status than the inline
  * dropdown on Details.
  */
-type Tab = "details" | "status" | "decisions" | "links" | "dependencies";
+type Tab =
+  | "details"
+  | "status"
+  | "decisions"
+  | "links"
+  | "dependencies"
+  | "groups";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
@@ -103,6 +125,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "decisions", label: "Decisions" },
   { id: "links", label: "Links" },
   { id: "dependencies", label: "Dependencies" },
+  { id: "groups", label: "Groups" },
 ];
 
 export function ProjectQuickView({
@@ -113,6 +136,8 @@ export function ProjectQuickView({
   statusOptions,
   phaseOptions,
   priorityOptions,
+  groupsForProject = [],
+  onSelectRelatedProject,
   onClose,
   onEdit,
   onStatusChange,
@@ -602,6 +627,21 @@ export function ProjectQuickView({
               ) : null}
             </div>
           ) : null}
+
+          {tab === "groups" ? (
+            <div
+              role="tabpanel"
+              id="quickview-panel-groups"
+              aria-labelledby="quickview-tab-groups"
+            >
+              <RelatedGroupsPanel
+                project={project}
+                groups={groupsForProject}
+                allProjects={allProjects}
+                onSelectRelatedProject={onSelectRelatedProject}
+              />
+            </div>
+          ) : null}
         </div>
 
         <footer className="border-t border-gray-200 bg-gray-50 px-6 py-4">
@@ -1032,6 +1072,127 @@ function StatusHistoryRow({ entry }: { entry: StatusHistoryEntry }) {
 // ---------------------------------------------------------------------------
 // External dependencies panel
 // ---------------------------------------------------------------------------
+
+/**
+ * Read-only display of every project group this project belongs to.
+ * Group edits happen on the /groups page (per the same "edit happens
+ * on its own surface" rule we use for dependencies and external
+ * dependencies). Each group shows name, description (when set), and
+ * the OTHER members as clickable chips that swap the quick view to
+ * that project — supports the common motion of browsing through a
+ * cluster of related work without losing context.
+ */
+function RelatedGroupsPanel({
+  project,
+  groups,
+  allProjects,
+  onSelectRelatedProject,
+}: {
+  project: Project;
+  groups: ProjectGroup[];
+  allProjects: Project[];
+  onSelectRelatedProject?: (id: ProjectId) => void;
+}) {
+  const projectsById = useMemo(() => {
+    const m = new Map<ProjectId, Project>();
+    for (const p of allProjects) m.set(p.project_id, p);
+    return m;
+  }, [allProjects]);
+
+  if (groups.length === 0) {
+    return (
+      <section>
+        <p className="text-sm text-gray-600">
+          This project isn&apos;t in any groups yet. Visit{" "}
+          <Link
+            href="/groups"
+            className="text-gray-900 underline-offset-2 hover:underline"
+          >
+            Groups
+          </Link>{" "}
+          to create one or add this project to an existing cluster.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4">
+      {groups.map((g) => {
+        const others = g.member_project_ids.filter(
+          (id) => id !== project.project_id,
+        );
+        return (
+          <div
+            key={g.group_id}
+            className="rounded-md border border-gray-200 bg-white p-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Link
+                  href="/groups"
+                  className="block text-sm font-semibold text-gray-900 underline-offset-2 hover:underline"
+                >
+                  {g.name}
+                </Link>
+                {g.description ? (
+                  <p className="mt-1 text-xs text-gray-600">{g.description}</p>
+                ) : null}
+              </div>
+              <span className="whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200">
+                {g.member_project_ids.length} member
+                {g.member_project_ids.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {others.length === 0 ? (
+              <p className="mt-3 text-xs italic text-gray-500">
+                No other projects in this group yet.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {others.map((id) => {
+                  const other = projectsById.get(id);
+                  const label = other ? `${id} — ${other.name}` : id;
+                  return onSelectRelatedProject ? (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => onSelectRelatedProject(id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                      title={
+                        other
+                          ? `${other.status} · ${other.health_score ?? "no health"}`
+                          : "Project not loaded in this view"
+                      }
+                    >
+                      <span className="font-mono text-[10px] text-gray-500">
+                        {id}
+                      </span>
+                      <span className="max-w-[180px] truncate">
+                        {other ? other.name : "(unknown)"}
+                      </span>
+                    </button>
+                  ) : (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800"
+                    >
+                      <span className="font-mono text-[10px] text-gray-500">
+                        {id}
+                      </span>
+                      <span className="max-w-[180px] truncate">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
 
 /**
  * Read-only display of the project's external dependencies. Sits
