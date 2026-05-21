@@ -374,7 +374,11 @@ export function IdeaSubmitForm() {
           accept={ALLOWED_ACCEPT_ATTR}
           onChange={(e) => handleFilesPicked(e.target.files)}
           disabled={submitting || files.length >= MAX_FILES_PER_SUBMISSION}
-          className="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-900 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          // Native "Choose files" button styled via Tailwind's file:*
+          // pseudo-element. Brand blue (`var(--brand)`) instead of
+          // gray-900 so the button matches the Submit idea button
+          // below and the .pol-btn-primary used elsewhere in Praxis.
+          className="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--brand)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-[var(--brand-dark)] disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         {files.length > 0 ? (
@@ -417,7 +421,7 @@ export function IdeaSubmitForm() {
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
               <div
                 className={`h-full ${
-                  totalPct >= 90 ? "bg-amber-500" : "bg-gray-900"
+                  totalPct >= 90 ? "bg-amber-500" : "bg-[var(--brand)]"
                 }`}
                 style={{ width: `${totalPct}%` }}
               />
@@ -443,7 +447,7 @@ export function IdeaSubmitForm() {
           !state.idea_name.trim() ||
           !state.description.trim()
         }
-        className="w-full rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+        className="w-full rounded-md bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[var(--brand-dark)] disabled:cursor-not-allowed disabled:bg-gray-400"
       >
         {submitting ? "Submitting…" : "Submit idea"}
       </button>
