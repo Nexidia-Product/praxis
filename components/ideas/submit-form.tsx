@@ -14,9 +14,17 @@
  * keep retrying, making the rate limit even more punishing.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { IdeaUrgency } from "@/lib/db";
+import {
+  ALLOWED_ACCEPT_ATTR,
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILES_PER_SUBMISSION,
+  MAX_TOTAL_SIZE_BYTES,
+  formatBytes,
+} from "@/lib/ideas/attachments";
 
 const URGENCIES: IdeaUrgency[] = ["Low", "Medium", "High", "Critical"];
 
@@ -52,6 +60,7 @@ interface SubmittedIdea {
   idea_name: string;
   submitted_at: string;
   status: string;
+  attachments_count?: number;
 }
 
 export function IdeaSubmitForm() {
@@ -59,10 +68,76 @@ export function IdeaSubmitForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<SubmittedIdea | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
   }
+
+  /**
+   * Add the user's freshly-selected files to the existing list,
+   * applying the same constraints the server enforces — count cap,
+   * per-file size, total size, MIME allowlist. We reject the whole
+   * batch on the first failure with a clear message; partial
+   * acceptance would silently drop files and confuse the submitter.
+   */
+  function handleFilesPicked(picked: FileList | null) {
+    if (!picked || picked.length === 0) return;
+    setError(null);
+
+    const incoming = Array.from(picked);
+    const combined = [...files, ...incoming];
+
+    if (combined.length > MAX_FILES_PER_SUBMISSION) {
+      setError(
+        `You can attach up to ${MAX_FILES_PER_SUBMISSION} files per submission.`,
+      );
+      return;
+    }
+
+    let runningTotal = 0;
+    for (const f of combined) {
+      if (!ALLOWED_MIME_TYPES.has(f.type)) {
+        setError(
+          `"${f.name}" has an unsupported file type (${f.type || "unknown"}). Allowed: Office docs, PNG/JPG/GIF/WEBP images, PDF, plain text, CSV.`,
+        );
+        return;
+      }
+      if (f.size > MAX_FILE_SIZE_BYTES) {
+        setError(
+          `"${f.name}" is ${formatBytes(f.size)} — max per file is ${formatBytes(MAX_FILE_SIZE_BYTES)}.`,
+        );
+        return;
+      }
+      runningTotal += f.size;
+    }
+    if (runningTotal > MAX_TOTAL_SIZE_BYTES) {
+      setError(
+        `Combined attachment size exceeds ${formatBytes(MAX_TOTAL_SIZE_BYTES)}.`,
+      );
+      return;
+    }
+
+    setFiles(combined);
+    // Reset the underlying input so the same file can be re-picked
+    // after removal — without this, the change event won't fire
+    // because the value hasn't changed.
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setError(null);
+  }
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  const totalPct = Math.min(
+    100,
+    Math.round((totalSize / MAX_TOTAL_SIZE_BYTES) * 100),
+  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,22 +146,25 @@ export function IdeaSubmitForm() {
     setSubmitting(true);
     setError(null);
 
-    const payload = {
-      submitter_name: state.submitter_name.trim(),
-      submitter_email: state.submitter_email.trim() || null,
-      idea_name: state.idea_name.trim(),
-      description: state.description.trim(),
-      urgency: state.urgency,
-      requested_target_date: state.requested_target_date || null,
-      key_stakeholders: state.key_stakeholders.trim(),
-    };
+    // FormData lets us send the idea fields and attachment Files in
+    // one multipart request. This replaces the prior JSON body.
+    const form = new FormData();
+    form.set("submitter_name", state.submitter_name.trim());
+    form.set("submitter_email", state.submitter_email.trim());
+    form.set("idea_name", state.idea_name.trim());
+    form.set("description", state.description.trim());
+    form.set("urgency", state.urgency);
+    form.set("requested_target_date", state.requested_target_date);
+    form.set("key_stakeholders", state.key_stakeholders.trim());
+    for (const f of files) {
+      form.append("attachments", f, f.name);
+    }
 
     let res: Response;
     try {
       res = await fetch("/api/public/ideas", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: form,
       });
     } catch {
       setError(
@@ -147,6 +225,7 @@ export function IdeaSubmitForm() {
           onClick={() => {
             setSubmitted(null);
             setState(EMPTY);
+            setFiles([]);
           }}
           className="mt-4 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-100"
         >
@@ -271,6 +350,80 @@ export function IdeaSubmitForm() {
         <p className="mt-1 text-xs text-gray-500">
           Teams or individuals who would benefit or need to be involved.
         </p>
+      </div>
+
+      {/* Attachments */}
+      <div>
+        <label
+          htmlFor="attachments"
+          className="block text-sm font-medium text-gray-900"
+        >
+          Attachments (optional)
+        </label>
+        <p className="mt-1 text-xs text-gray-500">
+          Up to {MAX_FILES_PER_SUBMISSION} files, {formatBytes(MAX_TOTAL_SIZE_BYTES)} combined.
+          Allowed: Office documents (.docx, .xlsx, .pptx, .doc, .xls, .ppt),
+          images (.png, .jpg, .gif, .webp), .pdf, .txt, .csv.
+        </p>
+        <input
+          ref={fileInputRef}
+          id="attachments"
+          name="attachments"
+          type="file"
+          multiple
+          accept={ALLOWED_ACCEPT_ATTR}
+          onChange={(e) => handleFilesPicked(e.target.files)}
+          disabled={submitting || files.length >= MAX_FILES_PER_SUBMISSION}
+          className="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-900 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+
+        {files.length > 0 ? (
+          <ul className="mt-3 space-y-1.5">
+            {files.map((f, i) => (
+              <li
+                key={`${f.name}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm"
+              >
+                <span className="min-w-0 flex-1 truncate" title={f.name}>
+                  <span className="font-medium text-gray-900">{f.name}</span>
+                  <span className="ml-2 text-xs text-gray-500">
+                    {formatBytes(f.size)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  disabled={submitting}
+                  aria-label={`Remove ${f.name}`}
+                  className="text-xs font-medium text-gray-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {files.length > 0 ? (
+          <div className="mt-2" aria-label="Total attachment size">
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>
+                {formatBytes(totalSize)} / {formatBytes(MAX_TOTAL_SIZE_BYTES)}
+              </span>
+              <span>
+                {files.length} of {MAX_FILES_PER_SUBMISSION} files
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className={`h-full ${
+                  totalPct >= 90 ? "bg-amber-500" : "bg-gray-900"
+                }`}
+                style={{ width: `${totalPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {error ? (

@@ -27,6 +27,7 @@
 import {
   IdeaRepository,
   ProjectRepository,
+  type IdeaAttachment,
   type IdeaId,
   type IdeaStatus,
   type IdeaUrgency,
@@ -39,6 +40,15 @@ import {
   type ProjectType,
   type UserId,
 } from "@/lib/db";
+import {
+  validateAttachments,
+  AttachmentValidationError,
+  type IncomingAttachment,
+} from "./attachments";
+import {
+  deleteAttachments,
+  uploadAttachment,
+} from "./attachments-server";
 import {
   createProject,
   ValidationError as ProjectValidationError,
@@ -184,6 +194,7 @@ const MAX_STAKEHOLDERS = 500;
  */
 export async function submitIdea(
   payload: IdeaSubmitPayload,
+  attachments?: IncomingAttachment[],
 ): Promise<ProjectIdea> {
   const submitter_name = asString(payload.submitter_name, "submitter_name");
   if (!submitter_name) {
@@ -236,6 +247,25 @@ export async function submitIdea(
     );
   }
 
+  // Attachments are validated against the MIME allowlist and size
+  // caps BEFORE we touch storage or the database. If any file fails,
+  // the whole submission is rejected — partial accepts would either
+  // confuse the submitter or invite an attacker to use rejection
+  // messages as a probe. AttachmentValidationError is re-raised as
+  // ValidationError so the public route's existing error mapping
+  // surfaces it as a 400 with the original message.
+  let validatedFiles: ReturnType<typeof validateAttachments> = [];
+  if (attachments && attachments.length > 0) {
+    try {
+      validatedFiles = validateAttachments(attachments);
+    } catch (err) {
+      if (err instanceof AttachmentValidationError) {
+        throw new ValidationError(err.message);
+      }
+      throw err;
+    }
+  }
+
   const idea = await IdeaRepository.create({
     submitter_name,
     submitter_email,
@@ -247,6 +277,37 @@ export async function submitIdea(
     status: "New",
   });
 
+  // Upload each file to Supabase Storage. We do this AFTER the idea
+  // row is created so we have a stable idea_id to use as the
+  // storage path prefix. If any file fails to upload, clean up
+  // every file that did make it and delete the idea row — this
+  // submission is fully rolled back.
+  let savedAttachments: IdeaAttachment[] = [];
+  if (validatedFiles.length > 0) {
+    const uploadedPaths: string[] = [];
+    try {
+      for (const v of validatedFiles) {
+        const rec = await uploadAttachment(idea.idea_id, v);
+        uploadedPaths.push(rec.storage_path);
+        savedAttachments.push(rec);
+      }
+      await IdeaRepository.update(idea.idea_id, {
+        attachments: savedAttachments,
+      });
+    } catch (err) {
+      // Roll back: remove uploaded files, delete idea record.
+      await deleteAttachments(uploadedPaths);
+      try {
+        await IdeaRepository.delete(idea.idea_id);
+      } catch {
+        // best-effort
+      }
+      const msg =
+        err instanceof Error ? err.message : "Attachment upload failed.";
+      throw new ValidationError(msg);
+    }
+  }
+
   // Public submissions have no logged-in actor — record `null` so the
   // audit page renders "(public submission)" instead of attributing
   // the row to a system user.
@@ -256,10 +317,16 @@ export async function submitIdea(
     entityId: idea.idea_id,
     entityLabel: idea.idea_name,
     action: "create",
-    summary: `Idea submitted by ${idea.submitter_name} (${idea.urgency} urgency).`,
+    summary: `Idea submitted by ${idea.submitter_name} (${idea.urgency} urgency)${
+      savedAttachments.length > 0
+        ? ` with ${savedAttachments.length} attachment(s)`
+        : ""
+    }.`,
   });
 
-  return idea;
+  return savedAttachments.length > 0
+    ? { ...idea, attachments: savedAttachments }
+    : idea;
 }
 
 // ---------------------------------------------------------------------------

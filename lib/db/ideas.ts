@@ -22,9 +22,13 @@ export type CreateIdeaInput = Omit<
   | "admin_comments"
   | "converted_to_project_id"
   | "ai_overlap_analysis"
+  | "attachments"
 > &
   Partial<
-    Pick<ProjectIdea, "status" | "admin_comments" | "ai_overlap_analysis">
+    Pick<
+      ProjectIdea,
+      "status" | "admin_comments" | "ai_overlap_analysis" | "attachments"
+    >
   >;
 
 export type UpdateIdeaInput = Partial<

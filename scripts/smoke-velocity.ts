@@ -216,6 +216,7 @@ async function main() {
       admin_comments: "",
       converted_to_project_id: null,
       ai_overlap_analysis: null,
+      attachments: [],
       ...overrides,
     };
   }

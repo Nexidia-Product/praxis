@@ -347,6 +347,50 @@ export function IdeaReviewPanel({
         ) : null}
       </section>
 
+      {/* ---- Attachments ----
+          Files the submitter uploaded with their idea. Only rendered
+          when there's at least one — empty arrays don't earn space. */}
+      {idea.attachments && idea.attachments.length > 0 ? (
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-900">
+            Attachments ({idea.attachments.length})
+          </h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Uploaded by the submitter. Click Download to fetch a short-lived
+            signed URL and save the file locally.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {idea.attachments.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="truncate text-sm font-medium text-gray-900"
+                    title={a.filename}
+                  >
+                    {a.filename}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {a.content_type}
+                    {" · "}
+                    {formatAttachmentSize(a.size_bytes)}
+                  </div>
+                </div>
+                <a
+                  href={`/api/ideas/${idea.idea_id}/attachments/${a.id}`}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50"
+                  rel="noopener"
+                >
+                  Download
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* ---- AI overlap check ----
           Section is only rendered when there's something to show: either
           AI is enabled (so the trigger button is meaningful) or an
@@ -459,4 +503,10 @@ function formatTimestamp(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function formatAttachmentSize(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }

@@ -652,6 +652,32 @@ export interface ProjectIdea {
   converted_to_project_id: ProjectId | null;
   /** Cached Claude analysis from the most recent overlap check. */
   ai_overlap_analysis: string | null;
+  /**
+   * Files attached to the submission. Empty array when none were
+   * uploaded. Stored in the `idea-attachments` Supabase Storage
+   * bucket (private — admin reviewers download via signed URLs).
+   */
+  attachments: IdeaAttachment[];
+}
+
+/**
+ * One file attached to a submitted idea. Original `filename` is
+ * preserved for display; `storage_path` is the canonical key inside
+ * the `idea-attachments` bucket and is what's used to fetch the file
+ * back. The `id` is a UUID generated at upload time so the same
+ * filename can be uploaded twice without collision and so deletion
+ * of one attachment doesn't touch the others.
+ */
+export interface IdeaAttachment {
+  id: string;
+  /** As supplied by the submitter, sanitized but human-readable. */
+  filename: string;
+  /** Path within the `idea-attachments` bucket. */
+  storage_path: string;
+  /** MIME type — server-validated against the allowlist on upload. */
+  content_type: string;
+  size_bytes: number;
+  uploaded_at: IsoTimestamp;
 }
 
 // ---------------------------------------------------------------------------

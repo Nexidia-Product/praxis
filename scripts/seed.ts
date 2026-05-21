@@ -695,6 +695,7 @@ function transformIdeas(
       admin_comments: asString(raw["Comments"]),
       converted_to_project_id: convertedProjectId,
       ai_overlap_analysis: null,
+      attachments: [],
     });
   }
 
