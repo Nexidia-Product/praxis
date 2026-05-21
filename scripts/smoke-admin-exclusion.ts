@@ -108,6 +108,7 @@ async function main() {
     return {
       name: `Project ${overrides.project_id}`,
       description: "test project",
+      definition_of_done: "",
       application_product: "Automated Insights",
       project_type: "New Application",
       date_added: "2026-01-01",

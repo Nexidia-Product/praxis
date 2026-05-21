@@ -77,6 +77,7 @@ async function main() {
       project_id: "2026-001",
       name: "Test project",
       description: "Lorem ipsum",
+      definition_of_done: "",
       application_product: "Insights",
       project_type: "New Feature",
       date_added: "2026-01-15",

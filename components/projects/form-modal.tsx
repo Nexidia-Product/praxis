@@ -147,6 +147,12 @@ interface FormState {
    */
   ai_complexity_score: ComplexityScore | null;
   ai_time_estimate: string | null;
+  /**
+   * "Definition of done" — free-form text describing the project's
+   * acceptance criteria. Editable here; surfaced on the quick-view
+   * Details tab. Empty string when unset.
+   */
+  definition_of_done: string;
 }
 
 function emptyState(customFields: CustomFieldDefinition[]): FormState {
@@ -171,6 +177,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     external_dependencies: [],
     ai_complexity_score: null,
     ai_time_estimate: null,
+    definition_of_done: "",
   };
 }
 
@@ -250,6 +257,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     external_dependencies: p.external_dependencies ?? [],
     ai_complexity_score: p.ai_complexity_score ?? null,
     ai_time_estimate: p.ai_time_estimate ?? null,
+    definition_of_done: p.definition_of_done ?? "",
   };
 }
 
@@ -292,6 +300,7 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     // touch the AI suggestion.
     ai_complexity_score: s.ai_complexity_score,
     ai_time_estimate: s.ai_time_estimate,
+    definition_of_done: s.definition_of_done,
   };
   // Only attach template_id on create, and only when the user picked one.
   // On edit it would be ignored by the service layer anyway, but stripping
@@ -638,6 +647,22 @@ export function ProjectFormModal({
             {aiError ? (
               <p className="mt-1 text-xs text-red-600">{aiError}</p>
             ) : null}
+          </Field>
+
+          <Field id="proj-dod" label="Definition of done">
+            <textarea
+              id="proj-dod"
+              value={state.definition_of_done}
+              onChange={(e) => update("definition_of_done", e.target.value)}
+              rows={3}
+              disabled={saving}
+              className={baseInput}
+              placeholder="What needs to be true to mark this project complete? Acceptance criteria, deliverables, success metric, etc."
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              The description says what we&apos;re doing; this says how
+              we&apos;ll know we&apos;re done. Shown in the project quick view.
+            </p>
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

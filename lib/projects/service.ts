@@ -123,6 +123,7 @@ export class ValidationError extends Error {
 export interface ProjectCreatePayload {
   name?: unknown;
   description?: unknown;
+  definition_of_done?: unknown;
   application_product?: unknown;
   project_type?: unknown;
   priority?: unknown;
@@ -356,6 +357,10 @@ async function validateAndShape(
   const name = asString(payload.name, "name");
   if (!name) throw new ValidationError("name is required.");
   const description = asOptionalString(payload.description, "description");
+  const definition_of_done = asOptionalString(
+    payload.definition_of_done,
+    "definition_of_done",
+  );
   const application_product = asString(
     payload.application_product,
     "application_product",
@@ -447,6 +452,7 @@ async function validateAndShape(
   return {
     name,
     description,
+    definition_of_done,
     application_product,
     project_type,
     priority,
@@ -720,6 +726,12 @@ export async function updateProject(
   }
   if (payload.description !== undefined) {
     patch.description = asOptionalString(payload.description, "description");
+  }
+  if (payload.definition_of_done !== undefined) {
+    patch.definition_of_done = asOptionalString(
+      payload.definition_of_done,
+      "definition_of_done",
+    );
   }
   if (payload.application_product !== undefined) {
     const ap = asString(payload.application_product, "application_product");

@@ -27,9 +27,16 @@ export type CreateProjectInput = Omit<
   | "health_score"
   | "health_score_history"
   | "status_history"
+  | "definition_of_done"
 > &
   Partial<
-    Pick<Project, "health_score" | "health_score_history" | "status_history">
+    Pick<
+      Project,
+      | "health_score"
+      | "health_score_history"
+      | "status_history"
+      | "definition_of_done"
+    >
   >;
 
 /** Fields accepted by `update`. ID and `date_added` are immutable. */

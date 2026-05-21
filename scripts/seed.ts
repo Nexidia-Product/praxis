@@ -409,6 +409,7 @@ function transformProjects(
       project_id: projectId,
       name,
       description: asString(raw["Project Description"]),
+      definition_of_done: "",
       application_product: asString(raw["Application/Product"]),
       project_type: projectType,
       date_added: dateAdded,

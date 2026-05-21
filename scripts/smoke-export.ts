@@ -188,6 +188,7 @@ async function main() {
       project_id: p.project_id,
       name: p.name ?? "Sample project",
       description: p.description ?? "",
+      definition_of_done: p.definition_of_done ?? "",
       application_product: p.application_product ?? "Insights",
       project_type: p.project_type ?? "New Application",
       date_added: p.date_added ?? "2026-01-01",

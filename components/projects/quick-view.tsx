@@ -432,6 +432,14 @@ export function ProjectQuickView({
                 </Section>
               ) : null}
 
+              {project.definition_of_done ? (
+                <Section title="Definition of done">
+                  <p className="whitespace-pre-wrap text-sm text-gray-700">
+                    {project.definition_of_done}
+                  </p>
+                </Section>
+              ) : null}
+
               {/* Step 8 (Section 5.13): 30-day health-score sparkline.
                   Rendered after Description so the most-scanned content
                   is up top, but before stakeholders so it sits visually

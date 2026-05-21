@@ -310,6 +310,13 @@ export interface Project {
   name: string;
   /** Full description; consumed by the AI complexity scorer (Section 5.16). */
   description: string;
+  /**
+   * Free-form text describing what "done" looks like for this
+   * project — acceptance criteria, deliverable list, success metric.
+   * The description says "what we're doing"; this says "how we'll
+   * know we're done". Empty string when the lead hasn't set one yet.
+   */
+  definition_of_done: string;
   /** e.g. `"Automated Insights"`, `"Complaints"`. Free-form. */
   application_product: string;
   project_type: ProjectType;

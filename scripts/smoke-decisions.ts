@@ -384,6 +384,7 @@ async function main() {
       project_id: id,
       name: id,
       description: "",
+      definition_of_done: "",
       application_product: "Test",
       project_type: "New Feature",
       date_added: "2026-04-01",
