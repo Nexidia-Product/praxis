@@ -40,6 +40,12 @@ export type { CreateDecisionInput } from "./decisions";
 export { TemplateRepository } from "./templates";
 export type { CreateTemplateInput, UpdateTemplateInput } from "./templates";
 
+export { ProjectGroupRepository } from "./project-groups";
+export type {
+  CreateProjectGroupInput,
+  UpdateProjectGroupInput,
+} from "./project-groups";
+
 export { AuditLogRepository } from "./audit-log";
 export type { CreateAuditEntryInput, RecentAuditQuery } from "./audit-log";
 

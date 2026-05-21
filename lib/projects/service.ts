@@ -1065,6 +1065,30 @@ export async function deleteProject(
 
   await ProjectRepository.delete(id);
 
+  // Project groups (§5.x) store their membership as a text[] on each
+  // group row, so the FK cascade from public.tasks → public.projects
+  // can't reach them. Prune the deleted project's ID from every group
+  // it belonged to before this point, mirroring the
+  // `depends_on` cleanup that ProjectRepository.delete already does
+  // for the dependency graph. Imported lazily because lib/projects
+  // is also imported by the group service path; doing it inside the
+  // function keeps the module graph acyclic.
+  try {
+    const { pruneProjectFromGroups } = await import(
+      "@/lib/project-groups/service"
+    );
+    await pruneProjectFromGroups(id);
+  } catch (err) {
+    // Best-effort: a failure here leaves a dangling ID in a group's
+    // member list, which the UI tolerates (it filters unresolved IDs
+    // out at render time). Log and continue rather than failing the
+    // whole delete, which is harder to recover from.
+    console.warn(
+      `[project-groups] pruneProjectFromGroups failed for ${id}:`,
+      err,
+    );
+  }
+
   for (const downId of formerDownstreams) {
     try {
       await fireProjectHealthRecalc(downId);

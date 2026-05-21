@@ -42,6 +42,7 @@ export type TemplateId = string;
 export type NotificationId = string;
 export type DecisionEntryId = string;
 export type AuditEntryId = string;
+export type ProjectGroupId = string;
 
 /** ISO 8601 timestamp string (e.g. `2026-04-23T14:30:00Z`). */
 export type IsoTimestamp = string;
@@ -478,6 +479,33 @@ export interface TaskCommentEntry {
   previous_text: string | null;
   changed_by: UserId | null;
   changed_by_name: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Project groups — symmetric, named clusters of related projects.
+// ---------------------------------------------------------------------------
+//
+// Distinct from `ProjectDependency` (finish-to-start ordering). A group
+// is a metadata-only container expressing "these projects share an
+// analysis / dataset / domain context and should be considered
+// together when planning." Membership is stored on the group, not on
+// each project — the per-project "what groups am I in?" lookup goes
+// through a GIN index on `member_project_ids`.
+//
+// A project can belong to N groups; a group can have N members.
+
+export interface ProjectGroup {
+  group_id: ProjectGroupId;
+  /** Display name, e.g. "Repeat Call Analysis cluster". */
+  name: string;
+  /** Free-form context: why these projects are clustered. */
+  description: string;
+  /** Projects in this group, by `YYYY-NNN` ID. Order is preserved. */
+  member_project_ids: ProjectId[];
+  /** UserId who created the group. `null` for legacy / system seeds. */
+  created_by: UserId | null;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
 }
 
 // ---------------------------------------------------------------------------

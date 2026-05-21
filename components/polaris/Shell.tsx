@@ -40,6 +40,7 @@ export type NavKey =
   | "tasks"
   | "my-tasks"
   | "roadmap"
+  | "groups"
   | "velocity"
   | "resources"
   | "ideas"
@@ -92,6 +93,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: "tasks", label: "Tasks", href: "/tasks", icon: "☰" },
       { key: "my-tasks", label: "My tasks", href: "/my-tasks", icon: "✓" },
       { key: "roadmap", label: "Roadmap", href: "/roadmap", icon: "▤" },
+      { key: "groups", label: "Groups", href: "/groups", icon: "◖" },
     ],
   },
   {
