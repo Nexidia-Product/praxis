@@ -231,6 +231,14 @@ interface ProjectsTableProps {
    * means "no indicator, no panel."
    */
   groups?: ProjectGroup[];
+  /**
+   * Names of every active user in the system. Threaded into the
+   * project form modal's Project lead dropdown so a brand-new
+   * project can be assigned to anyone, not just users who already
+   * lead a project. The filter bar's lead list stays
+   * project-derived; only the form gets the full roster.
+   */
+  activeUserNames?: string[];
 }
 
 export function ProjectsTable({
@@ -243,6 +251,7 @@ export function ProjectsTable({
   quadrantLabels,
   aiEnabled,
   groups = [],
+  activeUserNames = [],
 }: ProjectsTableProps) {
   // Index groups by their member project IDs once per render so the
   // per-row indicator and the quick-view panel can both look up
@@ -294,6 +303,8 @@ export function ProjectsTable({
     : currentUserRole === "Admin";
 
   // ---- Derived option lists for the filter bar / form datalists. ----
+  // leadOptions is the project-derived list — used by the filter bar
+  // so "filter by lead" only shows leads who actually have projects.
   const leadOptions = useMemo(() => {
     const set = new Set<string>();
     for (const p of projects) {
@@ -301,6 +312,27 @@ export function ProjectsTable({
     }
     return Array.from(set).sort();
   }, [projects]);
+
+  // formLeadOptions is the FORM's dropdown source — union of every
+  // active user's name with the project-derived list (so a legacy
+  // free-text lead still appears even if the user record is gone).
+  // Case-insensitive dedup: "Joe Smith" and "joe smith" collapse to
+  // the first-seen casing. The form treats this as a flat string
+  // list — same shape as before, just bigger.
+  const formLeadOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    const add = (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    };
+    for (const n of activeUserNames) add(n);
+    for (const l of leadOptions) add(l);
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [activeUserNames, leadOptions]);
 
   /**
    * Per-render priority rank lookup. Combines the system ordering
@@ -1162,7 +1194,7 @@ export function ProjectsTable({
         <ProjectFormModal
           project={null}
           customFields={customFields}
-          leadOptions={leadOptions}
+          leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
@@ -1182,7 +1214,7 @@ export function ProjectsTable({
         <ProjectFormModal
           project={modalProject}
           customFields={customFields}
-          leadOptions={leadOptions}
+          leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}

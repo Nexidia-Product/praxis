@@ -25,6 +25,7 @@ import {
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
+  UserRepository,
 } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
 import { ProjectsTable } from "@/components/projects/projects-table";
@@ -35,12 +36,24 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [projects, settings, templates, groups] = await Promise.all([
+  const [projects, settings, templates, groups, users] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     ProjectGroupRepository.getAll(),
+    UserRepository.getAll(),
   ]);
+
+  // Active-user names for the project form's Project lead dropdown.
+  // The filter bar's lead list stays project-derived (filtering by a
+  // lead with no projects yields nothing useful), but the form needs
+  // the full roster so a brand-new user can be assigned without
+  // appearing in any project first.
+  const activeUserNames = users
+    .filter((u) => u.active)
+    .map((u) => u.name.trim())
+    .filter((n) => n.length > 0)
+    .sort();
 
   // Merge built-in enum values with admin-added extensions (Section 5.19).
   // We exclude archived values from the dropdown lists used in the table
@@ -87,6 +100,7 @@ export default async function ProjectsPage() {
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         groups={groups}
+        activeUserNames={activeUserNames}
       />
     </PolarisShell>
   );

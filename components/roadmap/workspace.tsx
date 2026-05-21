@@ -100,6 +100,14 @@ interface RoadmapWorkspaceProps {
    * production. Optional; defaults to false.
    */
   aiEnabled?: boolean;
+  /**
+   * Names of every active user. Unioned with the project-derived
+   * lead list to populate the form modal's Project lead dropdown
+   * (so a brand-new project can be assigned to anyone, not just
+   * users who already lead a project). Optional; when omitted the
+   * dropdown falls back to project-derived names only.
+   */
+  activeUserNames?: string[];
 }
 
 export function RoadmapWorkspace({
@@ -112,6 +120,7 @@ export function RoadmapWorkspace({
   enumOptions,
   templates,
   aiEnabled = false,
+  activeUserNames = [],
 }: RoadmapWorkspaceProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   // Project being edited. When non-null, ProjectFormModal is mounted
@@ -163,6 +172,26 @@ export function RoadmapWorkspace({
       applicationOptions: Array.from(apps).sort(),
     };
   }, [projects]);
+
+  // formLeadOptions is the FORM modal's dropdown source (reachable
+  // via the Edit project button on the quick view). Unions every
+  // active user's name with the project-derived list, case-
+  // insensitive dedup. The filter bar keeps `leadOptions` —
+  // filtering by a lead who has no projects yields nothing useful.
+  const formLeadOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    const add = (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    };
+    for (const n of activeUserNames) add(n);
+    for (const l of leadOptions) add(l);
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [activeUserNames, leadOptions]);
 
   // Filtered list shared by every view. Some views (timeline, bubble)
   // accept the `includeClosed` toggle; the others always hide closed
@@ -459,7 +488,7 @@ export function RoadmapWorkspace({
         <ProjectFormModal
           project={editingProject}
           customFields={customFields}
-          leadOptions={leadOptions}
+          leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}

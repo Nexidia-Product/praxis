@@ -19,6 +19,7 @@ import {
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
+  UserRepository,
 } from "@/lib/db";
 import { isAdminProject } from "@/lib/projects/display";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
@@ -30,11 +31,21 @@ export const dynamic = "force-dynamic";
 export default async function RoadmapPage() {
   const session = await requirePermission("roadmap.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings, templates] = await Promise.all([
+  const [allProjects, settings, templates, users] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
+    UserRepository.getAll(),
   ]);
+
+  // Active-user names for the project form's Project lead dropdown
+  // (reachable from the roadmap quick view's Edit button). Same
+  // shape and treatment as on /projects.
+  const activeUserNames = users
+    .filter((u) => u.active)
+    .map((u) => u.name.trim())
+    .filter((n) => n.length > 0)
+    .sort();
 
   // Merged option lists (built-ins + admin extensions, archived
   // values excluded). Threaded into the workspace so the edit modal
@@ -86,6 +97,7 @@ export default async function RoadmapPage() {
         enumOptions={enumOptions}
         templates={templates}
         aiEnabled={isAiEnabled()}
+        activeUserNames={activeUserNames}
       />
     </PolarisShell>
   );
