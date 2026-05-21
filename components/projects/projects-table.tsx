@@ -893,12 +893,18 @@ export function ProjectsTable({
                               : `In ${memberOf.length} groups: ${memberOf
                                   .map((g) => g.name)
                                   .join(", ")}`;
+                          // Tailwind `blue-*` (not `sky-*`) to match the
+                          // existing major_bet portfolio chip and the
+                          // member-count badge in the quick view —
+                          // Lyra wants a single blue hue across every
+                          // interactive accent, and our codebase
+                          // chose `blue` for it.
                           return (
                             <span
                               role="img"
                               aria-label={tooltip}
                               title={tooltip}
-                              className="inline-flex items-center gap-0.5 rounded-full bg-sky-50 px-1.5 py-0 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200"
+                              className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200"
                             >
                               ◖{memberOf.length > 1 ? memberOf.length : ""}
                             </span>

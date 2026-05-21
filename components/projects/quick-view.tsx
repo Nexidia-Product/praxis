@@ -1139,7 +1139,7 @@ function RelatedGroupsPanel({
                   <p className="mt-1 text-xs text-gray-600">{g.description}</p>
                 ) : null}
               </div>
-              <span className="whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200">
+              <span className="whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200">
                 {g.member_project_ids.length} member
                 {g.member_project_ids.length === 1 ? "" : "s"}
               </span>
