@@ -1061,6 +1061,20 @@ function ApplyTemplateModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, busy]);
 
+  // Project picker order: project_id ascending so YYYY-NNN sorts
+  // by year then sequence (oldest at the top, newest at the
+  // bottom). The parent's `projects` array can arrive in any
+  // order; we don't want the dropdown to inherit whatever
+  // happens to be on screen. Memoized so we don't re-sort on
+  // every keystroke.
+  const sortedProjects = useMemo(
+    () =>
+      [...projects].sort((a, b) =>
+        a.project_id < b.project_id ? -1 : a.project_id > b.project_id ? 1 : 0,
+      ),
+    [projects],
+  );
+
   // Templates that match the selected project's type. When no
   // project is picked yet, we show all templates so the user can
   // see what's available — they'll get filtered down once they
@@ -1178,7 +1192,7 @@ function ApplyTemplateModal({
               className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
             >
               <option value="">— Select a project —</option>
-              {projects.map((p) => (
+              {sortedProjects.map((p) => (
                 <option key={p.project_id} value={p.project_id}>
                   {p.project_id} — {p.name} ({p.project_type})
                 </option>
