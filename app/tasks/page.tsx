@@ -18,6 +18,7 @@ import {
   ProjectRepository,
   TaskRepository,
   TemplateRepository,
+  UserRepository,
 } from "@/lib/db";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -35,11 +36,22 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const projectFilter =
     typeof params.project === "string" ? params.project : null;
 
-  const [tasks, projects, templates] = await Promise.all([
+  const [tasks, projects, templates, users] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
+    UserRepository.getAll(),
   ]);
+
+  // Active-user names for the task form's Responsible dropdown.
+  // The filter bar's Responsible list stays task-derived; only the
+  // form needs the full roster so a brand-new user can be assigned
+  // without first appearing in some task.
+  const activeUserNames = users
+    .filter((u) => u.active)
+    .map((u) => u.name.trim())
+    .filter((n) => n.length > 0)
+    .sort();
 
   return (
     <PolarisShell
@@ -59,6 +71,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         currentUserRole={session.user.role}
         permissions={permissions}
         defaultProjectId={projectFilter ?? undefined}
+        activeUserNames={activeUserNames}
       />
     </PolarisShell>
   );

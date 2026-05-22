@@ -20,6 +20,7 @@ import {
   ProjectRepository,
   TaskRepository,
   TemplateRepository,
+  UserRepository,
 } from "@/lib/db";
 import { isAssignedToUser } from "@/lib/tasks/display";
 import { TasksTable } from "@/components/tasks/tasks-table";
@@ -33,11 +34,18 @@ export default async function MyTasksPage() {
   const userId = session.user.user_id;
   const userName = session.user.name ?? "";
 
-  const [allTasks, projects, templates] = await Promise.all([
+  const [allTasks, projects, templates, users] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
+    UserRepository.getAll(),
   ]);
+
+  const activeUserNames = users
+    .filter((u) => u.active)
+    .map((u) => u.name.trim())
+    .filter((n) => n.length > 0)
+    .sort();
 
   // Same helper the home KPI uses (HOME-02) so the count and the list
   // can never disagree.
@@ -64,6 +72,7 @@ export default async function MyTasksPage() {
         permissions={permissions}
         scopeToUser
         defaultResponsible={userName || undefined}
+        activeUserNames={activeUserNames}
       />
     </PolarisShell>
   );

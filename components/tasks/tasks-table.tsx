@@ -159,6 +159,16 @@ interface TasksTableProps {
   defaultProjectId?: string;
   /** Pre-fills `responsible` on new tasks (My Tasks page passes the user's name). */
   defaultResponsible?: string;
+  /**
+   * Names of every active user. Unioned with the task-derived list
+   * to populate the task form's Responsible dropdown so a
+   * brand-new user can be assigned without first appearing on
+   * some task. The filter bar's Responsible list stays
+   * task-derived (filtering by someone with no tasks is useless).
+   * Optional; when omitted the dropdown falls back to task-derived
+   * names only.
+   */
+  activeUserNames?: string[];
 }
 
 export function TasksTable({
@@ -170,6 +180,7 @@ export function TasksTable({
   scopeToUser,
   defaultProjectId,
   defaultResponsible,
+  activeUserNames = [],
 }: TasksTableProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [filters, setFilters] = useState<TaskFilters>(() => {
@@ -247,6 +258,28 @@ export function TasksTable({
     }
     return Array.from(set).sort();
   }, [tasks]);
+
+  // formResponsibleOptions is the FORM modal's dropdown source.
+  // Unions every active user's name with the task-derived list,
+  // case-insensitive dedup. The filter bar keeps the task-derived
+  // list (filtering by someone with no tasks would yield nothing
+  // useful); only the form gets the full roster so a brand-new
+  // user can be assigned to a task without first appearing in
+  // existing data.
+  const formResponsibleOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    const add = (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    };
+    for (const n of activeUserNames) add(n);
+    for (const r of responsibleOptions) add(r);
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [activeUserNames, responsibleOptions]);
 
   // ---- Filtering. ----
   const visibleTasks = useMemo(() => {
@@ -682,7 +715,7 @@ export function TasksTable({
           allTasks={tasks}
           defaultProjectId={defaultProjectId}
           defaultResponsible={defaultResponsible}
-          responsibleOptions={responsibleOptions}
+          responsibleOptions={formResponsibleOptions}
           onClose={() => setShowCreate(false)}
           onSaved={(t) => {
             applyCreated(t);
@@ -696,7 +729,7 @@ export function TasksTable({
           task={editTask}
           projects={projects}
           allTasks={tasks}
-          responsibleOptions={responsibleOptions}
+          responsibleOptions={formResponsibleOptions}
           readOnly={!canEdit}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {
