@@ -30,6 +30,8 @@ import type {
   Project,
   Task,
   TaskCommentEntry,
+  TaskDependency,
+  TaskDependencyType,
   TaskStatus,
 } from "@/lib/db";
 
@@ -82,6 +84,12 @@ interface FormState {
   blocker_task_id: string;
   blocker_project_id: string;
   comments: string;
+  /**
+   * PM-style task dependencies (FS/SS/FF/SF). Held in form state so
+   * the Dependencies tab can add/remove entries and the Save call
+   * persists them. Empty array when the task has no predecessors.
+   */
+  dependencies: TaskDependency[];
 }
 
 function emptyState(
@@ -104,6 +112,7 @@ function emptyState(
     blocker_task_id: "",
     blocker_project_id: "",
     comments: "",
+    dependencies: [],
   };
 }
 
@@ -124,6 +133,7 @@ function fromTask(t: Task): FormState {
     blocker_task_id: t.blocker_task_id ?? "",
     blocker_project_id: t.blocker_project_id ?? "",
     comments: t.comments,
+    dependencies: t.dependencies ?? [],
   };
 }
 
@@ -160,6 +170,7 @@ function toCreatePayload(s: FormState) {
     blocker_task_id,
     blocker_project_id,
     comments: s.comments,
+    dependencies: s.dependencies,
   };
 }
 
@@ -200,7 +211,9 @@ export function TaskFormModal({
   // Tabs (Details / Comments) — only meaningful on edit, since
   // comment history doesn't exist before the task is saved. On create
   // we lock to "details" and don't render the tab strip.
-  const [tab, setTab] = useState<"details" | "comments">("details");
+  const [tab, setTab] = useState<"details" | "comments" | "dependencies">(
+    "details",
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -357,6 +370,7 @@ export function TaskFormModal({
               [
                 { id: "details", label: "Details" },
                 { id: "comments", label: "Comments" },
+                { id: "dependencies", label: "Dependencies" },
               ] as const
             ).map((t) => {
               const active = tab === t.id;
@@ -379,6 +393,12 @@ export function TaskFormModal({
                   {t.id === "comments" && task!.comment_history.length > 0 ? (
                     <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
                       {task!.comment_history.length}
+                    </span>
+                  ) : null}
+                  {t.id === "dependencies" &&
+                  (task!.dependencies?.length ?? 0) > 0 ? (
+                    <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
+                      {task!.dependencies.length}
                     </span>
                   ) : null}
                 </button>
@@ -747,6 +767,24 @@ export function TaskFormModal({
               <CommentsTab task={task!} />
             </div>
           ) : null}
+
+          {tab === "dependencies" && isEdit ? (
+            <div
+              role="tabpanel"
+              id="task-panel-dependencies"
+              aria-labelledby="task-tab-dependencies"
+              className="space-y-4 px-6 py-5"
+            >
+              <DependenciesTab
+                currentTaskId={task!.task_id}
+                allTasks={allTasks ?? []}
+                projects={projects}
+                value={state.dependencies}
+                disabled={readOnly || saving}
+                onChange={(next) => update("dependencies", next)}
+              />
+            </div>
+          ) : null}
         </div>
 
         <footer
@@ -916,5 +954,202 @@ function CommentHistoryRow({ entry }: { entry: TaskCommentEntry }) {
         </p>
       ) : null}
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dependencies tab — PM-style FS / SS / FF / SF
+// ---------------------------------------------------------------------------
+
+const DEPENDENCY_TYPE_LABELS: Record<TaskDependencyType, string> = {
+  FS: "Finish-to-Start",
+  SS: "Start-to-Start",
+  FF: "Finish-to-Finish",
+  SF: "Start-to-Finish",
+};
+
+interface DependenciesTabProps {
+  currentTaskId: string;
+  allTasks: Task[];
+  projects: Project[];
+  value: TaskDependency[];
+  disabled: boolean;
+  onChange: (next: TaskDependency[]) => void;
+}
+
+function DependenciesTab({
+  currentTaskId,
+  allTasks,
+  projects,
+  value,
+  disabled,
+  onChange,
+}: DependenciesTabProps) {
+  const [picker, setPicker] = useState<string>("");
+  const [type, setType] = useState<TaskDependencyType>("FS");
+
+  // Pre-index tasks for the row display + picker. Excludes the
+  // current task (can't depend on self) and any task already listed
+  // (no duplicates). Sorted by project then task ID so the picker
+  // groups visually.
+  const projectsById = new Map(projects.map((p) => [p.project_id, p]));
+  const tasksById = new Map(allTasks.map((t) => [t.task_id, t]));
+  const alreadyPicked = new Set(value.map((d) => d.predecessor_task_id));
+  const candidates = allTasks
+    .filter((t) => t.task_id !== currentTaskId && !alreadyPicked.has(t.task_id))
+    .sort((a, b) => {
+      if (a.project_id !== b.project_id)
+        return a.project_id < b.project_id ? -1 : 1;
+      return a.task_id < b.task_id ? -1 : 1;
+    });
+
+  function addDependency() {
+    if (!picker) return;
+    onChange([
+      ...value,
+      { predecessor_task_id: picker, type },
+    ]);
+    setPicker("");
+    setType("FS");
+  }
+
+  function removeAt(idx: number) {
+    onChange(value.filter((_, i) => i !== idx));
+  }
+
+  function changeType(idx: number, next: TaskDependencyType) {
+    onChange(value.map((d, i) => (i === idx ? { ...d, type: next } : d)));
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-600">
+        Add predecessor tasks and the relationship type. These are
+        planning links — separate from the &ldquo;blocked&rdquo; field on
+        Details, which marks a task as currently stuck. Cycles
+        (A&nbsp;→&nbsp;B&nbsp;→&nbsp;A) and self-references are
+        rejected on save.
+      </p>
+
+      {value.length === 0 ? (
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
+          No dependencies yet.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {value.map((d, i) => {
+            const t = tasksById.get(d.predecessor_task_id);
+            const project = t ? projectsById.get(t.project_id) : null;
+            return (
+              <li
+                key={`${d.predecessor_task_id}-${i}`}
+                className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-gray-900">
+                    {t ? (
+                      <>
+                        <span className="font-mono text-xs text-gray-500">
+                          {d.predecessor_task_id}
+                        </span>{" "}
+                        {t.task_name}
+                      </>
+                    ) : (
+                      <span className="text-red-700">
+                        {d.predecessor_task_id} (not found)
+                      </span>
+                    )}
+                  </div>
+                  {project ? (
+                    <div className="text-xs text-gray-500">
+                      {project.project_id} — {project.name}
+                    </div>
+                  ) : null}
+                </div>
+                <select
+                  value={d.type}
+                  onChange={(e) =>
+                    changeType(i, e.target.value as TaskDependencyType)
+                  }
+                  disabled={disabled}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  aria-label="Dependency type"
+                >
+                  {(Object.keys(DEPENDENCY_TYPE_LABELS) as TaskDependencyType[]).map(
+                    (k) => (
+                      <option key={k} value={k}>
+                        {k} — {DEPENDENCY_TYPE_LABELS[k]}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  disabled={disabled}
+                  aria-label={`Remove dependency on ${d.predecessor_task_id}`}
+                  className="text-xs font-medium text-gray-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {disabled ? null : (
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+            Add dependency
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <select
+              value={picker}
+              onChange={(e) => setPicker(e.target.value)}
+              className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              aria-label="Predecessor task"
+            >
+              <option value="">— Select a predecessor task —</option>
+              {candidates.map((t) => {
+                const project = projectsById.get(t.project_id);
+                return (
+                  <option key={t.task_id} value={t.task_id}>
+                    {t.task_id} — {t.task_name}
+                    {project ? ` (${project.project_id})` : ""}
+                  </option>
+                );
+              })}
+            </select>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as TaskDependencyType)}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              aria-label="Type"
+            >
+              {(Object.keys(DEPENDENCY_TYPE_LABELS) as TaskDependencyType[]).map(
+                (k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ),
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={addDependency}
+              disabled={!picker}
+              className="pol-btn pol-btn-secondary"
+            >
+              Add
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-500">
+            FS &mdash; Finish-to-Start (most common). SS, FF, SF available
+            from the type dropdown next to each row after adding.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

@@ -807,7 +807,24 @@ function TaskRow({
         {/* Task name is no longer a separate clickable button — the
             whole row opens the edit pane. We keep it as plain text so
             row-click is the single, consistent affordance. */}
-        <div className="font-medium text-gray-900">{task.task_name}</div>
+        <div className="flex items-center gap-1.5 font-medium text-gray-900">
+          <span>{task.task_name}</span>
+          {(task.dependencies?.length ?? 0) > 0 ? (
+            <span
+              role="img"
+              aria-label={`${task.dependencies.length} dependency${task.dependencies.length === 1 ? "" : "ies"}`}
+              title={
+                "Predecessor tasks:\n" +
+                task.dependencies
+                  .map((d) => `  ${d.type}: ${d.predecessor_task_id}`)
+                  .join("\n")
+              }
+              className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200"
+            >
+              ⇄{task.dependencies.length > 1 ? task.dependencies.length : ""}
+            </span>
+          ) : null}
+        </div>
         {task.blocked && task.blocker_issue_task ? (
           <p className="mt-0.5 text-xs text-red-700" title={task.blocker_issue_task}>
             ⚠ {truncate(task.blocker_issue_task, 60)}

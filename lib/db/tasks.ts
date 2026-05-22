@@ -18,9 +18,14 @@ const TABLE = "tasks" as const;
 
 export type CreateTaskInput = Omit<
   Task,
-  "task_id" | "created_at" | "updated_at" | "comment_history" | "estimate_hours"
+  | "task_id"
+  | "created_at"
+  | "updated_at"
+  | "comment_history"
+  | "estimate_hours"
+  | "dependencies"
 > &
-  Partial<Pick<Task, "comment_history" | "estimate_hours">>;
+  Partial<Pick<Task, "comment_history" | "estimate_hours" | "dependencies">>;
 
 export type UpdateTaskInput = Partial<
   Omit<Task, "task_id" | "project_id" | "created_at">

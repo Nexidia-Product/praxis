@@ -160,6 +160,7 @@ async function main() {
       comment_history: [],
       estimate_hours: null,
       document_links: [],
+      dependencies: [],
       template_id: null,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-04-15T00:00:00Z",

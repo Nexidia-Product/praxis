@@ -1,0 +1,37 @@
+-- =============================================================================
+-- Task dependencies (PM-style: FS / SS / FF / SF).
+-- =============================================================================
+--
+-- Distinct from the existing `blocker_*` fields on public.tasks. The
+-- blocker fields express "this task is currently prevented from
+-- moving forward by <thing>" — a runtime condition. Dependencies
+-- express "this task's work is structurally tied to that other
+-- task's work" — a planning relationship that's true regardless of
+-- current status.
+--
+-- Shape: one task carries an array of "predecessor" relationships.
+-- Successor side is computed (find tasks where I appear as a
+-- predecessor) if/when we surface it; we don't store both sides
+-- because that doubles the write surface and makes consistency
+-- a problem (every add/remove would have to touch two rows).
+--
+--   {
+--     "predecessor_task_id": "YY-NNNN",
+--     "type": "FS" | "SS" | "FF" | "SF"
+--   }
+--
+-- Type vocabulary:
+--   FS — Finish-to-Start  (predecessor must finish before this can start)
+--   SS — Start-to-Start   (predecessor must start before this can start)
+--   FF — Finish-to-Finish (predecessor must finish before this can finish)
+--   SF — Start-to-Finish  (predecessor must start before this can finish)
+--
+-- Lag/lead time (e.g. "start 2 days after predecessor finishes") is
+-- not modeled here. Common in pro-grade PM tools but a real UX
+-- complication; layer in later when the team asks for it.
+--
+-- Cross-project dependencies allowed by construction — predecessor
+-- task IDs aren't constrained to the same project.
+
+alter table public.tasks
+  add column if not exists dependencies jsonb not null default '[]'::jsonb;

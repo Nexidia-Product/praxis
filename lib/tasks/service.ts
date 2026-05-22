@@ -29,6 +29,8 @@ import {
   type ProjectId,
   type Task,
   type TaskCommentEntry,
+  type TaskDependency,
+  type TaskDependencyType,
   type TaskId,
   type TaskStatus,
   type TemplateId,
@@ -57,6 +59,8 @@ const TASK_STATUSES: TaskStatus[] = [
 ];
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
+
+const TASK_DEPENDENCY_TYPES: TaskDependencyType[] = ["FS", "SS", "FF", "SF"];
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -104,6 +108,8 @@ export interface TaskCreatePayload {
   document_links?: unknown;
   /** Optional time estimate in hours (decimal allowed; ≥0, ≤999, or null). */
   estimate_hours?: unknown;
+  /** PM-style dependencies array: { predecessor_task_id, type }. */
+  dependencies?: unknown;
 }
 
 /** PATCH payload — `project_id` is intentionally omitted (no reparenting). */
@@ -125,6 +131,8 @@ export interface TaskUpdatePayload {
   document_links?: unknown;
   /** Optional time estimate in hours (decimal allowed; ≥0, ≤999, or null). */
   estimate_hours?: unknown;
+  /** PM-style dependencies array: { predecessor_task_id, type }. */
+  dependencies?: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,6 +384,129 @@ async function resolveUserDisplayName(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Dependency validation (PM-style FS/SS/FF/SF)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate and shape a `dependencies` payload, rejecting:
+ *   - Non-array inputs
+ *   - Entries missing predecessor_task_id or with an invalid type
+ *   - Self-references (a task can't depend on itself)
+ *   - References to tasks that don't exist
+ *   - Cycles (A→B→A) — DFS through every other task's dependencies
+ *
+ * Duplicates of (predecessor_task_id, type) are silently collapsed.
+ * `selfTaskId` may be null on create (the task doesn't have an ID
+ * yet) — in that case we skip the self-reference and cycle checks
+ * since there's no `self` to compare against. The post-write
+ * cycle pass in updateTask catches any cycles formed by future
+ * edits.
+ */
+async function validateTaskDependencies(
+  raw: unknown,
+  selfTaskId: TaskId | null,
+): Promise<TaskDependency[]> {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new ValidationError("dependencies must be an array.");
+  }
+
+  const seen = new Set<string>();
+  const out: TaskDependency[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const entry = raw[i];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new ValidationError(`dependencies[${i}] must be an object.`);
+    }
+    const o = entry as Record<string, unknown>;
+    if (typeof o.predecessor_task_id !== "string") {
+      throw new ValidationError(
+        `dependencies[${i}].predecessor_task_id must be a string (task ID).`,
+      );
+    }
+    const predecessor_task_id = o.predecessor_task_id.trim();
+    if (!predecessor_task_id) {
+      throw new ValidationError(
+        `dependencies[${i}].predecessor_task_id is required.`,
+      );
+    }
+    if (selfTaskId !== null && predecessor_task_id === selfTaskId) {
+      throw new ValidationError(
+        "A task can't depend on itself.",
+      );
+    }
+    if (
+      typeof o.type !== "string" ||
+      !(TASK_DEPENDENCY_TYPES as readonly string[]).includes(o.type)
+    ) {
+      throw new ValidationError(
+        `dependencies[${i}].type must be one of: ${TASK_DEPENDENCY_TYPES.join(", ")}.`,
+      );
+    }
+    const key = `${predecessor_task_id}|${o.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      predecessor_task_id,
+      type: o.type as TaskDependencyType,
+    });
+  }
+  if (out.length === 0) return out;
+
+  // Verify each predecessor still exists. One bulk fetch beats N
+  // individual getById calls; the page-size of the task table is
+  // hundreds in practice, not millions.
+  const allTasks = await TaskRepository.getAll();
+  const knownIds = new Set(allTasks.map((t) => t.task_id));
+  const missing = out
+    .map((d) => d.predecessor_task_id)
+    .filter((id) => !knownIds.has(id));
+  if (missing.length > 0) {
+    throw new ValidationError(
+      `Unknown predecessor task ID(s): ${Array.from(new Set(missing)).join(", ")}.`,
+    );
+  }
+
+  // Cycle check: starting from each proposed predecessor, walk its
+  // own dependency chain. If any path leads back to selfTaskId, we
+  // have a cycle. We substitute the PROPOSED set for `selfTaskId`
+  // so the check captures cycles introduced by THIS edit. (Same
+  // pattern as the project dependency cycle check.)
+  if (selfTaskId !== null) {
+    const adjacency = new Map<TaskId, TaskId[]>();
+    for (const t of allTasks) {
+      const deps = (t.dependencies ?? []).map((d) => d.predecessor_task_id);
+      adjacency.set(t.task_id, deps);
+    }
+    // Replace self's adjacency with the proposed set.
+    adjacency.set(
+      selfTaskId,
+      out.map((d) => d.predecessor_task_id),
+    );
+
+    function hasPathTo(from: TaskId, to: TaskId, seen: Set<TaskId>): boolean {
+      if (from === to) return true;
+      if (seen.has(from)) return false;
+      seen.add(from);
+      const next = adjacency.get(from) ?? [];
+      for (const n of next) {
+        if (hasPathTo(n, to, seen)) return true;
+      }
+      return false;
+    }
+    for (const d of out) {
+      if (hasPathTo(d.predecessor_task_id, selfTaskId, new Set())) {
+        throw new ValidationError(
+          `Dependency on ${d.predecessor_task_id} would create a cycle.`,
+        );
+      }
+    }
+  }
+
+  return out;
+}
+
 async function shapeCreate(
   payload: TaskCreatePayload,
   ctx: { userId: UserId },
@@ -481,6 +612,17 @@ async function shapeCreate(
     { userId: ctx.userId, now: nowIsoTimestamp() },
   );
 
+  // selfTaskId is null on create — the task doesn't have an ID yet,
+  // so the self-reference / cycle checks inside the validator can't
+  // run (and aren't meaningful: a task that doesn't exist can't be
+  // referenced by anything else either). We still validate the
+  // SHAPE of the entries and that the referenced predecessors
+  // exist.
+  const dependencies = await validateTaskDependencies(
+    payload.dependencies,
+    null,
+  );
+
   return {
     project_id,
     task_name,
@@ -498,6 +640,7 @@ async function shapeCreate(
     comments,
     document_links,
     estimate_hours,
+    dependencies,
     template_id: null,
   };
 }
@@ -603,6 +746,16 @@ async function shapeUpdate(
       payload.estimate_hours,
       "estimate_hours",
       999,
+    );
+  }
+  if (payload.dependencies !== undefined) {
+    // selfTaskId = existing.task_id so the validator can run the
+    // self-reference and cycle checks. The cycle check substitutes
+    // the proposed dependencies for the existing ones when walking
+    // the graph, so a fresh edit that introduces A→B→A is caught.
+    patch.dependencies = await validateTaskDependencies(
+      payload.dependencies,
+      existing.task_id,
     );
   }
 

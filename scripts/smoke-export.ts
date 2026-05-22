@@ -239,6 +239,7 @@ async function main() {
       estimate_hours: null,
       comments: t.comments ?? "",
       document_links: t.document_links ?? [],
+      dependencies: t.dependencies ?? [],
       template_id: t.template_id ?? null,
       created_at: t.created_at ?? "2026-04-01T00:00:00Z",
       updated_at: t.updated_at ?? "2026-04-01T00:00:00Z",

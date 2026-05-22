@@ -418,6 +418,32 @@ export interface Project {
 // Task (Section 4.2)
 // ---------------------------------------------------------------------------
 
+/**
+ * Standard project-management dependency types between tasks. These
+ * are planning relationships (how the work is structurally tied
+ * together) — distinct from `Task.blocker_*`, which expresses
+ * "currently prevented from moving forward."
+ *
+ *   FS — Finish-to-Start:  predecessor must finish before this starts.
+ *   SS — Start-to-Start:   predecessor must start before this starts.
+ *   FF — Finish-to-Finish: predecessor must finish before this finishes.
+ *   SF — Start-to-Finish:  predecessor must start before this finishes.
+ */
+export type TaskDependencyType = "FS" | "SS" | "FF" | "SF";
+
+/**
+ * One predecessor relationship stored on the dependent task. Each
+ * task carries an array; the successor side is computed (look up
+ * tasks whose dependencies include me) if/when we surface it. We
+ * deliberately don't dual-write both sides — that doubles the
+ * write surface and creates consistency questions on every add /
+ * remove. Cross-project predecessors are allowed by construction.
+ */
+export interface TaskDependency {
+  predecessor_task_id: TaskId;
+  type: TaskDependencyType;
+}
+
 export interface Task {
   /** `YY-NNNN` — auto-incremented. */
   task_id: TaskId;
@@ -455,6 +481,14 @@ export interface Task {
    */
   comment_history: TaskCommentEntry[];
   document_links: DocumentLink[];
+  /**
+   * Planning-style predecessor relationships. Separate from
+   * `blocker_*` (runtime "stuck") — see TaskDependencyType for the
+   * four standard types. Empty array when the task has no
+   * predecessors. The successor side is computed on demand by
+   * scanning every task's `dependencies` for the current task ID.
+   */
+  dependencies: TaskDependency[];
   /**
    * Optional time estimate in hours. Decimal allowed (0.5 = 30 minutes,
    * 1.25 = 75 minutes). Null when unset. Surfaced in the Tasks table,
