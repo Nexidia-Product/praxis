@@ -16,7 +16,11 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
-import { ProjectRepository, TaskRepository } from "@/lib/db";
+import {
+  ProjectRepository,
+  TaskRepository,
+  TemplateRepository,
+} from "@/lib/db";
 import { isAssignedToUser } from "@/lib/tasks/display";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -29,9 +33,10 @@ export default async function MyTasksPage() {
   const userId = session.user.user_id;
   const userName = session.user.name ?? "";
 
-  const [allTasks, projects] = await Promise.all([
+  const [allTasks, projects, templates] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
+    TemplateRepository.getAll(),
   ]);
 
   // Same helper the home KPI uses (HOME-02) so the count and the list
@@ -54,6 +59,7 @@ export default async function MyTasksPage() {
       <TasksTable
         initialTasks={myTasks}
         projects={projects}
+        templates={templates}
         currentUserRole={session.user.role}
         permissions={permissions}
         scopeToUser
