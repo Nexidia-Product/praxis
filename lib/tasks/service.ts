@@ -768,16 +768,21 @@ async function shapeUpdate(
       existing.task_id,
     );
 
-    // Auto-status: when a NEW Finish-to-Start dependency is added
-    // to a Not Started task, flip it to "Awaiting Dependency" so the
-    // visual indicates "queued behind upstream work" rather than
-    // "no one's started this." Only fires when:
-    //   - At least one of the proposed FS dependencies is new (not
-    //     present in existing.dependencies)
-    //   - The task is currently "Not Started" (per user spec — In
-    //     Progress / On Hold / etc. stay as the user set them)
-    //   - The status patch hasn't already been set explicitly in
-    //     this same update (an explicit status edit wins)
+    // Auto-status: two symmetric rules around FS predecessors.
+    // Neither fires when the same payload explicitly sets `status` —
+    // an explicit edit always wins.
+    //
+    // (1) SET to "Awaiting Dependency": when a NEW Finish-to-Start
+    //     predecessor is added to a "Not Started" task. The visual
+    //     then reads "queued behind upstream work" rather than "no
+    //     one's started this." In Progress / On Hold / etc. are
+    //     left alone per the user spec.
+    //
+    // (2) CLEAR back to "Not Started": when the LAST FS predecessor
+    //     is removed from an "Awaiting Dependency" task — there's
+    //     nothing structurally waiting anymore, so the status no
+    //     longer reflects reality. Non-FS dependency types (SS / FF
+    //     / SF) don't affect this rule; they're independent.
     const existingFsKey = new Set(
       (existing.dependencies ?? [])
         .filter((d) => d.type === "FS")
@@ -786,12 +791,18 @@ async function shapeUpdate(
     const newFsAdded = patch.dependencies.some(
       (d) => d.type === "FS" && !existingFsKey.has(d.predecessor_task_id),
     );
-    if (
-      newFsAdded &&
-      patch.status === undefined &&
-      existing.status === "Not Started"
-    ) {
-      patch.status = "Awaiting Dependency";
+    const newFsCount = patch.dependencies.filter((d) => d.type === "FS").length;
+
+    if (patch.status === undefined) {
+      if (newFsAdded && existing.status === "Not Started") {
+        patch.status = "Awaiting Dependency";
+      } else if (
+        newFsCount === 0 &&
+        existingFsKey.size > 0 &&
+        existing.status === "Awaiting Dependency"
+      ) {
+        patch.status = "Not Started";
+      }
     }
   }
 
