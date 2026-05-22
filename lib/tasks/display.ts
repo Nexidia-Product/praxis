@@ -24,6 +24,7 @@ import type { Priority, Task, TaskStatus } from "@/lib/db";
 
 export const TASK_STATUSES: TaskStatus[] = [
   "Not Started",
+  "Awaiting Dependency",
   "In Progress",
   "Blocked",
   "Delayed",
@@ -32,15 +33,26 @@ export const TASK_STATUSES: TaskStatus[] = [
   "Canceled",
 ];
 
-/** Statuses that count as "open" in the default Tasks-page view. */
+/**
+ * Statuses that count as "open" in the default Tasks-page view.
+ * "Awaiting Dependency" is open — it's a task that's still expected
+ * to happen, just paused on a structured upstream relationship.
+ * "On Hold" and "Delayed" stay out (active but explicitly parked).
+ */
 export const OPEN_TASK_STATUSES: TaskStatus[] = [
   "Not Started",
+  "Awaiting Dependency",
   "In Progress",
   "Blocked",
 ];
 
 export function isOpenStatus(s: TaskStatus): boolean {
-  return s === "Not Started" || s === "In Progress" || s === "Blocked";
+  return (
+    s === "Not Started" ||
+    s === "Awaiting Dependency" ||
+    s === "In Progress" ||
+    s === "Blocked"
+  );
 }
 
 /**
@@ -91,6 +103,12 @@ export const TASK_STATUS_BADGE: Record<TaskStatus, string> = {
   // from having to learn two color systems.
   "Not Started":
     "bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200",
+  // Awaiting Dependency: indigo. Distinct from "Blocked" (red,
+  // runtime stuck) and from "On Hold" / "Delayed" (amber/orange,
+  // paused but active). Indigo reads as "purposefully waiting" —
+  // the work is queued up, the upstream just hasn't cleared yet.
+  "Awaiting Dependency":
+    "bg-indigo-50 text-indigo-800 ring-1 ring-inset ring-indigo-200",
   "In Progress":
     "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200",
   Blocked: "bg-red-50 text-red-800 ring-1 ring-inset ring-red-200",

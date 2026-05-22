@@ -50,6 +50,7 @@ import { audit, summarizeChanges } from "@/lib/audit/service";
 
 const TASK_STATUSES: TaskStatus[] = [
   "Not Started",
+  "Awaiting Dependency",
   "In Progress",
   "Blocked",
   "Delayed",
@@ -623,11 +624,20 @@ async function shapeCreate(
     null,
   );
 
+  // Auto-status on create: a brand-new "Not Started" task that ships
+  // with at least one Finish-to-Start dependency starts life as
+  // "Awaiting Dependency" — mirrors the update path so the rule is
+  // the same regardless of whether the deps are added on first save
+  // or in a later edit.
+  const hasFsDep = dependencies.some((d) => d.type === "FS");
+  const effectiveStatus: TaskStatus =
+    hasFsDep && status === "Not Started" ? "Awaiting Dependency" : status;
+
   return {
     project_id,
     task_name,
     detailed_description,
-    status,
+    status: effectiveStatus,
     priority,
     responsible,
     additional_assignees,
@@ -757,6 +767,32 @@ async function shapeUpdate(
       payload.dependencies,
       existing.task_id,
     );
+
+    // Auto-status: when a NEW Finish-to-Start dependency is added
+    // to a Not Started task, flip it to "Awaiting Dependency" so the
+    // visual indicates "queued behind upstream work" rather than
+    // "no one's started this." Only fires when:
+    //   - At least one of the proposed FS dependencies is new (not
+    //     present in existing.dependencies)
+    //   - The task is currently "Not Started" (per user spec — In
+    //     Progress / On Hold / etc. stay as the user set them)
+    //   - The status patch hasn't already been set explicitly in
+    //     this same update (an explicit status edit wins)
+    const existingFsKey = new Set(
+      (existing.dependencies ?? [])
+        .filter((d) => d.type === "FS")
+        .map((d) => d.predecessor_task_id),
+    );
+    const newFsAdded = patch.dependencies.some(
+      (d) => d.type === "FS" && !existingFsKey.has(d.predecessor_task_id),
+    );
+    if (
+      newFsAdded &&
+      patch.status === undefined &&
+      existing.status === "Not Started"
+    ) {
+      patch.status = "Awaiting Dependency";
+    }
   }
 
   // Cross-field consistency: setting status to Blocked also flips the
@@ -948,6 +984,17 @@ export async function updateTask(
         err,
       );
     });
+    // Parallel cascade for the PM-style FS dependencies: every task
+    // that had this one as an FS predecessor AND was sitting in
+    // "Awaiting Dependency" gets re-evaluated. If ALL its FS
+    // predecessors are now Complete, flip it back to "Not Started"
+    // so the assignee notices the upstream work cleared.
+    await releaseFsDependentTasks(id, ctx).catch((err) => {
+      console.warn(
+        `[tasks] FS-dependency release cascade failed for ${id}:`,
+        err,
+      );
+    });
   }
 
   return updated;
@@ -1020,6 +1067,111 @@ async function unblockDependentTasks(
     } catch (err) {
       console.warn(
         `[tasks] auto-unblock of ${t.task_id} (blocked by ${completedTaskId}) failed:`,
+        err,
+      );
+    }
+  }
+}
+
+/**
+ * Companion to `unblockDependentTasks` for the PM-style FS
+ * dependencies (lib/db/types.ts → TaskDependency). When a task
+ * completes, find every downstream task that listed it as an FS
+ * predecessor. For each downstream, if EVERY FS predecessor it
+ * has is now Complete AND its current status is "Awaiting
+ * Dependency", flip it back to "Not Started" so the assignee
+ * notices the upstream chain has cleared.
+ *
+ * Tasks whose status is anything else (the user moved them
+ * already, or they were never put into the auto-set state) are
+ * left alone. Multi-FS chains are correctly handled — partial
+ * completion doesn't release.
+ *
+ * Best-effort per downstream — a single failure logs and skips,
+ * matching the unblock-cascade pattern.
+ */
+async function releaseFsDependentTasks(
+  completedTaskId: TaskId,
+  ctx: { userId: UserId; userName?: string | null },
+): Promise<void> {
+  // PostgREST's jsonb-array containment lookup. We send a one-element
+  // pattern array; any row whose `dependencies` jsonb contains
+  // at least one of those elements matches. We then filter to FS in
+  // memory (the predicate is small, and PostgREST doesn't expose a
+  // nested jsonb predicate cleanly).
+  const { getServiceRoleClient } = await import("@/lib/supabase/server");
+  const { data, error } = await getServiceRoleClient()
+    .from("tasks")
+    .select("*")
+    .contains("dependencies", [
+      { predecessor_task_id: completedTaskId, type: "FS" },
+    ]);
+  if (error) {
+    console.warn(
+      `[tasks] releaseFsDependentTasks lookup failed: ${error.message}`,
+    );
+    return;
+  }
+  const downstreams = (data ?? []) as Task[];
+  if (downstreams.length === 0) return;
+
+  // We need to know whether each downstream's OTHER FS predecessors
+  // are also Complete. One bulk fetch of every referenced
+  // predecessor is cheaper than N+1 round-trips.
+  const otherPredecessorIds = new Set<TaskId>();
+  for (const d of downstreams) {
+    for (const dep of d.dependencies ?? []) {
+      if (
+        dep.type === "FS" &&
+        dep.predecessor_task_id !== completedTaskId
+      ) {
+        otherPredecessorIds.add(dep.predecessor_task_id);
+      }
+    }
+  }
+  const predecessorStatus = new Map<TaskId, TaskStatus>();
+  predecessorStatus.set(completedTaskId, "Complete");
+  if (otherPredecessorIds.size > 0) {
+    const { data: others, error: othersErr } = await getServiceRoleClient()
+      .from("tasks")
+      .select("task_id, status")
+      .in("task_id", Array.from(otherPredecessorIds));
+    if (othersErr) {
+      console.warn(
+        `[tasks] releaseFsDependentTasks predecessor lookup failed: ${othersErr.message}`,
+      );
+      return;
+    }
+    for (const r of others ?? []) {
+      predecessorStatus.set(
+        (r as { task_id: TaskId }).task_id,
+        (r as { status: TaskStatus }).status,
+      );
+    }
+  }
+
+  for (const t of downstreams) {
+    if (t.status !== "Awaiting Dependency") continue;
+    const allFsComplete = (t.dependencies ?? [])
+      .filter((d) => d.type === "FS")
+      .every((d) => predecessorStatus.get(d.predecessor_task_id) === "Complete");
+    if (!allFsComplete) continue;
+
+    try {
+      await TaskRepository.update(t.task_id, { status: "Not Started" });
+      await audit({
+        actorId: ctx.userId,
+        actorName: ctx.userName,
+        entityType: "Task",
+        entityId: t.task_id,
+        entityLabel: t.task_name,
+        action: "status_change",
+        summary: `Status: Awaiting Dependency → Not Started (FS predecessor ${completedTaskId} completed; all FS predecessors clear).`,
+      });
+      await fireHealthRecalc(t.project_id);
+    } catch (err) {
+      console.warn(
+        `[tasks] auto-release of ${t.task_id} (FS predecessor ${completedTaskId}) failed:`,
         err,
       );
     }

@@ -115,6 +115,16 @@ export type ProjectPhase =
 
 export type TaskStatus =
   | "Not Started"
+  /**
+   * Task has a Finish-to-Start predecessor that isn't yet complete.
+   * Set automatically when an FS dependency is added to a Not
+   * Started task; cleared automatically when every FS predecessor
+   * reaches Complete (mirrors the existing unblock cascade for the
+   * runtime `blocker_*` fields). Manually editable like any other
+   * status. Distinct from "Blocked" — which means "currently stuck
+   * for some reason that needs to be addressed."
+   */
+  | "Awaiting Dependency"
   | "In Progress"
   | "Blocked"
   | "Delayed"
