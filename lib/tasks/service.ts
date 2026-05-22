@@ -389,6 +389,18 @@ async function shapeCreate(
   if (!parent) {
     throw new ValidationError(`Project ${project_id} does not exist.`);
   }
+  // Project-status gate: completed and canceled projects are closed
+  // for new work. Adding tasks to them would either inflate health-
+  // score recomputes against a project nobody's actively touching or
+  // (worse) prompt the team to reopen the project just to scope new
+  // scope creep. Reject at create time; the API surfaces this as a
+  // 400 with the project's current status named so the user knows
+  // why.
+  if (parent.status === "Completed" || parent.status === "Canceled") {
+    throw new ValidationError(
+      `Project ${project_id} is ${parent.status}; new tasks can't be added. Reopen the project by changing its status if more work is needed.`,
+    );
+  }
 
   const task_name = asString(payload.task_name, "task_name");
   if (!task_name) throw new ValidationError("task_name is required.");
@@ -918,6 +930,14 @@ export async function instantiateTemplate(
   const project = await ProjectRepository.getById(projectId);
   if (!project) {
     throw new NotFoundError(`Project ${projectId} not found.`);
+  }
+  // Same closed-project gate as createTask. Applying a template to
+  // a completed or canceled project would seed a fresh batch of
+  // open tasks on a project that's no longer being worked.
+  if (project.status === "Completed" || project.status === "Canceled") {
+    throw new ValidationError(
+      `Project ${projectId} is ${project.status}; new tasks can't be added.`,
+    );
   }
 
   const created: Task[] = [];

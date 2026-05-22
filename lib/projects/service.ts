@@ -24,6 +24,7 @@
 import {
   ProjectRepository,
   SettingsRepository,
+  TaskRepository,
   UserRepository,
   type CreateProjectInput,
   type CustomFieldDefinition,
@@ -37,6 +38,8 @@ import {
   type ProjectStatus,
   type ProjectType,
   type StatusHistoryEntry,
+  type Task,
+  type TaskStatus,
   type UpdateProjectInput,
   type UserId,
 } from "@/lib/db";
@@ -592,6 +595,65 @@ function safeValidateExternal(
 }
 
 // ---------------------------------------------------------------------------
+// Task-status helpers (used by the Complete-with-open-tasks gate and
+// the Canceled-cascade post-write hook)
+// ---------------------------------------------------------------------------
+
+/**
+ * A task status counts as "terminal" if no more work is expected
+ * against it — Complete or Canceled. Anything else (Not Started, In
+ * Progress, Blocked, On Hold, Delayed) is open. Centralized here so
+ * the gate and the cascade can't disagree on what "open" means.
+ */
+function isTerminalTaskStatus(status: TaskStatus | string): boolean {
+  return status === "Complete" || status === "Canceled";
+}
+
+/**
+ * Cancel every open task on a project. Used as the cancel-cascade
+ * post-hook on `updateProject` — when a project flips to Canceled,
+ * any task that isn't already Complete or Canceled follows it. Each
+ * cascaded task gets an audit entry so the trail records why the
+ * status changed without anyone touching the task directly.
+ *
+ * Returns the count of tasks updated for the caller's logging.
+ */
+async function cancelOpenTasksForProject(
+  projectId: ProjectId,
+  actorId: UserId | "system",
+): Promise<number> {
+  const tasks = await TaskRepository.getByProjectId(projectId);
+  const open = tasks.filter((t) => !isTerminalTaskStatus(t.status));
+  if (open.length === 0) return 0;
+
+  let updated = 0;
+  for (const t of open) {
+    try {
+      await TaskRepository.update(t.task_id, { status: "Canceled" });
+      await audit({
+        actorId: actorId === "system" ? null : actorId,
+        actorName: await resolveUserDisplayName(actorId),
+        entityType: "Task",
+        entityId: t.task_id,
+        entityLabel: t.task_name,
+        action: "status_change",
+        summary: `Status: ${t.status} → Canceled (cascaded from project ${projectId} cancellation).`,
+      });
+      updated += 1;
+    } catch (err) {
+      // Per-task best-effort: a single failure shouldn't stop the
+      // rest of the cascade. The project itself is already Canceled
+      // at this point and a stale open task is a recoverable state.
+      console.warn(
+        `[tasks] cancel-cascade failed for ${t.task_id}:`,
+        err,
+      );
+    }
+  }
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
 // AI hook
 // ---------------------------------------------------------------------------
 
@@ -816,6 +878,30 @@ export async function updateProject(
   const existing = await ProjectRepository.getById(id);
   if (!existing) throw new ValidationError(`Project ${id} not found.`);
 
+  // Project-status gate: "Completed" is only valid when every task
+  // on the project has reached a terminal state (task "Complete" or
+  // "Canceled" — note the spelling mismatch with the project enum,
+  // which is "Completed"). We check before any write so a failed
+  // transition leaves the record untouched. The caller sees a 400
+  // with a count so the UI can phrase the rejection ("3 open tasks
+  // remain") without a second round-trip to enumerate them.
+  if (
+    patch.status === "Completed" &&
+    existing.status !== "Completed"
+  ) {
+    const tasks = await TaskRepository.getByProjectId(id);
+    const open = tasks.filter((t) => !isTerminalTaskStatus(t.status));
+    if (open.length > 0) {
+      throw new ValidationError(
+        `Cannot mark this project Completed — ${open.length} ${
+          open.length === 1 ? "task is" : "tasks are"
+        } still open. Complete or cancel ${
+          open.length === 1 ? "it" : "them"
+        } first, then retry.`,
+      );
+    }
+  }
+
   if (dependencyTouched || linksTouched || externalTouched) {
     if (dependencyTouched) {
       const allProjects = await ProjectRepository.getAll();
@@ -948,6 +1034,27 @@ export async function updateProject(
 
   const updated = await ProjectRepository.update(id, patch);
 
+  // Cancel cascade: if this update flipped the project to Canceled,
+  // every open task on the project should follow it. Completed tasks
+  // are left alone (they're history); already-Canceled tasks are
+  // skipped (no-op). Failures here are logged and swallowed — the
+  // project itself is already canceled and that's the user-visible
+  // state; a follow-up sweep or a re-save can re-attempt the cascade.
+  let cascadedTasks = 0;
+  if (
+    updated.status === "Canceled" &&
+    existing.status !== "Canceled"
+  ) {
+    try {
+      cascadedTasks = await cancelOpenTasksForProject(id, ctx.userId);
+    } catch (err) {
+      console.warn(
+        `[tasks] cancel-cascade failed for project ${id}:`,
+        err,
+      );
+    }
+  }
+
   // Step 7 (Section 5.12): fire status-change and dependency notifications
   // based on the transition this update produced. The hook is responsible
   // for filtering out no-op transitions (status stayed the same).
@@ -1022,6 +1129,10 @@ export async function updateProject(
       action: "status_change",
       summary: `Status: ${existing.status} → ${updated.status}${
         rawSummary.length > 0 ? ` — ${rawSummary}` : ""
+      }${
+        cascadedTasks > 0
+          ? ` (${cascadedTasks} open task${cascadedTasks === 1 ? "" : "s"} auto-canceled)`
+          : ""
       }`,
     });
   } else if (Object.keys(patch).length > 0) {
