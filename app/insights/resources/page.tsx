@@ -84,12 +84,20 @@ export default async function ResourcesPage({
   // and caching introduces invalidation complexity that isn't yet
   // worth it. If the data grows, the place to add caching is the
   // velocity-cache module — same pattern, same TTL.
+  //
+  // We then drop rows whose `user_id` is null — i.e. resources that
+  // appear on a project or task only as a free-text string and don't
+  // match a record in public.users. Resources views should only show
+  // people who can actually sign in to the system (active or
+  // inactive). The roster builder still walks free-text mentions so
+  // future migrations / linking work has a path to surface them, but
+  // they don't appear on screen.
   const fullRoster = buildResourceRoster(
     projects,
     tasks,
     publicUsers,
     settings.resource_settings,
-  );
+  ).filter((r) => r.user_id !== null);
   const roster = applyScope(
     fullRoster,
     scope,

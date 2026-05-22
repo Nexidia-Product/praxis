@@ -209,11 +209,6 @@ function OverviewTab({
     return { overloaded, heavy, light, pastDue, blocked, bottleneck };
   }, [roster]);
 
-  const freeTextCount = useMemo(
-    () => roster.filter((r) => r.free_text_only).length,
-    [roster],
-  );
-
   function toggleSort(k: SortKey) {
     if (sortKey === k) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -251,19 +246,7 @@ function OverviewTab({
         </div>
       </div>
 
-      {freeTextCount > 0 ? (
-        <div role="status" className="pol-notice pol-notice-warn">
-          <span aria-hidden="true">!</span>
-          <span>
-            <strong>{freeTextCount}</strong>{" "}
-            {freeTextCount === 1 ? "resource" : "resources"} on this page is
-            referenced only as a free-text name and not yet linked to a user
-            account. Performance metrics for unlinked resources rely on string
-            matching and may miss tasks. Replace with a real user assignment
-            on the affected projects when you go live.
-          </span>
-        </div>
-      ) : null}
+
 
       <KpiStrip kpis={kpis} totalResources={roster.length} />
 
@@ -582,25 +565,7 @@ function RosterRow({
       }}
     >
       <td style={{ padding: "10px 12px" }}>
-        <div style={{ fontWeight: 600, color: "var(--t1)" }}>
-          {row.resource}
-          {row.free_text_only ? (
-            <span
-              style={{
-                marginLeft: 6,
-                fontSize: 10,
-                color: "var(--warn-text, #92400e)",
-                background: "var(--warn-bg, #fef3c7)",
-                padding: "1px 5px",
-                borderRadius: 2,
-                fontWeight: 700,
-              }}
-              title="Referenced as a free-text name; not yet linked to a user account."
-            >
-              UNLINKED
-            </span>
-          ) : null}
-        </div>
+        <div style={{ fontWeight: 600, color: "var(--t1)" }}>{row.resource}</div>
         {row.bottleneck_tasks.length > 0 ? (
           <div
             style={{ fontSize: 11, color: "var(--warn-text, #92400e)", marginTop: 2 }}

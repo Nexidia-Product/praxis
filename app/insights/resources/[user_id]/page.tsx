@@ -81,9 +81,7 @@ export default async function ResourceDetailPage({
       <PolarisPageHeader
         eyebrow="Insights · Resource"
         title={row.resource}
-        subtitle={
-          row.user_id ? row.user_id : "Free-text resource (not yet linked)"
-        }
+        subtitle={row.user_id ?? undefined}
       />
       <ResourceDetail
         row={row}

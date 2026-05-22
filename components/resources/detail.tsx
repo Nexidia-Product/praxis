@@ -31,17 +31,6 @@ interface ResourceDetailProps {
 export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
   return (
     <div className="space-y-4">
-      {row.free_text_only ? (
-        <div role="status" className="pol-notice pol-notice-warn">
-          <span aria-hidden="true">!</span>
-          <span>
-            This resource is referenced only as a free-text name. Linking
-            them to a real user account on the affected projects will
-            give more accurate performance metrics.
-          </span>
-        </div>
-      ) : null}
-
       {/* Hero KPI strip — same shape as the Overview KPIs but
           scoped to this person and slightly larger. */}
       <div
