@@ -38,10 +38,13 @@ export const TemplateRepository = {
 
   /** All templates that can be applied to a given project type. */
   async getByProjectType(projectType: ProjectType): Promise<TaskTemplate[]> {
+    // After 0008, project_types is a text[]; PostgREST's `.contains`
+    // maps to Postgres's `@>` operator. A template applies to a
+    // project_type whenever its array contains that value.
     const { data, error } = await getServiceRoleClient()
       .from(TABLE)
       .select("*")
-      .eq("project_type", projectType);
+      .contains("project_types", [projectType]);
     if (error)
       throw new Error(`templates.getByProjectType failed: ${error.message}`);
     return (data ?? []) as TaskTemplate[];
@@ -52,7 +55,7 @@ export const TemplateRepository = {
       .from(TABLE)
       .insert({
         template_name: input.template_name,
-        project_type: input.project_type,
+        project_types: input.project_types,
         tasks: input.tasks,
         created_by: input.created_by,
       })

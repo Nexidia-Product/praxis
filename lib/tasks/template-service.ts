@@ -40,13 +40,21 @@ export class NotFoundError extends Error {
 
 export interface TemplatePayload {
   template_name?: unknown;
+  /**
+   * Multi-type form (preferred). Replaces the original
+   * `project_type` (single) — see migration 0008. Kept the legacy
+   * field as optional so a payload from a stale client still
+   * round-trips as a single-element array.
+   */
+  project_types?: unknown;
+  /** Legacy single-value form. Coerced to [project_type] when present. */
   project_type?: unknown;
   tasks?: unknown;
 }
 
 interface ValidatedTemplate {
   template_name: string;
-  project_type: ProjectType;
+  project_types: ProjectType[];
   tasks: TaskTemplateItem[];
 }
 
@@ -59,15 +67,34 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
     throw new ValidationError("template_name is required.");
   }
 
-  if (
-    typeof payload.project_type !== "string" ||
-    !(PROJECT_TYPES as readonly string[]).includes(payload.project_type)
-  ) {
+  // Accept either `project_types` (multi) or the legacy `project_type`
+  // (single). The legacy field is silently lifted into a one-element
+  // array so old clients/scripts keep working.
+  let rawTypes: unknown = payload.project_types;
+  if (rawTypes === undefined && typeof payload.project_type === "string") {
+    rawTypes = [payload.project_type];
+  }
+  if (!Array.isArray(rawTypes) || rawTypes.length === 0) {
     throw new ValidationError(
-      `project_type must be one of: ${PROJECT_TYPES.join(", ")}.`,
+      "project_types must be a non-empty array of project type strings.",
     );
   }
-  const project_type = payload.project_type as ProjectType;
+  const project_types: ProjectType[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < rawTypes.length; i++) {
+    const v = rawTypes[i];
+    if (typeof v !== "string") {
+      throw new ValidationError(`project_types[${i}] must be a string.`);
+    }
+    if (!(PROJECT_TYPES as readonly string[]).includes(v)) {
+      throw new ValidationError(
+        `project_types[${i}] must be one of: ${PROJECT_TYPES.join(", ")}.`,
+      );
+    }
+    if (seen.has(v)) continue;
+    seen.add(v);
+    project_types.push(v as ProjectType);
+  }
 
   if (!Array.isArray(payload.tasks)) {
     throw new ValidationError("tasks must be an array.");
@@ -101,7 +128,7 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
     };
   });
 
-  return { template_name, project_type, tasks };
+  return { template_name, project_types, tasks };
 }
 
 export async function createTemplate(
@@ -111,7 +138,7 @@ export async function createTemplate(
   const v = validate(payload);
   return TemplateRepository.create({
     template_name: v.template_name,
-    project_type: v.project_type,
+    project_types: v.project_types,
     tasks: v.tasks,
     created_by: ctx.createdBy,
   });
@@ -128,7 +155,7 @@ export async function updateTemplate(
   // is not a field the editor surfaces.
   return TemplateRepository.update(id, {
     template_name: v.template_name,
-    project_type: v.project_type,
+    project_types: v.project_types,
     tasks: v.tasks,
   });
 }

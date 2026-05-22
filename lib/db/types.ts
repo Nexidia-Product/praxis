@@ -530,8 +530,14 @@ export interface TaskTemplateItem {
 export interface TaskTemplate {
   template_id: TemplateId;
   template_name: string;
-  /** The project type this template is offered for during project creation. */
-  project_type: ProjectType;
+  /**
+   * Project types this template is offered for during project
+   * creation and via "+ From template" on the Tasks pages. A template
+   * applies to N types — many real-world templates (closeout
+   * checklists, PM handover, etc.) get reused across project types
+   * with no per-type variation. Must contain at least one entry.
+   */
+  project_types: ProjectType[];
   /** Ordered list of task definitions. Order is preserved on instantiation. */
   tasks: TaskTemplateItem[];
   created_by: UserId;

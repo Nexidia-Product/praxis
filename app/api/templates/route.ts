@@ -35,14 +35,19 @@ export const GET = withAuth(async (request: Request) => {
         { status: 400 },
       );
     }
-    templates = templates.filter((t) => t.project_type === projectType);
+    templates = templates.filter((t) =>
+      t.project_types.includes(projectType as ProjectType),
+    );
   }
 
-  // Stable sort: project_type, then template_name.
+  // Stable sort: first listed project type, then template_name. The
+  // pre-array sort used the only project_type a template carried;
+  // the multi-type version sorts by the leftmost entry which is
+  // stable enough for the editor's table and the dropdown order.
   templates.sort((a, b) => {
-    if (a.project_type !== b.project_type) {
-      return a.project_type < b.project_type ? -1 : 1;
-    }
+    const aType = a.project_types[0] ?? "";
+    const bType = b.project_types[0] ?? "";
+    if (aType !== bType) return aType < bType ? -1 : 1;
     return a.template_name < b.template_name ? -1 : 1;
   });
 

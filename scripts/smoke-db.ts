@@ -186,7 +186,7 @@ async function main() {
   console.log("Templates");
   const tmpl = await TemplateRepository.create({
     template_name: "Standard",
-    project_type: "New Application",
+    project_types: ["New Application"],
     tasks: [
       { name: "Kickoff", description: "", default_priority: "High" },
       { name: "Closeout", description: "", default_priority: "Medium" },

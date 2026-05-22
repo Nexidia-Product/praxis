@@ -464,8 +464,8 @@ export function ProjectFormModal({
   // user changes the type after selecting a template, the previously-chosen
   // template might no longer match — clear the selection in that case so
   // we never submit a template_id from a different type.
-  const matchingTemplates = (templates ?? []).filter(
-    (t) => t.project_type === state.project_type,
+  const matchingTemplates = (templates ?? []).filter((t) =>
+    t.project_types.includes(state.project_type),
   );
   useEffect(() => {
     if (

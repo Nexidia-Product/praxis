@@ -1067,7 +1067,9 @@ function ApplyTemplateModal({
   // pick. Reset templateId if the selection no longer matches.
   const selectedProject = projects.find((p) => p.project_id === projectId);
   const matchingTemplates = selectedProject
-    ? templates.filter((t) => t.project_type === selectedProject.project_type)
+    ? templates.filter((t) =>
+        t.project_types.includes(selectedProject.project_type),
+      )
     : templates;
   useEffect(() => {
     if (

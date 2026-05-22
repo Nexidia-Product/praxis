@@ -36,7 +36,7 @@ interface DraftTemplate {
   /** null = unsaved draft, will POST on save. */
   template_id: string | null;
   template_name: string;
-  project_type: ProjectType;
+  project_types: ProjectType[];
   tasks: TaskTemplateItem[];
 }
 
@@ -44,7 +44,7 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
   return {
     template_id: t.template_id,
     template_name: t.template_name,
-    project_type: t.project_type,
+    project_types: [...t.project_types],
     tasks: t.tasks.map((i) => ({ ...i })),
   };
 }
@@ -53,7 +53,7 @@ function newDraft(): DraftTemplate {
   return {
     template_id: null,
     template_name: "",
-    project_type: "New Feature",
+    project_types: ["New Feature"],
     tasks: [{ name: "", description: "", default_priority: "Medium" }],
   };
 }
@@ -160,7 +160,7 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     const method = isNew ? "POST" : "PUT";
     const body = {
       template_name: draft.template_name.trim(),
-      project_type: draft.project_type,
+      project_types: draft.project_types,
       tasks: draft.tasks.map((t) => ({
         name: t.name.trim(),
         description: t.description,
@@ -317,22 +317,58 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                   />
                 </Field>
 
-                <Field id="tpl-type" label="Project type" required>
-                  <select
-                    id="tpl-type"
-                    value={draft.project_type}
-                    onChange={(e) =>
-                      updateDraft("project_type", e.target.value as ProjectType)
-                    }
-                    disabled={saving}
-                    className={baseInput}
+                <Field
+                  id="tpl-types"
+                  label="Project types"
+                  required
+                >
+                  {/* Multi-select checkbox group. A template can apply
+                      to N project types — closeout / handover templates
+                      typically span every type while highly type-specific
+                      ones stay narrow. Validation in the service layer
+                      requires at least one to be picked. */}
+                  <div
+                    id="tpl-types"
+                    role="group"
+                    aria-label="Project types"
+                    className="flex flex-wrap gap-2 rounded-md border border-gray-300 bg-white p-2"
                   >
-                    {PROJECT_TYPES.map((pt) => (
-                      <option key={pt} value={pt}>
-                        {pt}
-                      </option>
-                    ))}
-                  </select>
+                    {PROJECT_TYPES.map((pt) => {
+                      const checked = draft.project_types.includes(pt);
+                      return (
+                        <label
+                          key={pt}
+                          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                            checked
+                              ? "border-[var(--brand)] bg-blue-50 text-blue-900"
+                              : "border-gray-300 bg-white text-gray-800"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(draft.project_types);
+                              if (e.target.checked) next.add(pt);
+                              else next.delete(pt);
+                              updateDraft(
+                                "project_types",
+                                Array.from(next) as ProjectType[],
+                              );
+                            }}
+                            disabled={saving}
+                            className="h-3 w-3"
+                          />
+                          {pt}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Pick every project type this template should appear
+                    for. Most "closeout" or "handover" templates apply
+                    across all types.
+                  </p>
                 </Field>
               </div>
 
@@ -514,11 +550,16 @@ function Field({
 
 function sortTemplates(templates: TaskTemplate[]): TaskTemplate[] {
   return [...templates].sort((a, b) => {
-    if (a.project_type !== b.project_type) {
-      return (
-        PROJECT_TYPES.indexOf(a.project_type) -
-        PROJECT_TYPES.indexOf(b.project_type)
-      );
+    // Sort by the first listed project type (matches the order an
+    // admin chose in the editor) then by template name. Templates
+    // that span multiple types just sort by the leftmost.
+    const aType = a.project_types[0] ?? "";
+    const bType = b.project_types[0] ?? "";
+    if (aType !== bType) {
+      const ai = PROJECT_TYPES.indexOf(aType as ProjectType);
+      const bi = PROJECT_TYPES.indexOf(bType as ProjectType);
+      return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) -
+        (bi === -1 ? Number.MAX_SAFE_INTEGER : bi);
     }
     return a.template_name < b.template_name ? -1 : 1;
   });
@@ -527,11 +568,17 @@ function sortTemplates(templates: TaskTemplate[]): TaskTemplate[] {
 function groupByProjectType(
   templates: TaskTemplate[],
 ): Map<ProjectType, TaskTemplate[]> {
+  // A multi-type template appears under each of its types. The
+  // group view is for "show me everything relevant to type X" so
+  // duplication across groups is the right shape; sortTemplates
+  // upstream handles the canonical order inside each bucket.
   const map = new Map<ProjectType, TaskTemplate[]>();
   for (const t of templates) {
-    const arr = map.get(t.project_type) ?? [];
-    arr.push(t);
-    map.set(t.project_type, arr);
+    for (const type of t.project_types) {
+      const arr = map.get(type) ?? [];
+      arr.push(t);
+      map.set(type, arr);
+    }
   }
   return map;
 }

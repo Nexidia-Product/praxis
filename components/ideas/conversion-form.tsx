@@ -182,7 +182,8 @@ export function IdeaConversionForm({
   // Match the form-modal behavior: clear any selected template if the
   // project type changes to one that doesn't have it.
   const matchingTemplates = useMemo(
-    () => templates.filter((t) => t.project_type === state.project_type),
+    () =>
+      templates.filter((t) => t.project_types.includes(state.project_type)),
     [templates, state.project_type],
   );
   useEffect(() => {
