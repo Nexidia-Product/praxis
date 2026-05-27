@@ -563,12 +563,40 @@ export interface ProjectGroup {
 // Task templates (Section 4.3)
 // ---------------------------------------------------------------------------
 
-/** One task definition inside a template. The doc does not specify a stable
- * ID for these, so we omit it; tasks created from templates get fresh IDs. */
+/**
+ * One task definition inside a template.
+ *
+ * `local_id` is a per-template stable slug (UUID-style). It does NOT survive
+ * instantiation — when the template is applied to a project, each task gets a
+ * fresh `task_id` from the database. The `local_id` exists only so that
+ * `dependencies` inside the template can reference other template tasks in a
+ * way that survives reordering, renaming, and round-trip save/reload.
+ * Instantiation builds a `local_id → task_id` map and rewrites dependencies.
+ *
+ * Older template rows (saved before this field existed) may not have a
+ * `local_id` on disk. The service backfills one at validate-time so any row
+ * that round-trips through the editor comes back with stable IDs.
+ */
 export interface TaskTemplateItem {
+  local_id: string;
   name: string;
   description: string;
   default_priority: Priority;
+  /** Optional time estimate in hours, mirrors `Task.estimate_hours`. */
+  estimate_hours: number | null;
+  /** Predecessor relationships against other tasks in the SAME template. */
+  dependencies: TemplateDependency[];
+}
+
+/**
+ * One predecessor relationship inside a template. Uses `predecessor_local_id`
+ * (not `predecessor_task_id` as the runtime `Task` does) because template
+ * tasks don't have task IDs yet — they're allocated when the template is
+ * instantiated against a project.
+ */
+export interface TemplateDependency {
+  predecessor_local_id: string;
+  type: TaskDependencyType;
 }
 
 export interface TaskTemplate {

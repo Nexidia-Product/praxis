@@ -1256,7 +1256,16 @@ export async function instantiateTemplate(
     );
   }
 
+  // First pass: create every task with empty `dependencies` and
+  // capture the local_id → real task_id map so we can rewrite the
+  // predecessor references in the second pass.
+  //
+  // We don't try to persist dependencies on the initial insert
+  // because predecessor task_ids may not exist yet — template tasks
+  // can reference each other in any order, including forward
+  // references where task[2] depends on task[5].
   const created: Task[] = [];
+  const idByLocal = new Map<string, string>();
   for (const item of template.tasks) {
     const task = await TaskRepository.create({
       project_id: projectId,
@@ -1275,8 +1284,10 @@ export async function instantiateTemplate(
       comments: "",
       document_links: [],
       template_id: templateId,
+      estimate_hours: item.estimate_hours,
     });
     created.push(task);
+    idByLocal.set(item.local_id, task.task_id);
 
     // Step 7 (Section 5.12): notify the project lead per template task.
     // The lead is the default `responsible` here, so they get N
@@ -1289,6 +1300,24 @@ export async function instantiateTemplate(
         err,
       );
     });
+  }
+
+  // Second pass: rewrite dependencies from template-local IDs to the
+  // real task_ids assigned above. Using updateTask (not the bare
+  // repository.update) fires the existing FS-cascade logic, which
+  // flips tasks whose FS predecessor isn't complete to "Awaiting
+  // Dependency" automatically — exactly what we want.
+  for (let i = 0; i < template.tasks.length; i++) {
+    const item = template.tasks[i];
+    if (item.dependencies.length === 0) continue;
+    const realDeps = item.dependencies.map((d) => ({
+      predecessor_task_id: idByLocal.get(d.predecessor_local_id)!,
+      type: d.type,
+    }));
+    const updated = await updateTask(created[i].task_id, {
+      dependencies: realDeps,
+    });
+    created[i] = updated;
   }
 
   // Step 8 (Section 5.13): one recalc at the end, not per-task. Each task

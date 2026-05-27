@@ -21,12 +21,32 @@ import { useState } from "react";
 import type {
   Priority,
   ProjectType,
+  TaskDependencyType,
   TaskTemplate,
   TaskTemplateItem,
+  TemplateDependency,
 } from "@/lib/db";
 import { PROJECT_TYPES } from "@/lib/projects/display";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
+
+const DEPENDENCY_TYPES: { value: TaskDependencyType; label: string }[] = [
+  { value: "FS", label: "FS — finish-to-start" },
+  { value: "SS", label: "SS — start-to-start" },
+  { value: "FF", label: "FF — finish-to-finish" },
+  { value: "SF", label: "SF — start-to-finish" },
+];
+
+/** Generate a stable per-template task slug. */
+function newLocalId(): string {
+  // Browsers we target support crypto.randomUUID(); fall back to a
+  // simple random suffix if the API is unavailable (e.g. very old
+  // contexts) so the editor still works.
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `tpl-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+}
 
 interface TemplatesAdminProps {
   initialTemplates: TaskTemplate[];
@@ -45,7 +65,16 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
     template_id: t.template_id,
     template_name: t.template_name,
     project_types: [...t.project_types],
-    tasks: t.tasks.map((i) => ({ ...i })),
+    // Backfill local_id, estimate_hours, dependencies for rows that
+    // predate those fields, so the editor never sees `undefined`.
+    tasks: t.tasks.map((i) => ({
+      local_id: i.local_id?.trim() ? i.local_id : newLocalId(),
+      name: i.name,
+      description: i.description,
+      default_priority: i.default_priority,
+      estimate_hours: i.estimate_hours ?? null,
+      dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
+    })),
   };
 }
 
@@ -54,7 +83,16 @@ function newDraft(): DraftTemplate {
     template_id: null,
     template_name: "",
     project_types: ["New Feature"],
-    tasks: [{ name: "", description: "", default_priority: "Medium" }],
+    tasks: [
+      {
+        local_id: newLocalId(),
+        name: "",
+        description: "",
+        default_priority: "Medium",
+        estimate_hours: null,
+        dependencies: [],
+      },
+    ],
   };
 }
 
@@ -109,7 +147,14 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
             ...prev,
             tasks: [
               ...prev.tasks,
-              { name: "", description: "", default_priority: "Medium" },
+              {
+                local_id: newLocalId(),
+                name: "",
+                description: "",
+                default_priority: "Medium",
+                estimate_hours: null,
+                dependencies: [],
+              },
             ],
           }
         : prev,
@@ -120,7 +165,70 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     setDraft((prev) => {
       if (!prev) return prev;
       if (prev.tasks.length <= 1) return prev; // always keep at least one row
-      return { ...prev, tasks: prev.tasks.filter((_, i) => i !== index) };
+      const removed = prev.tasks[index];
+      const nextTasks = prev.tasks.filter((_, i) => i !== index);
+      // Drop any dangling references to the removed task's local_id
+      // so save can't fail with "unknown predecessor."
+      const cleaned = nextTasks.map((t) => ({
+        ...t,
+        dependencies: t.dependencies.filter(
+          (d) => d.predecessor_local_id !== removed.local_id,
+        ),
+      }));
+      return { ...prev, tasks: cleaned };
+    });
+  }
+
+  function addDependency(taskIndex: number) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      // Default to the first other task in the template as the
+      // predecessor — there must be one, since the "+ Add dependency"
+      // button only renders when prev.tasks.length > 1.
+      const other = prev.tasks.find((_, i) => i !== taskIndex);
+      if (!other) return prev;
+      const nextTasks = prev.tasks.map((t, i) =>
+        i === taskIndex
+          ? {
+              ...t,
+              dependencies: [
+                ...t.dependencies,
+                { predecessor_local_id: other.local_id, type: "FS" as const },
+              ],
+            }
+          : t,
+      );
+      return { ...prev, tasks: nextTasks };
+    });
+  }
+
+  function updateDependency(
+    taskIndex: number,
+    depIndex: number,
+    patch: Partial<TemplateDependency>,
+  ) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const nextTasks = prev.tasks.map((t, i) => {
+        if (i !== taskIndex) return t;
+        const nextDeps = t.dependencies.map((d, j) =>
+          j === depIndex ? { ...d, ...patch } : d,
+        );
+        return { ...t, dependencies: nextDeps };
+      });
+      return { ...prev, tasks: nextTasks };
+    });
+  }
+
+  function removeDependency(taskIndex: number, depIndex: number) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const nextTasks = prev.tasks.map((t, i) =>
+        i === taskIndex
+          ? { ...t, dependencies: t.dependencies.filter((_, j) => j !== depIndex) }
+          : t,
+      );
+      return { ...prev, tasks: nextTasks };
     });
   }
 
@@ -162,9 +270,12 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
       template_name: draft.template_name.trim(),
       project_types: draft.project_types,
       tasks: draft.tasks.map((t) => ({
+        local_id: t.local_id,
         name: t.name.trim(),
         description: t.description,
         default_priority: t.default_priority,
+        estimate_hours: t.estimate_hours,
+        dependencies: t.dependencies,
       })),
     };
 
@@ -426,7 +537,7 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                           </button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr,8rem]">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr,8rem,6rem]">
                         <input
                           type="text"
                           aria-label={`Task ${i + 1} name`}
@@ -455,6 +566,28 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                             </option>
                           ))}
                         </select>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.25"
+                          min={0}
+                          max={999}
+                          aria-label={`Task ${i + 1} estimate in hours`}
+                          placeholder="Hours"
+                          // Render null/0 as an empty string so the
+                          // placeholder is visible. The controlled value
+                          // only becomes a number when the admin types
+                          // something.
+                          value={item.estimate_hours ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateTaskItem(i, {
+                              estimate_hours: v === "" ? null : Number(v),
+                            });
+                          }}
+                          disabled={saving}
+                          className={baseInput}
+                        />
                       </div>
                       <textarea
                         aria-label={`Task ${i + 1} description`}
@@ -467,6 +600,102 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                         rows={2}
                         className={`mt-2 ${baseInput}`}
                       />
+
+                      {/* Dependencies subsection. Only renders the
+                          "+ Add dependency" button when there's at
+                          least one other task to point at; until then
+                          there's nothing meaningful to pick. */}
+                      <div className="mt-3 border-t border-gray-200 pt-2">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                            Dependencies
+                          </span>
+                          {draft.tasks.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => addDependency(i)}
+                              disabled={saving}
+                              className="text-[11px] font-medium text-gray-700 hover:underline disabled:opacity-50"
+                            >
+                              + Add dependency
+                            </button>
+                          ) : null}
+                        </div>
+                        {item.dependencies.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            No predecessors.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {item.dependencies.map((dep, j) => {
+                              const others = draft.tasks.filter(
+                                (_, k) => k !== i,
+                              );
+                              // If the picked predecessor was removed
+                              // elsewhere we let the row stay with its
+                              // current value; the save-time validator
+                              // would catch a truly-broken reference,
+                              // but `removeTaskItem` already prunes
+                              // dangling deps so this is belt-and-braces.
+                              return (
+                                <div
+                                  key={j}
+                                  className="grid grid-cols-[1fr,10rem,auto] gap-2"
+                                >
+                                  <select
+                                    aria-label={`Task ${i + 1} dependency ${j + 1} predecessor`}
+                                    value={dep.predecessor_local_id}
+                                    onChange={(e) =>
+                                      updateDependency(i, j, {
+                                        predecessor_local_id: e.target.value,
+                                      })
+                                    }
+                                    disabled={saving}
+                                    className={baseInput}
+                                  >
+                                    {others.map((o) => (
+                                      <option
+                                        key={o.local_id}
+                                        value={o.local_id}
+                                      >
+                                        {o.name.trim() || `Task ${
+                                          draft.tasks.indexOf(o) + 1
+                                        }`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    aria-label={`Task ${i + 1} dependency ${j + 1} type`}
+                                    value={dep.type}
+                                    onChange={(e) =>
+                                      updateDependency(i, j, {
+                                        type: e.target.value as TaskDependencyType,
+                                      })
+                                    }
+                                    disabled={saving}
+                                    className={baseInput}
+                                  >
+                                    {DEPENDENCY_TYPES.map((dt) => (
+                                      <option key={dt.value} value={dt.value}>
+                                        {dt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDependency(i, j)}
+                                    disabled={saving}
+                                    aria-label={`Remove dependency ${j + 1} from task ${i + 1}`}
+                                    className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

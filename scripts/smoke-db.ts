@@ -188,8 +188,22 @@ async function main() {
     template_name: "Standard",
     project_types: ["New Application"],
     tasks: [
-      { name: "Kickoff", description: "", default_priority: "High" },
-      { name: "Closeout", description: "", default_priority: "Medium" },
+      {
+        local_id: "tpl-smoke-1",
+        name: "Kickoff",
+        description: "",
+        default_priority: "High",
+        estimate_hours: null,
+        dependencies: [],
+      },
+      {
+        local_id: "tpl-smoke-2",
+        name: "Closeout",
+        description: "",
+        default_priority: "Medium",
+        estimate_hours: null,
+        dependencies: [],
+      },
     ],
     created_by: admin.user_id,
   });
