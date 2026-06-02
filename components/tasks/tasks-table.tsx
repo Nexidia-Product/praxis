@@ -43,6 +43,7 @@ import type {
   TaskTemplate,
   UserRole,
 } from "@/lib/db";
+import { isAdminProject } from "@/lib/projects/display";
 import { TaskFilterBar, EMPTY_TASK_FILTERS, type TaskFilters } from "./filter-bar";
 import { TaskFormModal } from "./form-modal";
 
@@ -155,6 +156,13 @@ interface TasksTableProps {
   permissions?: Record<string, boolean>;
   /** When true, the "Assigned to" filter is hidden — used on /my-tasks. */
   scopeToUser?: boolean;
+  /**
+   * When true, expose the "Include Admin projects" toggle and exclude
+   * Admin-project tasks by default. The Tasks page sets this; My Tasks
+   * leaves it off so a user's own Admin work is never hidden from their
+   * personal list. See `isAdminProject` for what counts as Admin.
+   */
+  enableAdminFilter?: boolean;
   /** When set, the create modal is locked to this project. */
   defaultProjectId?: string;
   /** Pre-fills `responsible` on new tasks (My Tasks page passes the user's name). */
@@ -181,6 +189,7 @@ export function TasksTable({
   defaultProjectId,
   defaultResponsible,
   activeUserNames = [],
+  enableAdminFilter,
 }: TasksTableProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [filters, setFilters] = useState<TaskFilters>(() => {
@@ -281,11 +290,23 @@ export function TasksTable({
     );
   }, [activeUserNames, responsibleOptions]);
 
+  // ---- Admin-project exclusion. ----
+  // Applied before everything else (filtering, counts) so the status-group
+  // badges and the visible rows agree. Only active when the parent enables
+  // the admin toggle and the user hasn't opted to include Admin projects.
+  const adminFilteredTasks = useMemo(() => {
+    if (!enableAdminFilter || filters.include_admin) return tasks;
+    return tasks.filter((t) => {
+      const p = projectsById.get(t.project_id);
+      return !(p && isAdminProject(p));
+    });
+  }, [tasks, enableAdminFilter, filters.include_admin, projectsById]);
+
   // ---- Filtering. ----
   const visibleTasks = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
 
-    return tasks.filter((t) => {
+    return adminFilteredTasks.filter((t) => {
       if (!statusGroupMatches(statusGroup, t, today)) return false;
       if (filters.status.length && !filters.status.includes(t.status)) {
         return false;
@@ -317,7 +338,7 @@ export function TasksTable({
       }
       return true;
     });
-  }, [tasks, filters, statusGroup, today]);
+  }, [adminFilteredTasks, filters, statusGroup, today]);
 
   // ---- Sorting. urgency → priority → target date → task_id. ----
   const sortedTasks = useMemo(() => {
@@ -378,9 +399,9 @@ export function TasksTable({
       blocked: 0,
       past_due: 0,
       closed: 0,
-      all: tasks.length,
+      all: adminFilteredTasks.length,
     };
-    for (const t of tasks) {
+    for (const t of adminFilteredTasks) {
       // Each task can fall into multiple buckets — a Past-Due task
       // is also Open, a Blocked Past-Due task is in three. We
       // increment all that match so the badges reflect "matching
@@ -392,7 +413,7 @@ export function TasksTable({
       if (statusGroupMatches("closed", t, today)) counts.closed++;
     }
     return counts;
-  }, [tasks, today]);
+  }, [adminFilteredTasks, today]);
 
   // ---- Local state mutators. ----
   function applyUpdated(updated: Task) {
@@ -609,6 +630,7 @@ export function TasksTable({
         projectOptions={projectOptions}
         responsibleOptions={responsibleOptions}
         hideResponsible={scopeToUser}
+        showAdminToggle={enableAdminFilter}
       />
 
       <UrgencyLegend />

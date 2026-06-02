@@ -37,6 +37,15 @@ export interface TaskFilters {
   due_from: string; // YYYY-MM-DD or ""
   due_to: string;   // YYYY-MM-DD or ""
   search: string;
+  /**
+   * Whether tasks belonging to Admin projects are shown. Defaults to
+   * `false` — Admin (internal / operational) work is excluded from the
+   * Tasks page so the list stays focused on delivery work, mirroring the
+   * Roadmap / Velocity carve-out. The user can opt back in via the
+   * "Include Admin projects" toggle. Only acted on when the parent
+   * enables the admin toggle (the Tasks page does; My Tasks does not).
+   */
+  include_admin: boolean;
 }
 
 export const EMPTY_TASK_FILTERS: TaskFilters = {
@@ -48,6 +57,7 @@ export const EMPTY_TASK_FILTERS: TaskFilters = {
   due_from: "",
   due_to: "",
   search: "",
+  include_admin: false,
 };
 
 export function isTaskFilterActive(f: TaskFilters): boolean {
@@ -59,7 +69,10 @@ export function isTaskFilterActive(f: TaskFilters): boolean {
     f.blocked !== "" ||
     f.due_from !== "" ||
     f.due_to !== "" ||
-    f.search !== ""
+    f.search !== "" ||
+    // Including Admin projects departs from the default (excluded), so it
+    // counts as an active filter — "Clear all" should reset it.
+    f.include_admin
   );
 }
 
@@ -192,6 +205,12 @@ interface TaskFilterBarProps {
   responsibleOptions: string[];
   /** When true, suppress the "Assigned to" dropdown (used on /my-tasks). */
   hideResponsible?: boolean;
+  /**
+   * When true, show the "Include Admin projects" toggle. The Tasks page
+   * enables this; My Tasks leaves it off so a user's own Admin tasks are
+   * never hidden from their personal list.
+   */
+  showAdminToggle?: boolean;
 }
 
 export function TaskFilterBar({
@@ -200,6 +219,7 @@ export function TaskFilterBar({
   projectOptions,
   responsibleOptions,
   hideResponsible,
+  showAdminToggle,
 }: TaskFilterBarProps) {
   function update<K extends keyof TaskFilters>(
     key: K,
@@ -275,6 +295,23 @@ export function TaskFilterBar({
           className="border-none bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
         />
       </div>
+
+      {showAdminToggle ? (
+        <label
+          className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 shadow-sm"
+          title="Admin (internal / operational) projects are hidden by default. Check to include them."
+        >
+          <input
+            type="checkbox"
+            checked={filters.include_admin}
+            onChange={(e) => update("include_admin", e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+            Include Admin projects
+          </span>
+        </label>
+      ) : null}
 
       <div className="ml-auto flex items-center gap-2">
         <input

@@ -72,6 +72,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         permissions={permissions}
         defaultProjectId={projectFilter ?? undefined}
         activeUserNames={activeUserNames}
+        enableAdminFilter
       />
     </PolarisShell>
   );
