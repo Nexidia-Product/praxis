@@ -189,6 +189,13 @@ interface TasksTableProps {
    * names only.
    */
   activeUserNames?: string[];
+  /**
+   * Notifies the parent whenever the internal task list changes (status
+   * edits, completes, deletes, creates). Used by the My Tasks page to keep
+   * its "Checklist" mode in sync with edits made here. Optional — the
+   * standalone /tasks page doesn't pass it.
+   */
+  onTasksChange?: (tasks: Task[]) => void;
 }
 
 export function TasksTable({
@@ -202,6 +209,7 @@ export function TasksTable({
   defaultResponsible,
   activeUserNames = [],
   enableAdminFilter,
+  onTasksChange,
 }: TasksTableProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [filters, setFilters] = useState<TaskFilters>(() => {
@@ -231,6 +239,12 @@ export function TasksTable({
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // Mirror internal task changes up to the parent (My Tasks checklist sync).
+  // `initialTasks` seeds local state once; this is the only channel back out.
+  useEffect(() => {
+    onTasksChange?.(tasks);
+  }, [tasks, onTasksChange]);
 
   // Permission-driven gating with role fallback. Same pattern as
   // ProjectsTable — preserves existing behavior when `permissions`

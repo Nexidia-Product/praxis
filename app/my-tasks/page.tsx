@@ -23,7 +23,8 @@ import {
   UserRepository,
 } from "@/lib/db";
 import { isAssignedToUser } from "@/lib/tasks/display";
-import { TasksTable } from "@/components/tasks/tasks-table";
+import { getMyTasksOrder } from "@/lib/tasks/my-tasks-order";
+import { MyTasksView } from "@/components/tasks/my-tasks-view";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
 export const dynamic = "force-dynamic";
@@ -34,11 +35,14 @@ export default async function MyTasksPage() {
   const userId = session.user.user_id;
   const userName = session.user.name ?? "";
 
-  const [allTasks, projects, templates, users] = await Promise.all([
+  const [allTasks, projects, templates, users, savedOrder] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
     UserRepository.getAll(),
+    // Per-user checklist ordering. Defaults to [] if unset or the
+    // ui_preferences column hasn't been migrated yet.
+    getMyTasksOrder(userId).catch(() => [] as string[]),
   ]);
 
   const activeUserNames = users
@@ -64,15 +68,15 @@ export default async function MyTasksPage() {
         title="My tasks"
         subtitle="Tasks assigned to you across every project."
       />
-      <TasksTable
+      <MyTasksView
         initialTasks={myTasks}
         projects={projects}
         templates={templates}
         currentUserRole={session.user.role}
         permissions={permissions}
-        scopeToUser
         defaultResponsible={userName || undefined}
         activeUserNames={activeUserNames}
+        savedOrder={savedOrder}
       />
     </PolarisShell>
   );

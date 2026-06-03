@@ -783,6 +783,21 @@ export interface IdeaAttachment {
  * recovery / invite flows now go through
  * `supabase.auth.admin.generateLink` and Supabase's own email layer.
  */
+/**
+ * Per-user UI state — not business data, just how this user has arranged
+ * their own views. Persisted in the `users.ui_preferences` jsonb column.
+ * Everything is optional so an empty `{}` (the column default) is valid.
+ */
+export interface UserUIPreferences {
+  /**
+   * Manual ordering of the user's open tasks on the My Tasks "Checklist"
+   * view, as an array of task IDs in display order. Tasks not listed here
+   * (e.g. created since the last save) fall to the end. IDs that are no
+   * longer open are ignored on render and pruned on the next save.
+   */
+  my_tasks_order?: TaskId[];
+}
+
 export interface User {
   user_id: UserId;
   email: string;
@@ -792,6 +807,12 @@ export interface User {
   notification_preferences: NotificationPreferences;
   /** Opt-in for the daily digest email instead of per-event delivery. */
   digest_mode: boolean;
+  /**
+   * Per-user UI state (My Tasks checklist order, …). Optional at the type
+   * level because rows read before migration 0011 won't carry it; callers
+   * default to `{}`.
+   */
+  ui_preferences?: UserUIPreferences;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }
