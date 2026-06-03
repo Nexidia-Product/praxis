@@ -29,7 +29,11 @@ import {
   priorityBadgeClass,
   statusBadgeClass,
 } from "@/lib/projects/display";
-import { dependencyHealth, type DependencyHealth } from "@/lib/projects/dependencies";
+import {
+  dependencyHealth,
+  rollupDependencyHealth,
+  type DependencyHealth,
+} from "@/lib/projects/dependencies";
 import type { Project } from "@/lib/db";
 import {
   buildWindow,
@@ -53,6 +57,20 @@ interface TimelineViewProps {
 }
 
 type ColorBy = "priority" | "status";
+
+/**
+ * Per-row dependency markers. `upstreamHealth` is null when the project
+ * has no upstream dependencies (no ↑); the title strings are null when
+ * the corresponding marker shouldn't render. See `indicatorsById`.
+ */
+interface DependencyIndicator {
+  upstreamHealth: DependencyHealth | null;
+  upstreamTitle: string | null;
+  downstreamTitle: string | null;
+}
+
+/** Neutral gray for the downstream (↓) marker — relationship, not health. */
+const DOWNSTREAM_COLOR = "#6b7280";
 
 const ROW_HEIGHT = 36;
 const HEADER_HEIGHT = 32;
@@ -176,69 +194,68 @@ export function TimelineView({
     return out;
   }, [projects, window]);
 
-  // ---- Step 6: dependency arrows. -----------------------------------
+  // ---- Dependency indicators (Section 5.10). ------------------------
   //
-  // Build an arrow for every dependency edge whose *both* ends are
-  // currently visible in `rows` (i.e. inside the window AND not filtered
-  // out). An upstream that has been filtered or is outside the window
-  // simply doesn't render an arrow — we don't draw "arrows to nowhere".
+  // Cross-row connector arrows were visually noisy once more than a few
+  // dependencies existed — lines crisscrossed the whole chart. Instead we
+  // render a compact glyph pair on each project's own row:
   //
-  // Arrows are colored by `dependencyHealth(dep, upstream)`:
-  //   clear   → emerald
-  //   at-risk → amber
-  //   blocked → red
+  //   ↑ (up)   — the project has an UPSTREAM dependency (it depends on
+  //              other projects). Colored by the rolled-up health of
+  //              those upstreams (emerald / amber / red).
+  //   ↓ (down) — the project has DOWNSTREAM dependents (other projects
+  //              depend on it). Neutral gray — it isn't a health signal
+  //              for this project, just a relationship marker.
   //
-  // Geometry: the SVG sits over the track column only, starting just
-  // below the calendar header. x is expressed in `% of track width`
-  // (viewBox 0..100, preserveAspectRatio="none" so x stretches and y
-  // stays in absolute pixels); y is the row's vertical midline in pixels.
-  const rowIndexById = useMemo(() => {
-    const m = new Map<string, number>();
-    rows.forEach((r, i) => m.set(r.project.project_id, i));
+  // A project can show both. The downstream map is built across ALL
+  // projects (not just visible rows) so the marker reflects the true
+  // relationship even when the other end is outside the window or
+  // filtered out.
+  const byId = useMemo(() => {
+    const m = new Map<string, Project>();
+    for (const p of projects) m.set(p.project_id, p);
     return m;
-  }, [rows]);
+  }, [projects]);
 
-  const arrows = useMemo(() => {
-    type Arrow = {
-      id: string;
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      color: string;
-      health: DependencyHealth;
-      label: string;
-    };
-    const out: Arrow[] = [];
-    for (const r of rows) {
-      const downstream = r.project;
-      if (downstream.dependencies.length === 0) continue;
-      const dBar = r.bar;
-      if (!dBar) continue;
-      const dIdx = rowIndexById.get(downstream.project_id);
-      if (dIdx === undefined) continue;
-      for (const dep of downstream.dependencies) {
-        const uIdx = rowIndexById.get(dep.upstream_id);
-        if (uIdx === undefined) continue;
-        const upstreamRow = rows[uIdx];
-        const uBar = upstreamRow.bar;
-        if (!uBar) continue;
-        const upstream = upstreamRow.project;
-        const health = dependencyHealth(dep, upstream);
-        out.push({
-          id: `${dep.upstream_id}->${downstream.project_id}`,
-          x1: uBar.rightFrac * 100,
-          y1: uIdx * ROW_HEIGHT + ROW_HEIGHT / 2,
-          x2: dBar.leftFrac * 100,
-          y2: dIdx * ROW_HEIGHT + ROW_HEIGHT / 2,
-          color: ARROW_COLOR[health],
-          health,
-          label: `${dep.upstream_id} → ${downstream.project_id} (${health})`,
-        });
+  const dependentsById = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const p of projects) {
+      for (const dep of p.dependencies) {
+        const arr = m.get(dep.upstream_id) ?? [];
+        arr.push(p.project_id);
+        m.set(dep.upstream_id, arr);
       }
     }
-    return out;
-  }, [rows, rowIndexById]);
+    return m;
+  }, [projects]);
+
+  const indicatorsById = useMemo(() => {
+    const m = new Map<string, DependencyIndicator>();
+    for (const r of rows) {
+      const p = r.project;
+      const upstreamHealth =
+        p.dependencies.length > 0 ? rollupDependencyHealth(p, byId) : null;
+      const upstreamTitle =
+        p.dependencies.length > 0
+          ? "Depends on " +
+            p.dependencies
+              .map(
+                (d) =>
+                  `${d.upstream_id} (${dependencyHealth(d, byId.get(d.upstream_id))})`,
+              )
+              .join(", ")
+          : null;
+      const dependents = dependentsById.get(p.project_id) ?? [];
+      const downstreamTitle =
+        dependents.length > 0 ? "Blocks " + dependents.join(", ") : null;
+      if (upstreamHealth || upstreamTitle || downstreamTitle) {
+        m.set(p.project_id, { upstreamHealth, upstreamTitle, downstreamTitle });
+      }
+    }
+    return m;
+  }, [rows, byId, dependentsById]);
+
+  const hasIndicators = indicatorsById.size > 0;
 
   return (
     <div className="space-y-3">
@@ -295,75 +312,16 @@ export function TimelineView({
                   window={window}
                   todayFrac={todayFrac}
                   canEdit={canEdit}
+                  indicator={indicatorsById.get(project.project_id) ?? null}
                   onOpenQuickView={onOpenQuickView}
                   onRequestTargetDateChange={requestTargetDateChange}
                 />
               );
             })}
-
-            {/* Dependency-arrow overlay (Section 5.10). Sits on top of the
-                track column only (left = SIDEBAR_WIDTH), starts below the
-                calendar header, and is `pointer-events: none` so the bars
-                remain clickable. Rendered last so it visually layers above
-                the project rows. */}
-            {arrows.length > 0 ? (
-              <svg
-                aria-hidden="true"
-                preserveAspectRatio="none"
-                viewBox={`0 0 100 ${rows.length * ROW_HEIGHT}`}
-                className="pointer-events-none absolute"
-                style={{
-                  left: SIDEBAR_WIDTH,
-                  top: HEADER_HEIGHT,
-                  right: 0,
-                  height: rows.length * ROW_HEIGHT,
-                }}
-              >
-                <defs>
-                  {(["clear", "at-risk", "blocked"] as DependencyHealth[]).map(
-                    (h) => (
-                      <marker
-                        key={h}
-                        id={`dep-arrow-${h}`}
-                        viewBox="0 0 10 10"
-                        refX="8"
-                        refY="5"
-                        markerWidth="6"
-                        markerHeight="6"
-                        orient="auto"
-                        markerUnits="strokeWidth"
-                      >
-                        <path d="M0,0 L10,5 L0,10 z" fill={ARROW_COLOR[h]} />
-                      </marker>
-                    ),
-                  )}
-                </defs>
-                {arrows.map((a) => (
-                  <line
-                    key={a.id}
-                    x1={a.x1}
-                    y1={a.y1}
-                    x2={a.x2}
-                    y2={a.y2}
-                    stroke={a.color}
-                    // strokeWidth in viewBox units; set vectorEffect so the
-                    // line stays visually constant under preserveAspectRatio
-                    // none stretching.
-                    strokeWidth={1}
-                    vectorEffect="non-scaling-stroke"
-                    strokeDasharray={a.health === "at-risk" ? "4 3" : undefined}
-                    markerEnd={`url(#dep-arrow-${a.health})`}
-                    opacity={0.85}
-                  >
-                    <title>{a.label}</title>
-                  </line>
-                ))}
-              </svg>
-            ) : null}
           </div>
         </div>
       )}
-      <Legend colorBy={colorBy} hasArrows={arrows.length > 0} />
+      <Legend colorBy={colorBy} hasIndicators={hasIndicators} />
       {pendingDateChange ? (
         <TargetDateConfirmModal
           projectId={pendingDateChange.projectId}
@@ -654,6 +612,8 @@ interface TimelineRowProps {
   window: TimeWindow;
   todayFrac: number | null;
   canEdit: boolean;
+  /** Dependency markers for this project's row; null when it has none. */
+  indicator: DependencyIndicator | null;
   onOpenQuickView: (id: string) => void;
   /**
    * Signals that the user has finished a drag-to-resize gesture and
@@ -677,6 +637,7 @@ function TimelineRow({
   window,
   todayFrac,
   canEdit,
+  indicator,
   onOpenQuickView,
   onRequestTargetDateChange,
 }: TimelineRowProps) {
@@ -757,7 +718,25 @@ function TimelineRow({
         <span className="font-mono text-[10px] text-gray-500">
           {project.project_id}
         </span>
-        <span className="truncate">{project.name}</span>
+        <span className="min-w-0 flex-1 truncate">{project.name}</span>
+        {indicator ? (
+          <span className="ml-auto flex shrink-0 items-center gap-0.5">
+            {indicator.upstreamTitle ? (
+              <DepArrow
+                direction="up"
+                color={ARROW_COLOR[indicator.upstreamHealth ?? "clear"]}
+                title={indicator.upstreamTitle}
+              />
+            ) : null}
+            {indicator.downstreamTitle ? (
+              <DepArrow
+                direction="down"
+                color={DOWNSTREAM_COLOR}
+                title={indicator.downstreamTitle}
+              />
+            ) : null}
+          </span>
+        ) : null}
       </button>
 
       {/* Track cell with bar */}
@@ -833,15 +812,50 @@ function TimelineRow({
 }
 
 // ---------------------------------------------------------------------------
+// Dependency arrow glyph
+// ---------------------------------------------------------------------------
+
+/**
+ * Small triangular marker shown on a project's sidebar row. `up` means the
+ * project depends on something upstream; `down` means something downstream
+ * depends on it. The native `title` gives the hover tooltip listing the
+ * related project IDs; `aria-label` mirrors it for screen readers.
+ */
+function DepArrow({
+  direction,
+  color,
+  title,
+}: {
+  direction: "up" | "down";
+  color: string;
+  title: string;
+}) {
+  const path =
+    direction === "up" ? "M5 1 L9 9 L1 9 Z" : "M1 1 L9 1 L5 9 Z";
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      role="img"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      <path d={path} fill={color} />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Legend
 // ---------------------------------------------------------------------------
 
 function Legend({
   colorBy,
-  hasArrows,
+  hasIndicators,
 }: {
   colorBy: ColorBy;
-  hasArrows: boolean;
+  hasIndicators: boolean;
 }) {
   // Branch on `colorBy` and stay inside one branch — TS can't narrow the
   // union when items and map are computed independently, so we duplicate
@@ -861,7 +875,7 @@ function Legend({
             {k}
           </span>
         ))}
-        {hasArrows ? <ArrowLegend /> : null}
+        {hasIndicators ? <ArrowLegend /> : null}
         <span className="ml-auto inline-flex items-center gap-1">
           <span className="h-3 w-0.5 bg-blue-500" />
           <span>Today</span>
@@ -881,7 +895,7 @@ function Legend({
           {k}
         </span>
       ))}
-      {hasArrows ? <ArrowLegend /> : null}
+      {hasIndicators ? <ArrowLegend /> : null}
       <span className="ml-auto inline-flex items-center gap-1">
         <span className="h-3 w-0.5 bg-blue-500" />
         <span>Today</span>
@@ -891,35 +905,31 @@ function Legend({
 }
 
 /**
- * Small inline legend strip explaining the dependency arrow colors. Shown
- * only when at least one arrow is rendered, so the chart stays uncluttered
- * for project sets that don't use dependencies.
+ * Small inline legend strip explaining the per-row dependency markers.
+ * Shown only when at least one marker is rendered, so the chart stays
+ * uncluttered for project sets that don't use dependencies. The ↑ glyph's
+ * own color reflects upstream health (emerald / amber / red); here it's
+ * drawn emerald purely as a representative sample.
  */
 function ArrowLegend() {
-  const items: { health: DependencyHealth; label: string; dashed?: boolean }[] =
-    [
-      { health: "clear", label: "Dep: clear" },
-      { health: "at-risk", label: "Dep: at-risk", dashed: true },
-      { health: "blocked", label: "Dep: blocked" },
-    ];
   return (
-    <span className="inline-flex items-center gap-2 border-l border-gray-200 pl-2">
-      {items.map((it) => (
-        <span key={it.health} className="inline-flex items-center gap-1">
-          <svg width="14" height="6" aria-hidden>
-            <line
-              x1={0}
-              y1={3}
-              x2={14}
-              y2={3}
-              stroke={ARROW_COLOR[it.health]}
-              strokeWidth={1.5}
-              strokeDasharray={it.dashed ? "3 2" : undefined}
-            />
-          </svg>
-          <span>{it.label}</span>
-        </span>
-      ))}
+    <span className="inline-flex items-center gap-3 border-l border-gray-200 pl-2">
+      <span className="inline-flex items-center gap-1">
+        <DepArrow
+          direction="up"
+          color={ARROW_COLOR.clear}
+          title="Has an upstream dependency"
+        />
+        <span>↑ depends on (color = upstream health)</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <DepArrow
+          direction="down"
+          color={DOWNSTREAM_COLOR}
+          title="Has a downstream dependent"
+        />
+        <span>↓ blocks others</span>
+      </span>
     </span>
   );
 }
