@@ -19,7 +19,7 @@
  *     two pieces of state can't fall out of sync from a single user action).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   TASK_PRIORITIES,
@@ -451,23 +451,12 @@ export function TaskFormModal({
                 ) : null}
               </div>
             ) : (
-              <select
-                id="task-project"
-                required
+              <ProjectCombobox
+                projects={projects}
                 value={state.project_id}
-                onChange={(e) => update("project_id", e.target.value)}
+                onChange={(id) => update("project_id", id)}
                 disabled={locked}
-                className={baseInput}
-              >
-                <option value="" disabled>
-                  Select a project…
-                </option>
-                {projects.map((p) => (
-                  <option key={p.project_id} value={p.project_id}>
-                    {p.project_id} — {p.name}
-                  </option>
-                ))}
-              </select>
+              />
             )}
           </Field>
 
@@ -845,6 +834,205 @@ function Field({
         {required ? <span className="ml-0.5 text-red-600">*</span> : null}
       </label>
       <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Project combobox (create-mode parent picker)
+// ---------------------------------------------------------------------------
+
+/**
+ * Searchable single-select for the New Task project parent. Replaces a
+ * plain `<select>` so the user can type to filter a long project list.
+ *
+ * Behavior (TASK requirements):
+ *   - options sorted alphabetically by project name;
+ *   - Completed / Canceled (closed-out) projects are hidden — you don't
+ *     attach new work to finished projects;
+ *   - typing filters the list to projects whose name or ID contains the
+ *     query (case-insensitive).
+ *
+ * Keyboard: ↑/↓ move the highlight, Enter selects, Esc closes the list.
+ * Esc is stopped from bubbling so it dismisses only the dropdown, not the
+ * whole task pane (the modal closes on Escape too).
+ */
+function ProjectCombobox({
+  projects,
+  value,
+  onChange,
+  disabled,
+}: {
+  projects: Project[];
+  value: string;
+  onChange: (projectId: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selectable = useMemo(
+    () =>
+      projects
+        .filter(
+          (p) =>
+            p.status !== "Completed" &&
+            p.status !== "Canceled" &&
+            p.status !== "Closed",
+        )
+        .sort(
+          (a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
+            (a.project_id < b.project_id ? -1 : 1),
+        ),
+    [projects],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return selectable;
+    return selectable.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.project_id.toLowerCase().includes(q),
+    );
+  }, [selectable, query]);
+
+  const selected = projects.find((p) => p.project_id === value) ?? null;
+
+  // Close on outside click and reset the query so the box shows the
+  // selected label again rather than a stale search string.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // Keep the highlight in range as the filtered set changes.
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [query, open]);
+
+  function choose(p: Project) {
+    onChange(p.project_id);
+    setOpen(false);
+    setQuery("");
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        setQuery("");
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setActiveIdx((i) => Math.min(filtered.length - 1, i + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === "Enter") {
+      if (open && filtered[activeIdx]) {
+        e.preventDefault();
+        choose(filtered[activeIdx]);
+      }
+    }
+  }
+
+  // When open, the input is a live search box (shows the query). When
+  // closed, it displays the chosen project so the field reads as a value,
+  // not an empty search.
+  const displayValue = open
+    ? query
+    : selected
+      ? `${selected.project_id} — ${selected.name}`
+      : "";
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        id="task-project"
+        type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="task-project-listbox"
+        aria-autocomplete="list"
+        autoComplete="off"
+        // Native required guard for the empty case; the submit button is
+        // also disabled until a project_id is set.
+        required={!value}
+        disabled={disabled}
+        value={displayValue}
+        placeholder="Search projects…"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        className={baseInput}
+      />
+      {open ? (
+        <ul
+          id="task-project-listbox"
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-2 py-1.5 text-sm text-gray-500">
+              No matching projects.
+            </li>
+          ) : (
+            filtered.map((p, i) => {
+              const isSel = p.project_id === value;
+              const active = i === activeIdx;
+              return (
+                <li
+                  key={p.project_id}
+                  role="option"
+                  aria-selected={isSel}
+                  // onMouseDown (not onClick) so selection fires before the
+                  // input's blur closes the list.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    choose(p);
+                  }}
+                  onMouseEnter={() => setActiveIdx(i)}
+                  className={`flex cursor-pointer flex-col rounded px-2 py-1 ${
+                    active ? "bg-gray-100" : ""
+                  }`}
+                >
+                  <span className="text-sm text-gray-900">{p.name}</span>
+                  <span className="font-mono text-[11px] text-gray-500">
+                    {p.project_id}
+                  </span>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      ) : null}
     </div>
   );
 }
