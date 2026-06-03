@@ -51,12 +51,19 @@ import { TaskFormModal } from "./form-modal";
 // Status group toggle
 // ---------------------------------------------------------------------------
 
-type StatusGroup = "open" | "blocked" | "past_due" | "closed" | "all";
+type StatusGroup =
+  | "open"
+  | "blocked"
+  | "past_due"
+  | "on_hold"
+  | "closed"
+  | "all";
 
 const STATUS_GROUP_LABEL: Record<StatusGroup, string> = {
   open: "Open",
   blocked: "Blocked",
   past_due: "Past due",
+  on_hold: "On hold",
   closed: "Closed",
   all: "All",
 };
@@ -106,6 +113,11 @@ function statusGroupMatches(
     // Closed tasks that finished late aren't currently past due.
     if (!task.target_date || task.target_date >= today) return false;
     return isOpenStatus(task.status);
+  }
+  if (group === "on_hold") {
+    // "On Hold" is neither open nor closed — without its own bucket it
+    // was only reachable via "All". This surfaces parked work on its own.
+    return task.status === "On Hold";
   }
   // "open" — anything in the open-statuses set
   return isOpenStatus(task.status);
@@ -398,6 +410,7 @@ export function TasksTable({
       open: 0,
       blocked: 0,
       past_due: 0,
+      on_hold: 0,
       closed: 0,
       all: adminFilteredTasks.length,
     };
@@ -410,6 +423,7 @@ export function TasksTable({
       if (statusGroupMatches("open", t, today)) counts.open++;
       if (statusGroupMatches("blocked", t, today)) counts.blocked++;
       if (statusGroupMatches("past_due", t, today)) counts.past_due++;
+      if (statusGroupMatches("on_hold", t, today)) counts.on_hold++;
       if (statusGroupMatches("closed", t, today)) counts.closed++;
     }
     return counts;
@@ -979,7 +993,14 @@ function StatusGroupToggle({
   counts: Record<StatusGroup, number>;
   onChange: (next: StatusGroup) => void;
 }) {
-  const options: StatusGroup[] = ["open", "blocked", "past_due", "closed", "all"];
+  const options: StatusGroup[] = [
+    "open",
+    "blocked",
+    "past_due",
+    "on_hold",
+    "closed",
+    "all",
+  ];
   return (
     <div
       style={{
