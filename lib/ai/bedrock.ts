@@ -8,14 +8,14 @@
  *   3. shared credentials file
  *   4. EC2 / container metadata
  *
- * For local dev with IAM Identity Center, the team's `.env.local`
- * sets only `AWS_PROFILE=bedrock` and `AWS_REGION=us-east-2` — the
- * SDK reads the SSO profile from `~/.aws/config` and refreshes
- * temporary creds transparently. Static env-var creds (the three
- * AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN
- * values) are NOT set in .env.local — they would shadow the profile
- * and defeat auto-refresh, since env-var creds are point-in-time
- * exports the SDK can't extend.
+ * Today both local dev and production (Vercel) authenticate with
+ * long-lived IAM-user access keys set as env vars: AWS_ACCESS_KEY_ID
+ * + AWS_SECRET_ACCESS_KEY (no AWS_SESSION_TOKEN — these keys don't
+ * expire, so there's nothing to refresh). Being env-var creds they
+ * sit first in the chain and take precedence over any AWS_PROFILE, so
+ * don't set both. (An earlier setup used IAM Identity Center / SSO via
+ * AWS_PROFILE + the SSO cache; that needed `aws sso login` refresh and
+ * couldn't run on Vercel, which is why static keys replaced it.)
  *
  * Region note: the SSO profile sets `sso_region` to wherever IAM
  * Identity Center lives for this org, but Bedrock service calls go
