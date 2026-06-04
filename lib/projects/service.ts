@@ -26,6 +26,7 @@ import {
   SettingsRepository,
   TaskRepository,
   UserRepository,
+  type ComplexityScore,
   type CreateProjectInput,
   type CustomFieldDefinition,
   type DocumentLink,
@@ -63,6 +64,8 @@ import {
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
 import { todayIso } from "@/lib/db/store";
+import { isAiEnabled } from "@/lib/ai/feature-flag";
+import { estimateComplexity as runAiEstimate } from "@/lib/ai/estimate";
 
 // ---------------------------------------------------------------------------
 // Constants — Status / Priority / Phase remain local because the service
@@ -73,6 +76,13 @@ import { todayIso } from "@/lib/db/store";
 // ---------------------------------------------------------------------------
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
+
+const COMPLEXITY_SCORES: ComplexityScore[] = [
+  "Low",
+  "Medium",
+  "High",
+  "Very High",
+];
 
 const PROJECT_STATUSES: ProjectStatus[] = [
   "Not Started",
@@ -675,11 +685,38 @@ export interface AiEstimateResult {
 }
 
 export async function estimateComplexity(
-  _project: Pick<Project, "name" | "description" | "project_type">,
+  project: Pick<Project, "name" | "description" | "project_type">,
 ): Promise<AiEstimateResult | null> {
-  // Step 10 will call /api/ai/estimate from here. For now we return null so
-  // existing AI fields on the record are preserved unchanged.
-  return null;
+  // Auto-score new projects via Bedrock when AI is enabled. Two hard
+  // rules:
+  //   1. No-op when AI is off (or the description is too thin to be
+  //      worth a call) — returning null leaves existing AI fields
+  //      untouched, preserving the prior behavior for AI-disabled envs.
+  //   2. Never throw. This runs *after* the project is already created,
+  //      so a Bedrock failure must not surface as a failed create — we
+  //      log and skip, leaving the project Unscored (an admin can
+  //      regenerate from the form later).
+  if (!isAiEnabled()) return null;
+  const description = project.description?.trim() ?? "";
+  // Mirror the /api/ai/estimate minimum: under 20 chars the model is
+  // guessing, so don't spend the call.
+  if (description.length < 20) return null;
+  try {
+    const result = await runAiEstimate({
+      description,
+      projectType: project.project_type,
+    });
+    return {
+      ai_complexity_score: result.complexity,
+      ai_time_estimate: result.time_estimate,
+    };
+  } catch (err) {
+    console.warn(
+      `[ai/estimate] auto-estimate on create failed for "${project.name}":`,
+      err,
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -853,11 +890,26 @@ export async function updateProject(
       settings.custom_field_definitions,
     );
   }
-  if (payload.ai_complexity_score === null) {
-    patch.ai_complexity_score = null;
+  // AI fields. Persist whatever the caller sends: a valid tier sets the
+  // score, null/empty clears it, and an omitted field (undefined) leaves
+  // the persisted value alone. (Previously only the null/clear case was
+  // handled, so saving a set complexity — manual or AI-generated — was
+  // silently dropped on edit and the project stayed "Unscored".)
+  if (payload.ai_complexity_score !== undefined) {
+    patch.ai_complexity_score =
+      payload.ai_complexity_score === null || payload.ai_complexity_score === ""
+        ? null
+        : asEnum(
+            payload.ai_complexity_score,
+            COMPLEXITY_SCORES,
+            "ai_complexity_score",
+          );
   }
-  if (payload.ai_time_estimate === null) {
-    patch.ai_time_estimate = null;
+  if (payload.ai_time_estimate !== undefined) {
+    patch.ai_time_estimate =
+      payload.ai_time_estimate === null || payload.ai_time_estimate === ""
+        ? null
+        : asString(payload.ai_time_estimate, "ai_time_estimate");
   }
 
   // --- Step 6: dependencies and document links. -----------------------
