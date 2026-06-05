@@ -395,10 +395,15 @@ async function validateAndShape(
     "additional_resources",
   );
   const target_date = asNullableDate(payload.target_date, "target_date");
+  // New projects park in the "Unplaced" lane of the Now/Next/Later
+  // roadmap by default, so every new project is an explicit triage item
+  // an admin drags onto a horizon — rather than being auto-suggested
+  // into Now/Next/Later from its status/dates (see lib/roadmap/placement.ts).
+  // A bucket explicitly supplied by the caller still wins.
   const roadmap_bucket =
     payload.roadmap_bucket === undefined || payload.roadmap_bucket === null
-      ? null
-      : asString(payload.roadmap_bucket, "roadmap_bucket") || null;
+      ? "Unplaced"
+      : asString(payload.roadmap_bucket, "roadmap_bucket") || "Unplaced";
   const roadmap_timeline_start = asNullableDate(
     payload.roadmap_timeline_start,
     "roadmap_timeline_start",
