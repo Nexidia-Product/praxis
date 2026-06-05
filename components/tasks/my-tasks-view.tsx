@@ -75,6 +75,10 @@ export function MyTasksView({
     : currentUserRole === "Admin" ||
       currentUserRole === "Project Lead" ||
       currentUserRole === "Team Member";
+  // Moving tasks between projects — Admin / Project Lead only (tasks.move).
+  const canMove = permissions
+    ? permissions["tasks.move"] === true
+    : currentUserRole === "Admin" || currentUserRole === "Project Lead";
 
   const openTasks = useMemo(
     () => tasks.filter((t) => isOpenStatus(t.status)),
@@ -225,6 +229,7 @@ export function MyTasksView({
           allTasks={tasks}
           responsibleOptions={responsibleOptions}
           readOnly={!canEdit}
+          canMove={canMove}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {
             applyUpdated(t);

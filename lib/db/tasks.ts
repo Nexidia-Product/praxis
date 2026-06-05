@@ -102,6 +102,24 @@ export const TaskRepository = {
     return data as Task;
   },
 
+  /**
+   * Reparent a task to a different project. Kept separate from `update`
+   * because `UpdateTaskInput` deliberately excludes `project_id` — moving
+   * is a distinct, permission-gated operation (see lib/tasks/service.ts
+   * `moveTask`), not a routine field edit.
+   */
+  async move(id: TaskId, projectId: ProjectId): Promise<Task> {
+    const { data, error } = await getServiceRoleClient()
+      .from(TABLE)
+      .update({ project_id: projectId })
+      .eq("task_id", id)
+      .select()
+      .single();
+    if (error) throw new Error(`tasks.move failed: ${error.message}`);
+    if (!data) throw new Error(`Task ${id} not found`);
+    return data as Task;
+  },
+
   async delete(id: TaskId): Promise<void> {
     const { data, error } = await getServiceRoleClient()
       .from(TABLE)

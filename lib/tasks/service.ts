@@ -1216,6 +1216,80 @@ export async function deleteTask(
   });
 }
 
+/**
+ * Move a task to a different project (e.g. push open tasks from a
+ * descoped project into a phase-2 project). This is a distinct,
+ * permission-gated operation — the routine PATCH update path can't
+ * reparent — so the API route gates it on `tasks.move`, not `tasks.edit`.
+ *
+ * Cross-project dependencies and blockers are already first-class in this
+ * model (a task can depend on / be blocked by tasks in any project), so a
+ * move neither breaks existing references nor can introduce a cycle —
+ * moving a node doesn't change any dependency edges. No dependency
+ * revalidation is needed.
+ *
+ * Health scores on BOTH the old and new project are recalculated, since
+ * the task roster (the blocked-or-overdue denominator) changes on each.
+ */
+export async function moveTask(
+  id: TaskId,
+  destinationProjectId: ProjectId,
+  ctx: { userId: UserId; userName?: string | null } = { userId: "system" },
+): Promise<Task> {
+  invalidateVelocityCache(); // Step 9 (Section 5.15): bust velocity cache.
+
+  const existing = await TaskRepository.getById(id);
+  if (!existing) throw new NotFoundError(`Task ${id} not found.`);
+
+  const toProjectId = asString(destinationProjectId, "project_id");
+  if (!toProjectId) throw new ValidationError("project_id is required.");
+
+  const fromProjectId = existing.project_id;
+  if (toProjectId === fromProjectId) {
+    throw new ValidationError("Task is already in that project.");
+  }
+
+  // Destination must exist and be open for new work — same gate as
+  // createTask, so a task can't be parked on a Completed/Canceled project.
+  const destination = await ProjectRepository.getById(toProjectId);
+  if (!destination) {
+    throw new ValidationError(`Project ${toProjectId} does not exist.`);
+  }
+  if (destination.status === "Completed" || destination.status === "Canceled") {
+    throw new ValidationError(
+      `Project ${toProjectId} is ${destination.status}; tasks can't be moved into it. Reopen the project by changing its status if more work is planned there.`,
+    );
+  }
+
+  const moved = await TaskRepository.move(id, toProjectId);
+
+  // Step 8 (Section 5.13): the roster size changed on both ends.
+  await fireHealthRecalc(fromProjectId).catch((err) => {
+    console.warn(
+      `[health] moveTask post-hook failed for source project ${fromProjectId}:`,
+      err,
+    );
+  });
+  await fireHealthRecalc(toProjectId).catch((err) => {
+    console.warn(
+      `[health] moveTask post-hook failed for destination project ${toProjectId}:`,
+      err,
+    );
+  });
+
+  await audit({
+    actorId: ctx.userId,
+    actorName: ctx.userName,
+    entityType: "Task",
+    entityId: id,
+    entityLabel: moved.task_name,
+    action: "update",
+    summary: `Moved task "${moved.task_name}" from project ${fromProjectId} to ${toProjectId}.`,
+  });
+
+  return moved;
+}
+
 // ---------------------------------------------------------------------------
 // Template instantiation (Section 5.19, Section 9 Step 4)
 // ---------------------------------------------------------------------------

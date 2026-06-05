@@ -79,6 +79,7 @@ const DEFAULT_ROLE_PERMISSIONS_SEED: RolePermissionsMap = {
     "tasks.create",
     "tasks.edit",
     "tasks.delete",
+    "tasks.move",
     "ideas.review",
     "ideas.convert",
     "roadmap.view",

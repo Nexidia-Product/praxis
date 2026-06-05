@@ -54,6 +54,14 @@ interface TaskFormModalProps {
    * Viewers can read full task detail; they just can't change anything.
    */
   readOnly?: boolean;
+  /**
+   * When true (edit mode only), the otherwise read-only Project field
+   * becomes a destination picker with a "Move" button that reparents the
+   * task via POST /api/tasks/[id]/move. Driven by the `tasks.move`
+   * permission (Admin / Project Lead) — separate from `tasks.edit` so a
+   * Team Member who can edit a task still can't move it.
+   */
+  canMove?: boolean;
   onClose: () => void;
   onSaved: (task: Task) => void;
 }
@@ -194,6 +202,7 @@ export function TaskFormModal({
   defaultResponsible,
   responsibleOptions,
   readOnly = false,
+  canMove = false,
   onClose,
   onSaved,
 }: TaskFormModalProps) {
@@ -203,6 +212,13 @@ export function TaskFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Move-to-project state (edit + `canMove` only). `moveTarget` tracks the
+  // destination picker; it starts on the task's current project so the
+  // "Move" button stays disabled until the user actually picks a different
+  // one. Reparenting is its own request, independent of the form's Save.
+  const [moveTarget, setMoveTarget] = useState<string>(task?.project_id ?? "");
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
   // `locked` collapses two reasons we want every input disabled: the
   // server save is in flight (`saving`), or the user has no edit
   // permission (`readOnly`). Pass `locked` everywhere instead of
@@ -286,6 +302,33 @@ export function TaskFormModal({
       return;
     }
 
+    onSaved(data.task);
+  }
+
+  async function handleMove() {
+    if (!isEdit || !canMove || moving) return;
+    if (!moveTarget || moveTarget === task!.project_id) return;
+    setMoveError(null);
+    setMoving(true);
+
+    const res = await fetch(`/api/tasks/${task!.task_id}/move`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: moveTarget }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      task?: Task;
+      error?: string;
+    };
+    setMoving(false);
+
+    if (!res.ok || !data.task) {
+      setMoveError(data.error ?? "Could not move task.");
+      return;
+    }
+
+    // The task now lives in another project; hand it back so the parent
+    // list reconciles (it also closes the modal).
     onSaved(data.task);
   }
 
@@ -429,7 +472,45 @@ export function TaskFormModal({
           ) : null}
 
           <Field id="task-project" label="Project" required>
-            {isEdit ? (
+            {isEdit && canMove ? (
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <ProjectCombobox
+                      projects={projects}
+                      value={moveTarget}
+                      onChange={(id) => {
+                        setMoveTarget(id);
+                        setMoveError(null);
+                      }}
+                      disabled={moving}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleMove}
+                    disabled={
+                      moving ||
+                      !moveTarget ||
+                      moveTarget === task!.project_id
+                    }
+                    className="pol-btn pol-btn-secondary whitespace-nowrap"
+                  >
+                    {moving ? "Moving…" : "Move"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  Moving reassigns this task to another project immediately —
+                  it's a separate action from Save.
+                </p>
+                {moveError ? (
+                  <div role="alert" className="pol-notice pol-notice-err">
+                    <span aria-hidden="true">!</span>
+                    <span>{moveError}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : isEdit ? (
               <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
                 <span className="font-mono text-xs text-gray-500">
                   {state.project_id}

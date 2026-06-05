@@ -48,6 +48,7 @@ export type PermissionKey =
   | "tasks.create"
   | "tasks.edit"
   | "tasks.delete"
+  | "tasks.move"
   // Ideas (public submissions / review queue)
   | "ideas.review"
   | "ideas.convert"
@@ -144,6 +145,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     key: "tasks.delete",
     label: "Delete tasks",
     description: "Permanently remove tasks.",
+    category: "Tasks",
+  },
+  {
+    key: "tasks.move",
+    label: "Move tasks between projects",
+    description:
+      "Reassign an existing task to a different project — e.g. push open tasks from a descoped project into a phase-2 project.",
     category: "Tasks",
   },
 
@@ -308,6 +316,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     "tasks.create",
     "tasks.edit",
     "tasks.delete",
+    "tasks.move",
     "ideas.review",
     "ideas.convert",
     "roadmap.view",

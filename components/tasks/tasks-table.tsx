@@ -262,6 +262,12 @@ export function TasksTable({
   const canDelete = permissions
     ? permissions["tasks.delete"] === true
     : currentUserRole === "Admin" || currentUserRole === "Project Lead";
+  // Moving a task between projects is restricted to Admin / Project Lead
+  // (the `tasks.move` permission) — deliberately tighter than `tasks.edit`,
+  // which Team Members also hold.
+  const canMove = permissions
+    ? permissions["tasks.move"] === true
+    : currentUserRole === "Admin" || currentUserRole === "Project Lead";
   // The "Apply template" button is a bulk-create affordance — the
   // user spec restricts it to Admin / Project Lead. We still gate
   // through `tasks.create` (the underlying endpoint), then layer the
@@ -781,6 +787,7 @@ export function TasksTable({
           allTasks={tasks}
           responsibleOptions={formResponsibleOptions}
           readOnly={!canEdit}
+          canMove={canMove}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {
             applyUpdated(t);
