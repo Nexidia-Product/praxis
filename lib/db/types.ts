@@ -403,6 +403,22 @@ export interface Project {
    */
   status_history: StatusHistoryEntry[];
 
+  // ---- Key capability ----
+  /**
+   * Flags this project as a strategic "key capability" surfaced on the
+   * Key Capabilities dashboard. Any project can be flagged; the
+   * dashboard shows all flagged projects. Defaults false.
+   */
+  is_key_capability: boolean;
+  /**
+   * Calendar quarter this key capability is committed to, as
+   * `"YYYY-Q1".."YYYY-Q4"`, or null when it's a key capability that
+   * hasn't been slotted into a quarter yet. At most two key-capability
+   * projects may share a quarter (enforced in the service layer).
+   * Only meaningful when `is_key_capability` is true.
+   */
+  key_capability_quarter: string | null;
+
   // ---- Dependencies (Section 5.10) ----
   /** Denormalized convenience: upstream IDs only. Mirror of `dependencies`. */
   depends_on: ProjectId[];

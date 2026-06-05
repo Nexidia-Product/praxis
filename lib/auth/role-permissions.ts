@@ -57,6 +57,8 @@ export type PermissionKey =
   | "roadmap.export"
   // Velocity dashboard
   | "velocity.view"
+  // Key capabilities (designate projects + assign quarters)
+  | "key_capabilities.manage"
   // Resources insights
   | "resources.view"
   | "resources.view_all"
@@ -188,6 +190,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     key: "velocity.view",
     label: "View velocity dashboard",
     description: "Open the velocity & throughput dashboard and its charts.",
+    category: "Insights",
+  },
+  {
+    key: "key_capabilities.manage",
+    label: "Manage key capabilities",
+    description:
+      "Designate projects as key capabilities and assign them to quarters (max two per quarter) on the Key Capabilities dashboard. Viewing the dashboard only needs project access.",
     category: "Insights",
   },
   {

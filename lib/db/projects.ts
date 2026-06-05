@@ -28,6 +28,8 @@ export type CreateProjectInput = Omit<
   | "health_score_history"
   | "status_history"
   | "definition_of_done"
+  | "is_key_capability"
+  | "key_capability_quarter"
 > &
   Partial<
     Pick<
@@ -36,6 +38,8 @@ export type CreateProjectInput = Omit<
       | "health_score_history"
       | "status_history"
       | "definition_of_done"
+      | "is_key_capability"
+      | "key_capability_quarter"
     >
   >;
 

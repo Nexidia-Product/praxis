@@ -43,6 +43,7 @@ export type NavKey =
   | "groups"
   | "velocity"
   | "resources"
+  | "key-capabilities"
   | "ideas"
   | "admin-resources"
   | "admin-configuration"
@@ -112,6 +113,13 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/insights/resources",
         icon: "◍",
         permission: "resources.view",
+      },
+      {
+        key: "key-capabilities",
+        label: "Key capabilities",
+        href: "/dashboard/key-capabilities",
+        icon: "◆",
+        permission: "projects.view",
       },
       {
         key: "ideas",

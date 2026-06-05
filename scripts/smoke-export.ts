@@ -208,6 +208,8 @@ async function main() {
       jira_issue_id: p.jira_issue_id ?? null,
       health_score: p.health_score ?? null,
       health_score_history: p.health_score_history ?? [],
+      is_key_capability: p.is_key_capability ?? false,
+      key_capability_quarter: p.key_capability_quarter ?? null,
       status_history: p.status_history ?? [],
       depends_on: p.depends_on ?? [],
       dependencies: p.dependencies ?? [],

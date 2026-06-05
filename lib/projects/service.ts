@@ -1294,6 +1294,119 @@ export async function deleteProject(
 }
 
 // ---------------------------------------------------------------------------
+// Key capability — designation + quarter assignment
+// ---------------------------------------------------------------------------
+
+/** Quarter string the dashboard speaks in, e.g. "2026-Q3". */
+const QUARTER_RE = /^\d{4}-Q[1-4]$/;
+/** Hard cap: at most this many key capabilities may share a quarter. */
+export const MAX_KEY_CAPABILITIES_PER_QUARTER = 2;
+
+export interface KeyCapabilityPatch {
+  /** Flip the key-capability flag. Omit to leave as-is. */
+  is_key_capability?: boolean;
+  /**
+   * Assign / reassign the committed quarter ("YYYY-Q1".."YYYY-Q4"), or
+   * null to unassign. Omit to leave as-is.
+   */
+  key_capability_quarter?: string | null;
+}
+
+/**
+ * Designate (or undesignate) a project as a key capability and/or slot it
+ * into a quarter. Gated upstream by `key_capabilities.manage` (Admin).
+ *
+ * Rules enforced here:
+ *   - A quarter must look like "YYYY-Q1".."YYYY-Q4".
+ *   - A project that isn't a key capability can't hold a quarter slot —
+ *     clearing the flag clears the quarter.
+ *   - At most two key capabilities per quarter; assigning a third is
+ *     rejected with a friendly error (not a DB constraint violation).
+ */
+export async function setKeyCapability(
+  id: ProjectId,
+  patch: KeyCapabilityPatch,
+  ctx: { userId: UserId; userName?: string | null } = { userId: "system" },
+): Promise<Project> {
+  const existing = await ProjectRepository.getById(id);
+  if (!existing) throw new ValidationError(`Project ${id} not found.`);
+
+  const nextFlag = patch.is_key_capability ?? existing.is_key_capability;
+
+  let nextQuarter: string | null =
+    patch.key_capability_quarter !== undefined
+      ? patch.key_capability_quarter
+      : existing.key_capability_quarter;
+
+  if (nextQuarter !== null) {
+    nextQuarter = String(nextQuarter).trim();
+    if (!QUARTER_RE.test(nextQuarter)) {
+      throw new ValidationError(
+        'Quarter must be in the form "YYYY-Q1" through "YYYY-Q4".',
+      );
+    }
+  }
+
+  // A non-key-capability can't occupy a quarter slot.
+  if (!nextFlag) nextQuarter = null;
+
+  // Enforce the per-quarter cap. Only matters when we're landing on a
+  // concrete quarter; unassigning or clearing the flag is always allowed.
+  if (nextFlag && nextQuarter) {
+    const all = await ProjectRepository.getAll();
+    const peers = all.filter(
+      (p) =>
+        p.project_id !== id &&
+        p.is_key_capability &&
+        p.key_capability_quarter === nextQuarter,
+    );
+    if (peers.length >= MAX_KEY_CAPABILITIES_PER_QUARTER) {
+      throw new ValidationError(
+        `${nextQuarter} already has ${MAX_KEY_CAPABILITIES_PER_QUARTER} key capabilities. Unassign one before adding another.`,
+      );
+    }
+  }
+
+  const updated = await ProjectRepository.update(id, {
+    is_key_capability: nextFlag,
+    key_capability_quarter: nextQuarter,
+  });
+
+  await audit({
+    actorId: ctx.userId,
+    actorName: ctx.userName,
+    entityType: "Project",
+    entityId: id,
+    entityLabel: updated.name,
+    action: "update",
+    summary: summarizeKeyCapabilityChange(existing, updated),
+  });
+
+  return updated;
+}
+
+function summarizeKeyCapabilityChange(before: Project, after: Project): string {
+  const parts: string[] = [];
+  if (before.is_key_capability !== after.is_key_capability) {
+    parts.push(
+      after.is_key_capability
+        ? "Marked as a key capability"
+        : "Removed key-capability designation",
+    );
+  }
+  if (before.key_capability_quarter !== after.key_capability_quarter) {
+    if (after.key_capability_quarter) {
+      parts.push(`Assigned to ${after.key_capability_quarter}`);
+    } else {
+      parts.push("Unassigned from its quarter");
+    }
+  }
+  return parts.length > 0
+    ? parts.join("; ") + "."
+    : "Key-capability settings saved (no changes).";
+}
+
+// ---------------------------------------------------------------------------
 // Step 7 — notification hooks (Section 5.12)
 // ---------------------------------------------------------------------------
 

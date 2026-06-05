@@ -97,6 +97,8 @@ async function main() {
       jira_issue_id: null,
       health_score: null,
       health_score_history: [],
+      is_key_capability: false,
+      key_capability_quarter: null,
       status_history: [],
       depends_on: [],
       dependencies: [],
