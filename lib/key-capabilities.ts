@@ -10,7 +10,11 @@ import type { StatusHistoryEntry, Task, TaskStatus } from "@/lib/db";
 const TERMINAL_TASK_STATUSES: TaskStatus[] = ["Complete", "Canceled"];
 
 export interface ProjectTaskStats {
-  /** Every task on the project. */
+  /**
+   * Completion denominator: every task on the project EXCEPT those in
+   * the "Canceled" status. Canceled work is dropped from the project's
+   * scope, so counting it would deflate the percent-complete reading.
+   */
   total: number;
   /** Tasks in the "Complete" status. */
   completed: number;
@@ -34,6 +38,7 @@ export function computeProjectTaskStats(
   todayIso: string,
 ): ProjectTaskStats {
   let completed = 0;
+  let canceled = 0;
   let open = 0;
   let pastDue = 0;
   let blocked = 0;
@@ -41,6 +46,7 @@ export function computeProjectTaskStats(
   for (const t of tasks) {
     const terminal = TERMINAL_TASK_STATUSES.includes(t.status);
     if (t.status === "Complete") completed += 1;
+    if (t.status === "Canceled") canceled += 1;
     if (!terminal) {
       open += 1;
       if (t.blocked || t.status === "Blocked") blocked += 1;
@@ -48,7 +54,9 @@ export function computeProjectTaskStats(
     }
   }
 
-  const total = tasks.length;
+  // Exclude Canceled tasks from the denominator — they're out of scope,
+  // not outstanding work, so they shouldn't drag the percentage down.
+  const total = tasks.length - canceled;
   const pctComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
   return { total, completed, open, pastDue, blocked, pctComplete };
 }
