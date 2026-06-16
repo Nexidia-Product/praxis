@@ -25,7 +25,11 @@ import {
   HEALTH_TOOLTIP,
   priorityBadgeClass,
 } from "@/lib/projects/display";
-import { formatQuarter, type ProjectTaskStats } from "@/lib/key-capabilities";
+import {
+  formatQuarter,
+  latestStatusSummary,
+  type ProjectTaskStats,
+} from "@/lib/key-capabilities";
 import type { Project } from "@/lib/db";
 
 /** Display-only mirror of the service-enforced cap. */
@@ -303,6 +307,7 @@ function ProjectCapabilityCard({
   onRemove: () => void;
 }) {
   const { project, stats } = card;
+  const statusSummary = latestStatusSummary(project.status_history);
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-sm">
@@ -366,6 +371,18 @@ function ProjectCapabilityCard({
             style={{ width: `${stats.pctComplete}%` }}
           />
         </div>
+      </div>
+
+      {/* Latest status summary note (blank when none recorded) */}
+      <div className="text-[11px] leading-snug">
+        <span className="font-medium uppercase tracking-wide text-gray-400">
+          Status
+        </span>
+        {statusSummary ? (
+          <p className="mt-0.5 text-gray-600">{statusSummary}</p>
+        ) : (
+          <p className="mt-0.5 italic text-gray-400">—</p>
+        )}
       </div>
 
       {/* Management controls */}

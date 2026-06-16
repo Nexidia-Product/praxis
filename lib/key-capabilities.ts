@@ -4,7 +4,7 @@
  * no DB) so both the server page and any test can call them.
  */
 
-import type { Task, TaskStatus } from "@/lib/db";
+import type { StatusHistoryEntry, Task, TaskStatus } from "@/lib/db";
 
 /** Task statuses that take a task out of the "open work" denominator. */
 const TERMINAL_TASK_STATUSES: TaskStatus[] = ["Complete", "Canceled"];
@@ -51,6 +51,20 @@ export function computeProjectTaskStats(
   const total = tasks.length;
   const pctComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
   return { total, completed, open, pastDue, blocked, pctComplete };
+}
+
+/**
+ * The most recent free-text status note for a project, or "" when no
+ * status-history entry carries one. History is stored oldest-first
+ * (entries are appended), so we scan from the newest end and return the
+ * first entry with a non-empty `summary`.
+ */
+export function latestStatusSummary(history: StatusHistoryEntry[]): string {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const note = history[i].summary?.trim();
+    if (note) return note;
+  }
+  return "";
 }
 
 // ---------------------------------------------------------------------------
