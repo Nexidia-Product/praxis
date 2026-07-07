@@ -196,6 +196,18 @@ interface TasksTableProps {
    * standalone /tasks page doesn't pass it.
    */
   onTasksChange?: (tasks: Task[]) => void;
+  /**
+   * Initial group-by selection. Defaults to "project" (the /tasks page).
+   * My Tasks passes "none" so its default is a single flat list rather
+   * than per-project sections.
+   */
+  initialGroupBy?: GroupBy;
+  /**
+   * Row ordering. "urgency" (default) floats blocked / past-due work to
+   * the top; "task_id" sorts ascending by task ID. My Tasks uses
+   * "task_id" so its default view reads in task-ID order.
+   */
+  sortMode?: "urgency" | "task_id";
 }
 
 export function TasksTable({
@@ -210,6 +222,8 @@ export function TasksTable({
   activeUserNames = [],
   enableAdminFilter,
   onTasksChange,
+  initialGroupBy = "project",
+  sortMode = "urgency",
 }: TasksTableProps) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [filters, setFilters] = useState<TaskFilters>(() => {
@@ -219,7 +233,7 @@ export function TasksTable({
     return EMPTY_TASK_FILTERS;
   });
   const [statusGroup, setStatusGroup] = useState<StatusGroup>("open");
-  const [groupBy, setGroupBy] = useState<GroupBy>("project");
+  const [groupBy, setGroupBy] = useState<GroupBy>(initialGroupBy);
   const [today, setToday] = useState<string>(() => todayLocal());
   const [showCreate, setShowCreate] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
@@ -372,9 +386,18 @@ export function TasksTable({
     });
   }, [adminFilteredTasks, filters, statusGroup, today]);
 
-  // ---- Sorting. urgency → priority → target date → task_id. ----
+  // ---- Sorting. ----
+  // Default ("urgency"): urgency → priority → target date → task_id, so
+  // actionable work floats to the top. "task_id": a plain ascending sort
+  // by task ID (numeric-aware), used by My Tasks.
   const sortedTasks = useMemo(() => {
     const out = [...visibleTasks];
+    if (sortMode === "task_id") {
+      out.sort((a, b) =>
+        a.task_id.localeCompare(b.task_id, undefined, { numeric: true }),
+      );
+      return out;
+    }
     out.sort((a, b) => {
       const ua = URGENCY_SORT_RANK[taskUrgency(a, today)];
       const ub = URGENCY_SORT_RANK[taskUrgency(b, today)];
@@ -388,7 +411,7 @@ export function TasksTable({
       return a.task_id < b.task_id ? -1 : 1;
     });
     return out;
-  }, [visibleTasks, today]);
+  }, [visibleTasks, today, sortMode]);
 
   // ---- Grouping. Each group is a (label, list) pair, in display order. ----
   const groups = useMemo(() => {

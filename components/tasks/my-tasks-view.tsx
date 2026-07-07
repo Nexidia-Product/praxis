@@ -194,6 +194,8 @@ export function MyTasksView({
           defaultResponsible={defaultResponsible}
           activeUserNames={activeUserNames}
           onTasksChange={setTasks}
+          initialGroupBy="none"
+          sortMode="task_id"
         />
       ) : (
         <MyTasksChecklist
