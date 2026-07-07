@@ -385,6 +385,10 @@ async function validateAndShape(
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
   const phase = asEnum(payload.phase, PROJECT_PHASES, "phase");
+  // Mirror updateProject's terminal-status rule: a project created
+  // directly as Completed or Canceled is already closed out.
+  const effectivePhase: ProjectPhase =
+    status === "Completed" || status === "Canceled" ? "Closeout" : phase;
   const primary_stakeholders = asStringArray(
     payload.primary_stakeholders,
     "primary_stakeholders",
@@ -475,7 +479,7 @@ async function validateAndShape(
     project_type,
     priority,
     status,
-    phase,
+    phase: effectivePhase,
     primary_stakeholders,
     project_lead,
     additional_resources,
@@ -1042,6 +1046,23 @@ export async function updateProject(
     patch.status_history = [...existing.status_history, entry];
   }
 
+  // Business rule: a project reaching a terminal status is closed out.
+  // When this update transitions the project *into* "Completed" or
+  // "Canceled", force the phase to "Closeout". The terminal transition
+  // governs, so it overrides any phase value the same patch happened to
+  // carry (the edit form always sends the phase field, so keying off
+  // "phase absent from patch" would skip that path). We fire only on the
+  // transition — not on every save of an already-terminal project — so an
+  // admin can still hand-adjust the phase afterwards if they need to.
+  const isTerminalStatusTransition =
+    hasStatusChange &&
+    (patch.status === "Completed" || patch.status === "Canceled");
+  const phaseAutoClosedOut =
+    isTerminalStatusTransition && existing.phase !== "Closeout";
+  if (isTerminalStatusTransition) {
+    patch.phase = "Closeout";
+  }
+
   // Auto-set the planned start date when a project transitions from
   // "Not Started" into an active status. The start signal is implicit
   // when work begins ("the project started today") so tracking it
@@ -1173,9 +1194,17 @@ export async function updateProject(
   // on transitions without scanning summary text. Anything else
   // (including mixed status + other fields) lands as a generic
   // `update` with a one-line diff.
+  // An auto-Closeout phase change rides along with a terminal-status
+  // transition, so don't let it demote the audit entry from the
+  // dedicated `status_change` action to a generic `update`.
   const isStatusOnly =
     hasStatusChange &&
-    Object.keys(patch).every((k) => k === "status" || k === "status_history");
+    Object.keys(patch).every(
+      (k) =>
+        k === "status" ||
+        k === "status_history" ||
+        (isTerminalStatusTransition && k === "phase"),
+    );
   if (isStatusOnly) {
     await audit({
       actorId: ctx.userId,
@@ -1186,7 +1215,7 @@ export async function updateProject(
       action: "status_change",
       summary: `Status: ${existing.status} → ${updated.status}${
         rawSummary.length > 0 ? ` — ${rawSummary}` : ""
-      }${
+      }${phaseAutoClosedOut ? " (phase → Closeout)" : ""}${
         cascadedTasks > 0
           ? ` (${cascadedTasks} open task${cascadedTasks === 1 ? "" : "s"} auto-canceled)`
           : ""
