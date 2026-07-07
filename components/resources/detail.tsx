@@ -19,7 +19,9 @@
  */
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
+import { isAdminProject } from "@/lib/projects/display";
 import type { ResourceRosterRow } from "@/lib/resources/roster";
 import type { ResourceSettings } from "@/lib/db";
 
@@ -28,7 +30,58 @@ interface ResourceDetailProps {
   thresholds: ResourceSettings["workload_buckets"];
 }
 
+/**
+ * True when `raw` (a project_lead / additional-resource string) refers to
+ * this resource — matched by user_id (exact) or display name
+ * (case-insensitive). Mirrors the roster's `matchesAcc`, minus the email
+ * path the detail row doesn't carry.
+ */
+function resourceMatches(
+  raw: string,
+  row: { user_id: string | null; resource: string },
+): boolean {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  if (row.user_id && trimmed === row.user_id) return true;
+  return trimmed.toLowerCase() === row.resource.toLowerCase();
+}
+
 export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
+  // Active-projects view controls. Defaults per spec: show only projects
+  // this person leads, and exclude Admin projects. Toggles widen the view.
+  const [includeAdditional, setIncludeAdditional] = useState(false);
+  const [includeAdmin, setIncludeAdmin] = useState(false);
+
+  // Classify every active project by this resource's relationship to it
+  // (owner = project lead, additional = listed in additional_resources)
+  // and whether it's an Admin project. A project is in the roster's
+  // active set because the resource is the lead OR an additional
+  // resource, so at least one of the two flags is always true.
+  const classifiedProjects = useMemo(
+    () =>
+      row.active_projects.map((p) => ({
+        project: p,
+        isOwner: resourceMatches(p.project_lead, row),
+        isAdditional: p.additional_resources.some((r) =>
+          resourceMatches(r, row),
+        ),
+        isAdmin: isAdminProject(p),
+      })),
+    [row],
+  );
+
+  const visibleProjects = useMemo(
+    () =>
+      classifiedProjects.filter((c) => {
+        if (!includeAdmin && c.isAdmin) return false;
+        // Default view is lead-only; additional-resource projects (where
+        // the person isn't the lead) appear only when opted in.
+        if (!includeAdditional && !c.isOwner) return false;
+        return true;
+      }),
+    [classifiedProjects, includeAdmin, includeAdditional],
+  );
+
   return (
     <div className="space-y-4">
       {/* Hero KPI strip — same shape as the Overview KPIs but
@@ -142,14 +195,44 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
       </div>
 
       {/* Active projects */}
-      <Card title={`Active projects (${row.active_projects.length})`}>
-        {row.active_projects.length === 0 ? (
-          <Empty text="No active project assignments." />
+      <Card
+        title={`Active projects (${visibleProjects.length})`}
+        actions={
+          <>
+            <ToggleLabel
+              checked={includeAdditional}
+              onChange={setIncludeAdditional}
+              label="Include additional-resource projects"
+            />
+            <ToggleLabel
+              checked={includeAdmin}
+              onChange={setIncludeAdmin}
+              label="Include Admin projects"
+            />
+          </>
+        }
+      >
+        {visibleProjects.length === 0 ? (
+          <Empty
+            text={
+              classifiedProjects.length === 0
+                ? "No active project assignments."
+                : "No projects match the current view — enable a toggle above to include additional-resource or Admin projects."
+            }
+          />
         ) : (
           <SimpleTable
-            headers={["ID", "Name", "Status", "Phase", "Health", "Target"]}
+            headers={[
+              "ID",
+              "Name",
+              "Role",
+              "Status",
+              "Phase",
+              "Health",
+              "Target",
+            ]}
           >
-            {row.active_projects.map((p) => (
+            {visibleProjects.map(({ project: p, isOwner, isAdmin }) => (
               <tr key={p.project_id} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={tdStyle}>
                   <Link
@@ -159,7 +242,15 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
                     {p.project_id}
                   </Link>
                 </td>
-                <td style={tdStyle}>{p.name}</td>
+                <td style={tdStyle}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {p.name}
+                    {isAdmin ? <AdminTag /> : null}
+                  </span>
+                </td>
+                <td style={tdStyle}>
+                  <RoleTag owner={isOwner} />
+                </td>
                 <td style={tdStyle}>{p.status}</td>
                 <td style={tdStyle}>{p.phase}</td>
                 <td style={tdStyle}>
@@ -320,26 +411,118 @@ function HeroCard({
 
 function Card({
   title,
+  actions,
   children,
 }: {
   title: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="pol-card" style={{ padding: 0 }}>
       <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
           padding: "10px 14px",
           borderBottom: "1px solid var(--border)",
-          fontSize: "var(--fs-sm)",
-          fontWeight: 700,
-          color: "var(--t1)",
         }}
       >
-        {title}
+        <span
+          style={{
+            fontSize: "var(--fs-sm)",
+            fontWeight: 700,
+            color: "var(--t1)",
+          }}
+        >
+          {title}
+        </span>
+        {actions ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            {actions}
+          </div>
+        ) : null}
       </div>
       <div style={{ padding: 0 }}>{children}</div>
     </div>
+  );
+}
+
+/** A compact checkbox + label used for the Active-projects view toggles. */
+function ToggleLabel({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+        fontWeight: 400,
+        color: "var(--t2)",
+        cursor: "pointer",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
+/** "Owner" (project lead) vs "Additional" (listed as an extra resource). */
+function RoleTag({ owner }: { owner: boolean }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 8px",
+        borderRadius: 2,
+        fontSize: 11,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        background: owner ? "var(--ok-bg, #dcfce7)" : "#f3f4f6",
+        color: owner ? "var(--ok)" : "var(--t2)",
+      }}
+    >
+      {owner ? "Owner" : "Additional"}
+    </span>
+  );
+}
+
+/** Marks a project as internal Admin work. */
+function AdminTag() {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "1px 6px",
+        borderRadius: 2,
+        fontSize: 10,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        background: "var(--warn-bg, #fef3c7)",
+        color: "var(--warn-text, #92400e)",
+      }}
+      title="Admin project (internal / operational work)"
+    >
+      Admin
+    </span>
   );
 }
 
