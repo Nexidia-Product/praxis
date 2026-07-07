@@ -96,6 +96,7 @@ export default async function WorkInProgressPage() {
         enumOptions={enumOptions}
         templates={templates}
         groups={groups}
+        quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
         currentUserRole={session.user.role}

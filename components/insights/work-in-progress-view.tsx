@@ -28,12 +28,12 @@ import {
   HEALTH_BADGE,
   HEALTH_DOT,
   HEALTH_TOOLTIP,
+  isAdminProject,
   priorityBadgeClass,
 } from "@/lib/projects/display";
 import {
   computeProjectTaskStats,
   latestStatusSummary,
-  type ProjectTaskStats,
 } from "@/lib/key-capabilities";
 import {
   URGENCY_SORT_RANK,
@@ -41,9 +41,12 @@ import {
   taskUrgency,
   todayLocal,
 } from "@/lib/tasks/display";
+import { customFieldMatches } from "@/lib/projects/custom-filter";
+import { computePortfolioPosition } from "@/lib/projects/portfolio-position";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
+  PortfolioQuadrantLabels,
   Priority,
   Project,
   ProjectGroup,
@@ -58,6 +61,11 @@ import { TaskRow } from "@/components/tasks/tasks-table";
 import { TaskFormModal } from "@/components/tasks/form-modal";
 import { ProjectQuickView } from "@/components/projects/quick-view";
 import { ProjectFormModal } from "@/components/projects/form-modal";
+import {
+  ProjectFilterBar,
+  EMPTY_FILTERS,
+  type ProjectFilters,
+} from "@/components/projects/filter-bar";
 
 /** The two project statuses this dashboard scopes to, in display order. */
 const WIP_STATUSES: ProjectStatus[] = ["In Progress", "In Planning"];
@@ -86,6 +94,7 @@ interface Props {
   enumOptions: EnumOptionSet;
   templates: TaskTemplate[];
   groups: ProjectGroup[];
+  quadrantLabels: PortfolioQuadrantLabels;
   aiEnabled: boolean;
   activeUserNames: string[];
   currentUserRole: UserRole;
@@ -99,6 +108,7 @@ export function WorkInProgressView({
   enumOptions,
   templates,
   groups,
+  quadrantLabels,
   aiEnabled,
   activeUserNames,
   currentUserRole,
@@ -108,6 +118,12 @@ export function WorkInProgressView({
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [today, setToday] = useState<string>(() => todayLocal());
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Standard project filters + the Admin-projects inclusion toggle.
+  // Admin projects (Admin type or Admin application/product) are hidden
+  // by default and only surface when `includeAdmin` is checked.
+  const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
+  const [includeAdmin, setIncludeAdmin] = useState(false);
 
   // Overlay state — one project quick view, one project edit modal, one
   // task edit modal open at a time (same pattern as the source tables).
@@ -163,6 +179,14 @@ export function WorkInProgressView({
     }
     return m;
   }, [groups]);
+
+  // Distinct leads present in the data — the filter bar's "Project Lead"
+  // options (filtering by a lead with no projects isn't useful).
+  const leadOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of projects) if (p.project_lead) set.add(p.project_lead);
+    return Array.from(set).sort();
+  }, [projects]);
 
   // Project-lead dropdown source: active users unioned with any lead
   // already present in the data (case-insensitive dedup).
@@ -255,11 +279,74 @@ export function WorkInProgressView({
     return open;
   }
 
-  // ---- The WIP subset, split into the two status sections. ----
+  // ---- Filtered WIP subset. ----
+  // Base scope: status is In Planning / In Progress. On top of that we
+  // apply the Admin-projects exclusion (unless opted in) and the standard
+  // project filters — mirroring the Projects table's filter predicate so
+  // behavior is identical.
+  const filteredProjects = useMemo(() => {
+    const search = filters.search.trim().toLowerCase();
+    return projects.filter((p) => {
+      if (p.status !== "In Planning" && p.status !== "In Progress") {
+        return false;
+      }
+      if (!includeAdmin && isAdminProject(p)) return false;
+      if (filters.status.length && !filters.status.includes(p.status)) {
+        return false;
+      }
+      if (filters.phase.length && !filters.phase.includes(p.phase)) {
+        return false;
+      }
+      if (filters.priority.length && !filters.priority.includes(p.priority)) {
+        return false;
+      }
+      if (
+        filters.project_type.length &&
+        !filters.project_type.includes(p.project_type)
+      ) {
+        return false;
+      }
+      if (
+        filters.project_lead.length &&
+        !filters.project_lead.includes(p.project_lead)
+      ) {
+        return false;
+      }
+      if (
+        filters.application_product.length &&
+        !filters.application_product.includes(p.application_product)
+      ) {
+        return false;
+      }
+      if (filters.portfolio_position.length) {
+        const pos = computePortfolioPosition(p, quadrantLabels);
+        if (!filters.portfolio_position.includes(pos.key)) return false;
+      }
+      if (filters.target_from) {
+        if (!p.target_date || p.target_date < filters.target_from) {
+          return false;
+        }
+      }
+      if (filters.target_to) {
+        if (!p.target_date || p.target_date > filters.target_to) return false;
+      }
+      if (search) {
+        const hay =
+          `${p.project_id} ${p.name} ${p.description}`.toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      for (const def of customFields) {
+        if (!customFieldMatches(p, def, filters.custom[def.key])) return false;
+      }
+      return true;
+    });
+  }, [projects, includeAdmin, filters, quadrantLabels, customFields]);
+
+  // Split the filtered set into the two status sections.
   const sections = useMemo(() => {
     const byStatus = new Map<ProjectStatus, Project[]>();
     for (const s of WIP_STATUSES) byStatus.set(s, []);
-    for (const p of projects) {
+    for (const p of filteredProjects) {
       const bucket = byStatus.get(p.status as ProjectStatus);
       if (bucket) bucket.push(p);
     }
@@ -270,7 +357,7 @@ export function WorkInProgressView({
       status,
       projects: byStatus.get(status) ?? [],
     }));
-  }, [projects]);
+  }, [filteredProjects]);
 
   const totalWip = sections.reduce((n, s) => n + s.projects.length, 0);
   const totalOpenTasks = useMemo(
@@ -434,7 +521,20 @@ export function WorkInProgressView({
 
   return (
     <div className="space-y-4">
-      {/* Summary strip */}
+      {/* Standard project filters */}
+      <ProjectFilterBar
+        filters={filters}
+        onChange={setFilters}
+        leadOptions={leadOptions}
+        applicationOptions={applicationOptions}
+        statusOptions={enumOptions.status}
+        phaseOptions={enumOptions.phase}
+        priorityOptions={enumOptions.priority}
+        customFields={customFields}
+        quadrantLabels={quadrantLabels}
+      />
+
+      {/* Summary strip + Admin-projects toggle */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm">
         <span>
           <span className="font-semibold text-gray-900">{totalWip}</span>{" "}
@@ -452,6 +552,15 @@ export function WorkInProgressView({
           <span className="font-semibold text-gray-900">{totalOpenTasks}</span>{" "}
           <span className="text-gray-500">open tasks</span>
         </span>
+        <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={includeAdmin}
+            onChange={(e) => setIncludeAdmin(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          />
+          Include Admin projects
+        </label>
       </div>
 
       {globalError ? (
@@ -463,7 +572,7 @@ export function WorkInProgressView({
 
       {totalWip === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-          No projects are currently in planning or in progress.
+          No in-planning or in-progress projects match the current filters.
         </p>
       ) : (
         sections.map((section) =>
@@ -486,7 +595,7 @@ export function WorkInProgressView({
                   <ProjectWipCard
                     key={project.project_id}
                     project={project}
-                    stats={stats}
+                    totalTasks={stats.total}
                     openTasks={openTasks}
                     today={today}
                     projectsById={projectsById}
@@ -585,7 +694,7 @@ export function WorkInProgressView({
 
 function ProjectWipCard({
   project,
-  stats,
+  totalTasks,
   openTasks,
   today,
   projectsById,
@@ -599,7 +708,7 @@ function ProjectWipCard({
   onTaskDelete,
 }: {
   project: Project;
-  stats: ProjectTaskStats;
+  totalTasks: number;
   openTasks: Task[];
   today: string;
   projectsById: Map<string, Project>;
@@ -616,8 +725,20 @@ function ProjectWipCard({
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
-      {/* Summary header */}
-      <div className="flex flex-col gap-3 p-4">
+      {/* Summary — clicking anywhere here opens the project quick view. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpenQuickView}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenQuickView();
+          }
+        }}
+        title="Open project quick view"
+        className="flex cursor-pointer flex-col gap-3 p-4 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -630,14 +751,9 @@ function ProjectWipCard({
                 {project.priority}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={onOpenQuickView}
-              className="mt-0.5 truncate text-left text-sm font-semibold text-gray-900 underline-offset-2 hover:underline"
-              title="Open project quick view"
-            >
+            <h3 className="mt-0.5 truncate text-sm font-semibold text-gray-900">
               {project.name}
-            </button>
+            </h3>
           </div>
           {project.health_score ? (
             <span
@@ -660,38 +776,7 @@ function ProjectWipCard({
           <span>{project.status}</span>
           <span>Lead: {project.project_lead || "—"}</span>
           <span>Target: {project.target_date || "—"}</span>
-        </div>
-
-        {/* Task progress */}
-        <div className="grid grid-cols-4 gap-2 border-t border-gray-100 pt-2">
-          <MiniStat label="Open" value={stats.open} />
-          <MiniStat
-            label="Past due"
-            value={stats.pastDue}
-            danger={stats.pastDue > 0}
-          />
-          <MiniStat
-            label="Blocked"
-            value={stats.blocked}
-            danger={stats.blocked > 0}
-          />
-          <MiniStat label="Done" value={stats.completed} />
-        </div>
-        <div>
-          <div className="flex items-center justify-between text-[11px] text-gray-500">
-            <span>
-              {stats.completed}/{stats.total} tasks complete
-            </span>
-            <span className="font-medium text-gray-700">
-              {stats.pctComplete}%
-            </span>
-          </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-emerald-500"
-              style={{ width: `${stats.pctComplete}%` }}
-            />
-          </div>
+          <span>Tasks: {totalTasks}</span>
         </div>
 
         {/* Latest status summary note */}
@@ -778,29 +863,6 @@ function ProjectWipCard({
             </tbody>
           </table>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  danger = false,
-}: {
-  label: string;
-  value: number;
-  danger?: boolean;
-}) {
-  return (
-    <div className="text-center">
-      <div
-        className={`text-base font-semibold ${danger ? "text-rose-600" : "text-gray-900"}`}
-      >
-        {value}
-      </div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">
-        {label}
       </div>
     </div>
   );
