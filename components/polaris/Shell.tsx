@@ -43,6 +43,7 @@ export type NavKey =
   | "groups"
   | "velocity"
   | "resources"
+  | "work-in-progress"
   | "key-capabilities"
   | "ideas"
   | "admin-resources"
@@ -113,6 +114,13 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/insights/resources",
         icon: "◍",
         permission: "resources.view",
+      },
+      {
+        key: "work-in-progress",
+        label: "Work in progress",
+        href: "/insights/work-in-progress",
+        icon: "◐",
+        permission: "projects.view",
       },
       {
         key: "key-capabilities",

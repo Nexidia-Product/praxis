@@ -835,7 +835,7 @@ interface TaskRowProps {
   onDelete: () => void;
 }
 
-function TaskRow({
+export function TaskRow({
   task,
   today,
   project,
