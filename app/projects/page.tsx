@@ -101,6 +101,8 @@ export default async function ProjectsPage() {
         aiEnabled={isAiEnabled()}
         groups={groups}
         activeUserNames={activeUserNames}
+        outcomeProducts={settings.outcome_products}
+        outcomeTypes={settings.outcome_types}
       />
     </PolarisShell>
   );

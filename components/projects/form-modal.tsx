@@ -36,6 +36,7 @@ import type {
   Priority,
   Project,
   ProjectDependency,
+  ProjectOutcome,
   ProjectPhase,
   ProjectStatus,
   ProjectType,
@@ -44,6 +45,7 @@ import type {
 import { DependencyEditor } from "./dependency-editor";
 import { DocumentLinksEditor } from "./document-links-editor";
 import { ExternalDependenciesEditor } from "./external-dependencies-editor";
+import { OutcomesEditor } from "./outcomes-editor";
 
 interface ProjectFormModalProps {
   /** When set, the modal is in edit mode against this project. */
@@ -81,6 +83,9 @@ interface ProjectFormModalProps {
    * values render whenever they're present on the record.
    */
   aiEnabled?: boolean;
+  /** Admin-managed vocabularies for the outcomes editor's dropdowns. */
+  outcomeProducts?: string[];
+  outcomeTypes?: string[];
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -138,6 +143,8 @@ interface FormState {
   document_links: DocumentLink[];
   /** External (non-Praxis) blockers — Jira on other teams, vendor work, etc. */
   external_dependencies: ExternalDependency[];
+  /** Free-form project outcomes, each optionally tagged product + type. */
+  outcomes: ProjectOutcome[];
   /**
    * AI-generated complexity tier and time estimate. Held in form state
    * so the "Generate estimate" button can populate them inline and the
@@ -175,6 +182,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     dependencies: [],
     document_links: [],
     external_dependencies: [],
+    outcomes: [],
     ai_complexity_score: null,
     ai_time_estimate: null,
     definition_of_done: "",
@@ -255,6 +263,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     dependencies: p.dependencies,
     document_links: p.document_links,
     external_dependencies: p.external_dependencies ?? [],
+    outcomes: p.outcomes ?? [],
     ai_complexity_score: p.ai_complexity_score ?? null,
     ai_time_estimate: p.ai_time_estimate ?? null,
     definition_of_done: p.definition_of_done ?? "",
@@ -294,6 +303,10 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     dependencies: s.dependencies,
     document_links: s.document_links,
     external_dependencies: s.external_dependencies,
+    // Drop blank-text outcome rows the user added but never filled in;
+    // the server rejects empty text, and an empty trailing row on save
+    // shouldn't block the whole request.
+    outcomes: s.outcomes.filter((o) => o.text.trim().length > 0),
     // AI fields: only send when the user has set a value. The service
     // accepts null to clear; omitting them on save leaves whatever's
     // persisted alone, which is what we want for forms that don't
@@ -355,6 +368,8 @@ export function ProjectFormModal({
   templates,
   allProjects,
   aiEnabled = false,
+  outcomeProducts = [],
+  outcomeTypes = [],
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
@@ -1009,6 +1024,14 @@ export function ProjectFormModal({
           <ExternalDependenciesEditor
             value={state.external_dependencies}
             onChange={(deps) => update("external_dependencies", deps)}
+            disabled={saving}
+          />
+
+          <OutcomesEditor
+            value={state.outcomes}
+            onChange={(o) => update("outcomes", o)}
+            products={outcomeProducts}
+            types={outcomeTypes}
             disabled={saving}
           />
 

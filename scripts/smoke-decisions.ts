@@ -412,6 +412,7 @@ async function main() {
       external_dependencies: [],
       document_links: [],
       custom_fields: {},
+      outcomes: [],
       created_by: "user-1",
       updated_at: "2026-04-01T00:00:00Z",
       ...overrides,

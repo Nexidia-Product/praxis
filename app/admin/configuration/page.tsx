@@ -35,6 +35,7 @@ export const dynamic = "force-dynamic";
 const VALID_TABS: ReadonlyArray<ConfigurationTab> = [
   "custom-fields",
   "project-values",
+  "outcomes",
   "portfolio-quadrants",
   "health-thresholds",
   "ai",
@@ -98,6 +99,8 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
         initialCustomFields={settings.custom_field_definitions}
         projectValuesOptions={projectValuesOptions}
         projectValuesExtensions={settings.enum_extensions}
+        initialOutcomeProducts={settings.outcome_products}
+        initialOutcomeTypes={settings.outcome_types}
         initialQuadrantLabels={settings.portfolio_quadrants}
         defaultQuadrantLabels={defaults.portfolio_quadrants}
         initialHealthThresholds={settings.health_score_thresholds}

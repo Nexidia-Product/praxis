@@ -127,6 +127,7 @@ interface ProjectQuickViewProps {
  */
 type Tab =
   | "details"
+  | "outcomes"
   | "status"
   | "decisions"
   | "links"
@@ -136,6 +137,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
+  { id: "outcomes", label: "Outcomes" },
   { id: "status", label: "Status" },
   { id: "decisions", label: "Decisions" },
   { id: "links", label: "Links" },
@@ -306,6 +308,12 @@ export function ProjectQuickView({
                 }`}
               >
                 {t.label}
+                {t.id === "outcomes" &&
+                (project.outcomes ?? []).length > 0 ? (
+                  <span className="ml-1.5 rounded bg-gray-100 px-1 text-[10px] text-gray-700">
+                    {project.outcomes.length}
+                  </span>
+                ) : null}
                 {t.id === "links" && project.document_links.length > 0 ? (
                   <span className="ml-1.5 rounded bg-gray-100 px-1 text-[10px] text-gray-700">
                     {project.document_links.length}
@@ -579,6 +587,48 @@ export function ProjectQuickView({
                   ) : null}
                 </Section>
               ) : null}
+            </div>
+          ) : null}
+
+          {tab === "outcomes" ? (
+            <div
+              role="tabpanel"
+              id="quickview-panel-outcomes"
+              aria-labelledby="quickview-tab-outcomes"
+            >
+              {(project.outcomes ?? []).length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No outcomes recorded yet.
+                  {canEdit
+                    ? " Add them from the project form (Edit project → Outcomes)."
+                    : ""}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {project.outcomes.map((o) => (
+                    <li
+                      key={o.id}
+                      className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <p className="text-gray-800">{o.text}</p>
+                      {o.product || o.type ? (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {o.product ? (
+                            <span className="inline-flex rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                              {o.product}
+                            </span>
+                          ) : null}
+                          {o.type ? (
+                            <span className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+                              {o.type}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : null}
 

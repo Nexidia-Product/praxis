@@ -61,6 +61,7 @@ import { TaskRow } from "@/components/tasks/tasks-table";
 import { TaskFormModal } from "@/components/tasks/form-modal";
 import { ProjectQuickView } from "@/components/projects/quick-view";
 import { ProjectFormModal } from "@/components/projects/form-modal";
+import { OutcomesList } from "@/components/projects/outcomes-list";
 import {
   ProjectFilterBar,
   EMPTY_FILTERS,
@@ -790,6 +791,8 @@ function ProjectWipCard({
             <p className="mt-0.5 italic text-gray-400">—</p>
           )}
         </div>
+
+        <OutcomesList outcomes={project.outcomes} />
       </div>
 
       {/* Open-task table — same rows / inline edits as the Tasks view. */}

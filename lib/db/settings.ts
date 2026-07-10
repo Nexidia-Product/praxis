@@ -169,6 +169,8 @@ const DEFAULTS: AppSettings = {
     deprioritize: "Deprioritize",
   },
   ai_config: DEFAULT_AI_CONFIG,
+  outcome_products: [],
+  outcome_types: [],
 };
 
 export const SettingsRepository = {
@@ -217,6 +219,8 @@ export const SettingsRepository = {
         defaults.portfolio_quadrants,
       ),
       ai_config: mergeAiConfig(partial.ai_config, defaults.ai_config),
+      outcome_products: stringList(partial.outcome_products),
+      outcome_types: stringList(partial.outcome_types),
     };
   },
 
@@ -354,6 +358,15 @@ function mergeResourceSettings(
       defaults.performance_window_days,
     ),
   };
+}
+
+/** Coerce a stored value into a clean string[] (trimmed, non-empty). */
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
 }
 
 function mergeAiConfig(

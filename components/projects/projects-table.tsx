@@ -239,6 +239,9 @@ interface ProjectsTableProps {
    * project-derived; only the form gets the full roster.
    */
   activeUserNames?: string[];
+  /** Admin-managed vocabularies for the project outcomes editor. */
+  outcomeProducts?: string[];
+  outcomeTypes?: string[];
 }
 
 export function ProjectsTable({
@@ -252,6 +255,8 @@ export function ProjectsTable({
   aiEnabled,
   groups = [],
   activeUserNames = [],
+  outcomeProducts = [],
+  outcomeTypes = [],
 }: ProjectsTableProps) {
   // Index groups by their member project IDs once per render so the
   // per-row indicator and the quick-view panel can both look up
@@ -1204,6 +1209,8 @@ export function ProjectsTable({
           templates={templates}
           allProjects={projects}
           aiEnabled={aiEnabled}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
           onClose={() => setShowCreateModal(false)}
           onSaved={(p) => {
             applyCreated(p);
@@ -1224,6 +1231,8 @@ export function ProjectsTable({
           templates={templates}
           allProjects={projects}
           aiEnabled={aiEnabled}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdated(p);

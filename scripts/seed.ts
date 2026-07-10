@@ -438,6 +438,7 @@ function transformProjects(
       external_dependencies: [],
       document_links: [],
       custom_fields: {},
+      outcomes: [],
       created_by: SEED_USER_ID,
       updated_at: SEED_TIMESTAMP,
     });

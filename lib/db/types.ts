@@ -314,6 +314,19 @@ export type NotificationPreferences = Record<
 // Project (Section 4.1)
 // ---------------------------------------------------------------------------
 
+/**
+ * One outcome a project is meant to deliver. `text` is required
+ * free-form; `product` and `type` are optional tags, each either null
+ * or a current value from the admin-managed vocabularies
+ * (`AppSettings.outcome_products` / `outcome_types`).
+ */
+export interface ProjectOutcome {
+  id: string;
+  text: string;
+  product: string | null;
+  type: string | null;
+}
+
 export interface Project {
   /** `YYYY-NNN` — auto-incremented within the year of creation. */
   project_id: ProjectId;
@@ -353,6 +366,14 @@ export interface Project {
    */
   resource_allocations: Record<string, number>;
   target_date: IsoDate | null;
+
+  /**
+   * Free-form outcomes this project is meant to deliver. Each is a
+   * short text statement, optionally tagged with a product and a type
+   * drawn from the admin-managed `outcome_products` / `outcome_types`
+   * vocabularies on the settings singleton. Empty array when none set.
+   */
+  outcomes: ProjectOutcome[];
 
   // ---- AI fields (Section 5.16) ----
   ai_complexity_score: ComplexityScore | null;
@@ -1068,6 +1089,18 @@ export interface AppSettings {
    * can actually invoke.
    */
   ai_config: AiConfig;
+  /**
+   * Admin-managed vocabulary for project outcome "product" tags (e.g.
+   * "Cognigy"). Edited from Admin Console → Configuration → Outcomes.
+   * Plain label list; empty on first run.
+   */
+  outcome_products: string[];
+  /**
+   * Admin-managed vocabulary for project outcome "type" tags (e.g.
+   * "automation"). Edited from Admin Console → Configuration →
+   * Outcomes. Plain label list; empty on first run.
+   */
+  outcome_types: string[];
 }
 
 /**

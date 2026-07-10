@@ -23,6 +23,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { CustomFieldsAdmin } from "@/components/admin/custom-fields-admin";
 import { ProjectValuesEditor } from "@/components/admin/project-values-editor";
+import { OutcomeValuesEditor } from "@/components/admin/outcome-values-editor";
 import { PortfolioQuadrantsAdmin } from "@/components/admin/portfolio-quadrants-admin";
 import { HealthThresholdsAdmin } from "@/components/admin/health-thresholds-admin";
 import { AiConfigAdmin } from "@/components/admin/ai-config-admin";
@@ -40,6 +41,7 @@ import type { EnumOption } from "@/lib/projects/enum-options";
 export type ConfigurationTab =
   | "custom-fields"
   | "project-values"
+  | "outcomes"
   | "portfolio-quadrants"
   | "health-thresholds"
   | "ai";
@@ -57,6 +59,11 @@ export const CONFIGURATION_TABS: ReadonlyArray<{
   {
     id: "project-values",
     label: "Project values",
+    permission: "admin.project_values.manage",
+  },
+  {
+    id: "outcomes",
+    label: "Outcomes",
     permission: "admin.project_values.manage",
   },
   {
@@ -87,6 +94,10 @@ interface ConfigurationWorkspaceProps {
   projectValuesOptions: Record<ExtensibleEnumKey, EnumOption[]>;
   projectValuesExtensions: EnumExtensionsMap;
 
+  // Outcomes tab
+  initialOutcomeProducts: string[];
+  initialOutcomeTypes: string[];
+
   // Portfolio quadrants tab
   initialQuadrantLabels: PortfolioQuadrantLabels;
   defaultQuadrantLabels: PortfolioQuadrantLabels;
@@ -114,6 +125,8 @@ export function ConfigurationWorkspace({
   initialCustomFields,
   projectValuesOptions,
   projectValuesExtensions,
+  initialOutcomeProducts,
+  initialOutcomeTypes,
   initialQuadrantLabels,
   defaultQuadrantLabels,
   initialHealthThresholds,
@@ -162,6 +175,13 @@ export function ConfigurationWorkspace({
         <ProjectValuesEditor
           initialOptions={projectValuesOptions}
           initialExtensions={projectValuesExtensions}
+        />
+      ) : null}
+
+      {activeTab === "outcomes" ? (
+        <OutcomeValuesEditor
+          initialProducts={initialOutcomeProducts}
+          initialTypes={initialOutcomeTypes}
         />
       ) : null}
 

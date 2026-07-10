@@ -31,6 +31,7 @@ import {
   type ProjectTaskStats,
 } from "@/lib/key-capabilities";
 import type { Project } from "@/lib/db";
+import { OutcomesList } from "@/components/projects/outcomes-list";
 
 /** Display-only mirror of the service-enforced cap. */
 const MAX_PER_QUARTER = 2;
@@ -384,6 +385,8 @@ function ProjectCapabilityCard({
           <p className="mt-0.5 italic text-gray-400">—</p>
         )}
       </div>
+
+      <OutcomesList outcomes={project.outcomes} />
 
       {/* Management controls */}
       {canManage ? (

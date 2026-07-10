@@ -174,6 +174,7 @@ async function main() {
       external_dependencies: [],
       document_links: [],
       custom_fields: {},
+      outcomes: [],
       created_by: "seed",
       updated_at: "2026-04-15T00:00:00Z",
       ...overrides,

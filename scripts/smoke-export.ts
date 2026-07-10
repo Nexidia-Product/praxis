@@ -216,6 +216,7 @@ async function main() {
       external_dependencies: p.external_dependencies ?? [],
       document_links: p.document_links ?? [],
       custom_fields: p.custom_fields ?? {},
+      outcomes: p.outcomes ?? [],
       created_by: p.created_by ?? "seed",
       updated_at: p.updated_at ?? "2026-04-01T00:00:00Z",
     };

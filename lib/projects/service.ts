@@ -34,6 +34,8 @@ import {
   type Priority,
   type Project,
   type ProjectDependency,
+  type ProjectOutcome,
+  type AppSettings,
   type ProjectId,
   type ProjectPhase,
   type ProjectStatus,
@@ -53,6 +55,7 @@ import {
 import {
   PROJECT_TYPES,
 } from "@/lib/projects/display";
+import { randomUUID } from "node:crypto";
 import {
   LinkValidationError,
   validateDocumentLinks,
@@ -179,6 +182,13 @@ export interface ProjectCreatePayload {
    * created-at fields and the validator stamps them in.
    */
   external_dependencies?: unknown;
+  /**
+   * Free-form project outcomes. Array of `{ text, product?, type? }`;
+   * `text` is required, `product`/`type` are optional and validated
+   * against the admin-managed vocabularies. New entries omit `id` and
+   * the validator stamps one in.
+   */
+  outcomes?: unknown;
 }
 
 export interface ProjectUpdatePayload extends ProjectCreatePayload {
@@ -192,6 +202,57 @@ export interface ProjectUpdatePayload extends ProjectCreatePayload {
    * whitespace-only values become `null`.
    */
   status_summary?: unknown;
+}
+
+/**
+ * Validate and normalize the outcomes array. Each entry needs non-empty
+ * `text`; `product` / `type` are optional and, when present, must be a
+ * current value in the admin-managed vocabulary (blank/absent → null).
+ * Preserves an existing `id` or stamps a fresh one.
+ */
+function shapeOutcomes(
+  raw: unknown,
+  settings: Pick<AppSettings, "outcome_products" | "outcome_types">,
+): ProjectOutcome[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new ValidationError("outcomes must be an array.");
+  }
+  const products = new Set(settings.outcome_products);
+  const types = new Set(settings.outcome_types);
+
+  return raw.map((item, i) => {
+    if (!item || typeof item !== "object") {
+      throw new ValidationError(`outcomes[${i}] must be an object.`);
+    }
+    const o = item as Record<string, unknown>;
+    const text = typeof o.text === "string" ? o.text.trim() : "";
+    if (!text) {
+      throw new ValidationError(`outcomes[${i}].text is required.`);
+    }
+
+    const tag = (value: unknown, field: string, allowed: Set<string>) => {
+      if (value === undefined || value === null || value === "") return null;
+      if (typeof value !== "string") {
+        throw new ValidationError(`outcomes[${i}].${field} must be a string.`);
+      }
+      const v = value.trim();
+      if (v === "") return null;
+      if (!allowed.has(v)) {
+        throw new ValidationError(
+          `outcomes[${i}].${field} "${v}" is not a valid ${field}. Add it under Admin → Configuration → Outcomes first.`,
+        );
+      }
+      return v;
+    };
+
+    return {
+      id: typeof o.id === "string" && o.id.trim() ? o.id : randomUUID(),
+      text,
+      product: tag(o.product, "product", products),
+      type: tag(o.type, "type", types),
+    };
+  });
 }
 
 function asString(value: unknown, field: string, opts: { trim?: boolean } = {}): string {
@@ -496,6 +557,7 @@ async function validateAndShape(
     external_dependencies,
     document_links,
     custom_fields,
+    outcomes: shapeOutcomes(payload.outcomes, settings),
     created_by: ctx.createdBy,
   };
 }
@@ -893,6 +955,10 @@ export async function updateProject(
       "roadmap_timeline_start",
     );
   }
+  if (payload.outcomes !== undefined) {
+    patch.outcomes = shapeOutcomes(payload.outcomes, settings);
+  }
+
   if (payload.custom_fields !== undefined) {
     patch.custom_fields = validateCustomFields(
       payload.custom_fields,

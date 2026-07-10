@@ -30,6 +30,7 @@ export type CreateProjectInput = Omit<
   | "definition_of_done"
   | "is_key_capability"
   | "key_capability_quarter"
+  | "outcomes"
 > &
   Partial<
     Pick<
@@ -40,6 +41,7 @@ export type CreateProjectInput = Omit<
       | "definition_of_done"
       | "is_key_capability"
       | "key_capability_quarter"
+      | "outcomes"
     >
   >;
 
@@ -94,6 +96,7 @@ export const ProjectRepository = {
         external_dependencies: input.external_dependencies,
         document_links: input.document_links,
         custom_fields: input.custom_fields,
+        outcomes: input.outcomes ?? [],
         created_by: input.created_by,
         health_score: input.health_score ?? null,
         health_score_history: input.health_score_history ?? [],

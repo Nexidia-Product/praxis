@@ -105,6 +105,7 @@ async function main() {
       external_dependencies: [],
       document_links: [],
       custom_fields: {},
+      outcomes: [],
       created_by: "alex",
       updated_at: "2026-01-15T00:00:00Z",
     };
