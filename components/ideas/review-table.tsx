@@ -173,12 +173,22 @@ export function IdeasReviewTable({ initialIdeas }: IdeasReviewTableProps) {
                   aria-label={`Open idea ${idea.idea_name}`}
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/ideas/${idea.idea_id}`}
-                      className="font-medium text-gray-900 underline-offset-2 hover:underline"
-                    >
-                      {idea.idea_name}
-                    </Link>
+                    <span className="flex items-center gap-1.5">
+                      <Link
+                        href={`/admin/ideas/${idea.idea_id}`}
+                        className="font-medium text-gray-900 underline-offset-2 hover:underline"
+                      >
+                        {idea.idea_name}
+                      </Link>
+                      {idea.edited_since_review ? (
+                        <span
+                          className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300"
+                          title="Edited by the submitter after entering review"
+                        >
+                          Edited
+                        </span>
+                      ) : null}
+                    </span>
                     <p className="mt-0.5 line-clamp-1 max-w-xl text-xs text-gray-600">
                       {idea.description}
                     </p>

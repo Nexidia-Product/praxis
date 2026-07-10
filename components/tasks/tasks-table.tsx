@@ -816,6 +816,7 @@ export function TasksTable({
             applyUpdated(t);
             setEditTask(null);
           }}
+          onTaskUpdated={applyUpdated}
         />
       ) : null}
 

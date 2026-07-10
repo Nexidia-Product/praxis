@@ -30,6 +30,7 @@
     "admin:delete-user": "tsx --env-file=.env.local scripts/delete-user.ts",
     "admin:bulk-create": "tsx --env-file=.env.local scripts/bulk-create-users.ts",
     "ai:list-models": "tsx --env-file=.env.local scripts/ai-list-models.ts",
+    "seed:document-skills": "tsx --env-file=.env.local scripts/seed-document-skills.ts",
     "prepare:branding": "tsx scripts/prepare-branding.ts"
   },
   "dependencies": {
@@ -43,12 +44,16 @@
     "pptxgenjs": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "resend": "^6.12.2"
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "resend": "^6.12.2",
+    "sanitize-html": "^2.17.5"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/sanitize-html": "^2.16.1",
     "autoprefixer": "^10.4.20",
     "exceljs": "^4.4.0",
     "postcss": "^8.5.10",

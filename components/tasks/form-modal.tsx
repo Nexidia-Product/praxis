@@ -29,6 +29,7 @@ import type {
   Priority,
   Project,
   Task,
+  KeyFindingEntry,
   TaskCommentEntry,
   TaskDependency,
   TaskDependencyType,
@@ -64,6 +65,13 @@ interface TaskFormModalProps {
   canMove?: boolean;
   onClose: () => void;
   onSaved: (task: Task) => void;
+  /**
+   * Called after an in-place update that should NOT close the modal —
+   * e.g. adding a key finding. Refreshes the parent's task data while
+   * keeping the panel open. Optional; when absent, such updates are
+   * reflected only within the open modal.
+   */
+  onTaskUpdated?: (task: Task) => void;
 }
 
 interface FormState {
@@ -205,6 +213,7 @@ export function TaskFormModal({
   canMove = false,
   onClose,
   onSaved,
+  onTaskUpdated,
 }: TaskFormModalProps) {
   const isEdit = task !== null;
   const [state, setState] = useState<FormState>(() =>
@@ -227,9 +236,9 @@ export function TaskFormModal({
   // Tabs (Details / Comments) — only meaningful on edit, since
   // comment history doesn't exist before the task is saved. On create
   // we lock to "details" and don't render the tab strip.
-  const [tab, setTab] = useState<"details" | "comments" | "dependencies">(
-    "details",
-  );
+  const [tab, setTab] = useState<
+    "details" | "comments" | "findings" | "dependencies"
+  >("details");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -413,6 +422,7 @@ export function TaskFormModal({
               [
                 { id: "details", label: "Details" },
                 { id: "comments", label: "Comments" },
+                { id: "findings", label: "Key Findings" },
                 { id: "dependencies", label: "Dependencies" },
               ] as const
             ).map((t) => {
@@ -436,6 +446,11 @@ export function TaskFormModal({
                   {t.id === "comments" && task!.comment_history.length > 0 ? (
                     <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
                       {task!.comment_history.length}
+                    </span>
+                  ) : null}
+                  {t.id === "findings" && task!.key_findings.length > 0 ? (
+                    <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">
+                      {task!.key_findings.length}
                     </span>
                   ) : null}
                   {t.id === "dependencies" &&
@@ -838,6 +853,21 @@ export function TaskFormModal({
             </div>
           ) : null}
 
+          {tab === "findings" && isEdit ? (
+            <div
+              role="tabpanel"
+              id="task-panel-findings"
+              aria-labelledby="task-tab-findings"
+              className="space-y-4 px-6 py-5"
+            >
+              <KeyFindingsTab
+                task={task!}
+                readOnly={readOnly}
+                onAdded={onTaskUpdated}
+              />
+            </div>
+          ) : null}
+
           {tab === "dependencies" && isEdit ? (
             <div
               role="tabpanel"
@@ -1222,6 +1252,181 @@ function CommentHistoryRow({ entry }: { entry: TaskCommentEntry }) {
           <span className="text-gray-600">{entry.previous_text}</span>
         </p>
       ) : null}
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Key Findings tab
+// ---------------------------------------------------------------------------
+
+/**
+ * Append-only rich-content findings for a task, newest-first.
+ *
+ * The editor is a contentEditable region so a paste from Word / Excel /
+ * another tool keeps its formatting — tables included. On "Add finding"
+ * the raw HTML is POSTed to /api/tasks/[id]/key-findings, where it is
+ * sanitized server-side; the response carries the updated task, whose
+ * (already-sanitized) findings we render back via dangerouslySetInnerHTML.
+ * Local state is seeded from the task and updated on add so the list
+ * refreshes without closing the panel; `onAdded` (when provided) keeps
+ * the parent's task data in sync too.
+ */
+function KeyFindingsTab({
+  task,
+  readOnly,
+  onAdded,
+}: {
+  task: Task;
+  readOnly?: boolean;
+  onAdded?: (task: Task) => void;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [findings, setFindings] = useState<KeyFindingEntry[]>(
+    task.key_findings,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(true);
+
+  // Resync if a fresh task propagates in (e.g. a save elsewhere).
+  useEffect(() => {
+    setFindings(task.key_findings);
+  }, [task.key_findings]);
+
+  const newestFirst = useMemo(() => [...findings].reverse(), [findings]);
+
+  function refreshEmpty() {
+    const el = editorRef.current;
+    const hasText = !!el && (el.textContent?.trim().length ?? 0) > 0;
+    const hasTable = !!el && /<table[\s>]/i.test(el.innerHTML);
+    setEmpty(!(hasText || hasTable));
+  }
+
+  async function add() {
+    const el = editorRef.current;
+    if (!el || busy) return;
+    const html = el.innerHTML;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.task_id}/key-findings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        task?: Task;
+        error?: string;
+      };
+      if (!res.ok || !data.task) {
+        throw new Error(data.error ?? "Could not save the key finding.");
+      }
+      setFindings(data.task.key_findings);
+      onAdded?.(data.task);
+      el.innerHTML = "";
+      setEmpty(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not save the key finding.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {!readOnly ? (
+        <section>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Add a key finding
+          </p>
+          <div
+            ref={editorRef}
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Key finding content"
+            contentEditable={!busy}
+            suppressContentEditableWarning
+            onInput={refreshEmpty}
+            data-placeholder="Paste or type a finding. Formatting and tables from the source are kept."
+            className="pol-rich pol-rich-editor mt-2 max-h-72 min-h-[6rem] overflow-auto rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={add}
+              disabled={busy || empty}
+              className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Add finding"}
+            </button>
+            <span className="text-[11px] text-gray-500">
+              Saved with your name and a timestamp.
+            </span>
+          </div>
+          {error ? (
+            <p
+              role="alert"
+              className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+            >
+              {error}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section>
+        <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          History
+        </h3>
+        {newestFirst.length === 0 ? (
+          <p className="mt-2 text-sm text-gray-500">
+            No key findings recorded yet.
+          </p>
+        ) : (
+          <ol className="mt-2 space-y-3">
+            {newestFirst.map((f) => (
+              <KeyFindingRow key={f.id} finding={f} />
+            ))}
+          </ol>
+        )}
+      </section>
+    </>
+  );
+}
+
+function KeyFindingRow({ finding }: { finding: KeyFindingEntry }) {
+  const when = new Date(finding.created_at);
+  const display = Number.isNaN(when.getTime())
+    ? finding.created_at
+    : when.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+  return (
+    <li className="rounded-md border border-gray-200 bg-white">
+      <div className="flex items-center gap-1.5 border-b border-gray-100 px-3 py-1.5 text-xs text-gray-500">
+        {finding.created_by_name ? (
+          <span className="font-medium text-gray-700">
+            {finding.created_by_name}
+          </span>
+        ) : (
+          <span>System</span>
+        )}
+        <span aria-hidden>·</span>
+        <time dateTime={finding.created_at} title={finding.created_at}>
+          {display}
+        </time>
+      </div>
+      <div
+        className="pol-rich overflow-x-auto px-3 py-2"
+        dangerouslySetInnerHTML={{ __html: finding.html }}
+      />
     </li>
   );
 }

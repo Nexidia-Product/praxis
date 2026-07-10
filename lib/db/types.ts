@@ -506,6 +506,14 @@ export interface Task {
    * are later cleared.
    */
   comment_history: TaskCommentEntry[];
+  /**
+   * Append-only log of key findings recorded on the task. Unlike
+   * `comments` (a single evolving field), each finding is a discrete
+   * entry with its own timestamp and author, and `html` holds
+   * sanitized rich content (may include tables) so pasted formatting
+   * is preserved. Newest is appended last; the UI reverses for display.
+   */
+  key_findings: KeyFindingEntry[];
   document_links: DocumentLink[];
   /**
    * Planning-style predecessor relationships. Separate from
@@ -546,6 +554,20 @@ export interface TaskCommentEntry {
   previous_text: string | null;
   changed_by: UserId | null;
   changed_by_name: string | null;
+}
+
+/**
+ * One key finding recorded on a task. `html` is sanitized rich content
+ * (see lib/tasks/key-findings.ts) and may include tables, headings, and
+ * lists pasted from another source. Each finding is an independent,
+ * timestamped, attributed entry — the log is append-only.
+ */
+export interface KeyFindingEntry {
+  id: string;
+  html: string;
+  created_at: IsoTimestamp;
+  created_by: UserId | null;
+  created_by_name: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -753,6 +775,15 @@ export interface ProjectIdea {
   converted_to_project_id: ProjectId | null;
   /** Cached Claude analysis from the most recent overlap check. */
   ai_overlap_analysis: string | null;
+  /**
+   * True when the submitter edited the idea (via their public edit link)
+   * after it had already moved past "New" — i.e. a reviewer had engaged
+   * with it. Cleared the next time a reviewer updates the idea. Drives the
+   * "Edited since review" badge on the admin review surfaces. The raw edit
+   * token is never stored on the row (only a hash, server-side); it's not
+   * part of this public-facing shape.
+   */
+  edited_since_review: boolean;
   /**
    * Files attached to the submission. Empty array when none were
    * uploaded. Stored in the `idea-attachments` Supabase Storage
@@ -1067,6 +1098,130 @@ export interface AiConfig {
   estimate_model_id: string;
   prioritize_model_id: string;
   overlap_model_id: string;
+  /**
+   * document — generates long-form docs (PRFAQs, Confluence articles)
+   * from a project + an authored skill. On-demand, low volume; defaults
+   * to the same mid-tier reasoning model as prioritize / overlap since
+   * long-form output rewards it.
+   */
+  document_model_id: string;
+}
+
+// =============================================================================
+// Document generation (PRFAQs, Confluence articles, …)
+// =============================================================================
+
+/** Deterministic transforms applied to an input before prompt injection. */
+export type DocumentInputTransform = "to_quarter";
+
+/**
+ * One bound input on a document skill. `source` is a dot-path into the
+ * generation context (e.g. "project.description"); `transform` runs in
+ * code before injection so derived values (a quarter from a date) are
+ * never left to the model.
+ */
+export interface DocumentInputSpec {
+  source: string;
+  label: string;
+  required: boolean;
+  transform?: DocumentInputTransform;
+}
+
+export type DocumentInputSpecMap = Record<string, DocumentInputSpec>;
+
+/** One section of a document outline. */
+export interface DocumentOutlineSection {
+  heading: string;
+  /** Word style hint used when rendering — "Heading1" | "Heading2". */
+  style?: string;
+  guidance?: string;
+  /** For FAQ-style sections: one sub-heading per question, in order. */
+  questions?: string[];
+  format?: "bullets";
+}
+
+/**
+ * An authored "skill" bundle read by the document generator. Tuned
+ * externally and imported; `version` + `is_active` version prompts so a
+ * new version supersedes the old without losing history (one active
+ * version per `key`).
+ */
+export interface DocumentSkill {
+  id: string;
+  key: string;
+  name: string;
+  /** e.g. "PRFAQ — {feature_name}". Placeholders resolve from inputs. */
+  title_pattern: string | null;
+  /** Per-skill model override; null falls back to ai_config.document_model_id. */
+  model_id: string | null;
+  instructions: string;
+  /** Shared product context, reusable across doc types. */
+  product_profile: string | null;
+  /** Gold-standard example — a structure anchor, not content to copy. */
+  example: string | null;
+  inputs: DocumentInputSpecMap;
+  outline: DocumentOutlineSection[];
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A persisted, AI-generated summary of the key findings across a
+ * project's tasks. One per project (keyed by project_id); regenerating
+ * overwrites it. `summary_md` is GitHub-Flavored Markdown. The
+ * `source_*` counts record how much fed the summary at generation time,
+ * so the UI can hint when new findings have since been added.
+ */
+export interface ProjectFindingSummary {
+  project_id: ProjectId;
+  summary_md: string;
+  model_id: string;
+  source_task_count: number;
+  source_finding_count: number;
+  generated_by: UserId | null;
+  generated_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type GeneratedDocumentStatus = "draft" | "reviewed" | "published";
+
+/** One rendered section of a generated document. */
+export interface GeneratedSection {
+  heading: string;
+  style?: string;
+  markdown: string;
+}
+
+/** Token usage accumulated across a document's section calls. */
+export interface GenerationUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
+/**
+ * A document produced from a project + a skill. Saved on generation so
+ * it can be edited, regenerated, and later published; `confluence_*`
+ * fields populate once the publish path lands.
+ */
+export interface GeneratedDocument {
+  id: string;
+  project_id: ProjectId;
+  skill_key: string;
+  skill_version: number;
+  title: string;
+  markdown: string;
+  sections: GeneratedSection[];
+  status: GeneratedDocumentStatus;
+  model_id: string;
+  usage: GenerationUsage;
+  confluence_page_id: string | null;
+  confluence_url: string | null;
+  created_by: UserId | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

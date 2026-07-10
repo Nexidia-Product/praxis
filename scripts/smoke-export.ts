@@ -238,6 +238,7 @@ async function main() {
       blocker_task_id: null,
       blocker_project_id: null,
       comment_history: [],
+      key_findings: [],
       estimate_hours: null,
       comments: t.comments ?? "",
       document_links: t.document_links ?? [],

@@ -55,8 +55,10 @@ import {
   type ProjectCreatePayload,
 } from "@/lib/projects/service";
 import { notifyIdeaStatusChanged } from "@/lib/notifications/service";
+import { sendIdeaEditLink } from "@/lib/notifications/email";
 import { audit } from "@/lib/audit/service";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
+import { createHash, randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Constants — kept in sync with the enum aliases in lib/db/types.ts.
@@ -188,6 +190,31 @@ const MAX_NAME = 200;
 const MAX_DESCRIPTION = 5000;
 const MAX_STAKEHOLDERS = 500;
 
+// ---------------------------------------------------------------------------
+// Edit-token helpers (account-less "edit your idea" links)
+// ---------------------------------------------------------------------------
+
+/** A fresh, URL-safe capability token. 256 bits — unguessable. */
+function newEditToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+/**
+ * Hash a token for storage / lookup. Only the hash is ever persisted, so a
+ * DB leak can't be replayed as an edit link. SHA-256 (not bcrypt) is the
+ * right tool here: the input is already high-entropy, so there's nothing to
+ * brute-force and we want fast, deterministic lookups.
+ */
+function hashEditToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** Absolute URL for the submitter's edit page. */
+function buildEditUrl(token: string): string {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/+$/, "");
+  return `${base}/submit/edit/${token}`;
+}
+
 /**
  * Validate and create an idea from a public submission. No authentication
  * is required — this is the entry point invoked by `/api/public/ideas`.
@@ -195,7 +222,7 @@ const MAX_STAKEHOLDERS = 500;
 export async function submitIdea(
   payload: IdeaSubmitPayload,
   attachments?: IncomingAttachment[],
-): Promise<ProjectIdea> {
+): Promise<ProjectIdea & { edit_token: string | null }> {
   const submitter_name = asString(payload.submitter_name, "submitter_name");
   if (!submitter_name) {
     throw new ValidationError("Your name is required.");
@@ -308,6 +335,29 @@ export async function submitIdea(
     }
   }
 
+  const ideaWithAttachments =
+    savedAttachments.length > 0
+      ? { ...idea, attachments: savedAttachments }
+      : idea;
+
+  // Mint a capability token so the submitter can edit their idea (until it's
+  // converted) without an account. Best-effort: minting requires the
+  // `edit_token_hash` column (migration 0013). If it isn't present yet we
+  // log and continue — the submission still succeeds, just without an edit
+  // link. Only the hash is stored; the raw token is returned to the caller
+  // once (shown on the confirmation screen and emailed).
+  let editToken: string | null = null;
+  try {
+    const token = newEditToken();
+    await IdeaRepository.setEditTokenHash(idea.idea_id, hashEditToken(token));
+    editToken = token;
+  } catch (err) {
+    console.warn(
+      `[ideas] edit-token setup skipped for ${idea.idea_id} (is migration 0013 applied?):`,
+      err,
+    );
+  }
+
   // Public submissions have no logged-in actor — record `null` so the
   // audit page renders "(public submission)" instead of attributing
   // the row to a system user.
@@ -324,9 +374,22 @@ export async function submitIdea(
     }.`,
   });
 
-  return savedAttachments.length > 0
-    ? { ...idea, attachments: savedAttachments }
-    : idea;
+  // Email the edit link when we have both a token and an address. Fire-and-
+  // forget — a mailer outage must not fail the submission.
+  if (editToken && ideaWithAttachments.submitter_email) {
+    sendIdeaEditLink({
+      to: ideaWithAttachments.submitter_email,
+      ideaName: ideaWithAttachments.idea_name,
+      editUrl: buildEditUrl(editToken),
+    }).catch((err) => {
+      console.warn(
+        `[ideas] edit-link email failed for ${idea.idea_id}:`,
+        err,
+      );
+    });
+  }
+
+  return { ...ideaWithAttachments, edit_token: editToken };
 }
 
 // ---------------------------------------------------------------------------
@@ -413,6 +476,22 @@ export async function updateIdea(
 
   const updated = await IdeaRepository.update(ideaId, patch);
 
+  // A reviewer touching the idea means they're now looking at its current
+  // content, so clear the "edited since review" flag. Separate + best-effort
+  // so a pre-migration DB (missing column) never fails the reviewer's edit;
+  // mirror the cleared value onto the returned record so the UI updates.
+  if (updated.edited_since_review) {
+    try {
+      await IdeaRepository.update(ideaId, { edited_since_review: false });
+      updated.edited_since_review = false;
+    } catch (err) {
+      console.warn(
+        `[ideas] clearing edited_since_review failed for ${ideaId}:`,
+        err,
+      );
+    }
+  }
+
   // Fire-and-forget email notification on status change. We swallow errors
   // so a Resend outage doesn't 500 the admin's UI; the helper itself has
   // its own try/catch around the network call.
@@ -447,6 +526,153 @@ export async function updateIdea(
       summary: `Updated admin comments.`,
     });
   }
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Public, account-less edit (via capability token)
+// ---------------------------------------------------------------------------
+
+/** Fields a submitter may change through their edit link. */
+export interface IdeaEditPayload {
+  idea_name?: unknown;
+  description?: unknown;
+  urgency?: unknown;
+  requested_target_date?: unknown;
+  key_stakeholders?: unknown;
+}
+
+/**
+ * Resolve an idea from its raw edit token (hashing before lookup). Returns
+ * null for an unknown / stale token. Used by the public edit page to decide
+ * whether to render the form, a "converted, read-only" notice, or an
+ * "invalid link" message.
+ */
+export async function getIdeaByEditToken(
+  token: string,
+): Promise<ProjectIdea | null> {
+  const t = typeof token === "string" ? token.trim() : "";
+  if (!t) return null;
+  try {
+    return await IdeaRepository.getByEditTokenHash(hashEditToken(t));
+  } catch (err) {
+    // The most likely failure is the `edit_token_hash` column not existing
+    // yet (migration 0013 not applied). Degrade to "no match" so the public
+    // page shows a clean "invalid link" state instead of a 500.
+    console.warn("[ideas] getIdeaByEditToken lookup failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Apply a submitter's edit, authorized solely by the capability token.
+ *
+ * Guardrails:
+ *   - Unknown / stale token → NotFoundError (surfaced as 404).
+ *   - Already converted → ConflictError (surfaced as 409). This is the core
+ *     rule: once an idea has spawned a project it's frozen.
+ *   - Only the submitter-owned content fields can change — never status,
+ *     admin_comments, the conversion link, or the token itself.
+ *
+ * When the idea has already moved past "New" (a reviewer engaged with it),
+ * the edit sets `edited_since_review` so the admin surfaces flag that the
+ * content changed after review.
+ */
+export async function updateIdeaByToken(
+  token: string,
+  payload: IdeaEditPayload,
+): Promise<ProjectIdea> {
+  const existing = await getIdeaByEditToken(token);
+  if (!existing) {
+    throw new NotFoundError("This edit link is invalid or has expired.");
+  }
+  if (existing.status === "Converted" || existing.converted_to_project_id) {
+    throw new ConflictError(
+      "This idea has been converted to a project and can no longer be edited.",
+    );
+  }
+
+  const patch: {
+    idea_name?: string;
+    description?: string;
+    urgency?: IdeaUrgency;
+    requested_target_date?: string | null;
+    key_stakeholders?: string;
+    edited_since_review?: boolean;
+  } = {};
+
+  if (payload.idea_name !== undefined) {
+    const idea_name = asString(payload.idea_name, "idea_name");
+    if (!idea_name) {
+      throw new ValidationError("A short title for the idea is required.");
+    }
+    if (idea_name.length > MAX_NAME) {
+      throw new ValidationError(
+        `The idea title must be ${MAX_NAME} characters or fewer.`,
+      );
+    }
+    patch.idea_name = idea_name;
+  }
+
+  if (payload.description !== undefined) {
+    const description = asString(payload.description, "description");
+    if (!description) {
+      throw new ValidationError("A description is required.");
+    }
+    if (description.length > MAX_DESCRIPTION) {
+      throw new ValidationError(
+        `The description must be ${MAX_DESCRIPTION} characters or fewer.`,
+      );
+    }
+    patch.description = description;
+  }
+
+  if (payload.urgency !== undefined) {
+    patch.urgency = asEnum(payload.urgency, URGENCIES, "urgency");
+  }
+
+  if (payload.requested_target_date !== undefined) {
+    patch.requested_target_date = asNullableDate(
+      payload.requested_target_date,
+      "requested_target_date",
+    );
+  }
+
+  if (payload.key_stakeholders !== undefined) {
+    const key_stakeholders = asOptionalString(
+      payload.key_stakeholders,
+      "key_stakeholders",
+    );
+    if (key_stakeholders.length > MAX_STAKEHOLDERS) {
+      throw new ValidationError(
+        `Stakeholder list must be ${MAX_STAKEHOLDERS} characters or fewer.`,
+      );
+    }
+    patch.key_stakeholders = key_stakeholders;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    // Nothing actually changed — return the current record unchanged
+    // rather than writing a no-op row and firing a spurious flag/audit.
+    return existing;
+  }
+
+  // Flag for reviewers only once an admin has engaged (status left "New").
+  if (existing.status !== "New") {
+    patch.edited_since_review = true;
+  }
+
+  const updated = await IdeaRepository.update(existing.idea_id, patch);
+
+  await audit({
+    actorId: null,
+    entityType: "Idea",
+    entityId: existing.idea_id,
+    entityLabel: updated.idea_name,
+    action: "update",
+    summary: "Submitter edited their idea via the public edit link.",
+  });
 
   return updated;
 }

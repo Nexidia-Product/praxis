@@ -160,6 +160,7 @@ async function main() {
       blocker_project_id: null,
       comments: "",
       comment_history: [],
+      key_findings: [],
       estimate_hours: null,
       document_links: [],
       dependencies: [],

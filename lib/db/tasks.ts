@@ -22,10 +22,16 @@ export type CreateTaskInput = Omit<
   | "created_at"
   | "updated_at"
   | "comment_history"
+  | "key_findings"
   | "estimate_hours"
   | "dependencies"
 > &
-  Partial<Pick<Task, "comment_history" | "estimate_hours" | "dependencies">>;
+  Partial<
+    Pick<
+      Task,
+      "comment_history" | "key_findings" | "estimate_hours" | "dependencies"
+    >
+  >;
 
 export type UpdateTaskInput = Partial<
   Omit<Task, "task_id" | "project_id" | "created_at">
@@ -81,6 +87,7 @@ export const TaskRepository = {
         document_links: input.document_links,
         template_id: input.template_id,
         comment_history: input.comment_history ?? [],
+        key_findings: input.key_findings ?? [],
         estimate_hours: input.estimate_hours ?? null,
         // task_id, created_at, updated_at are filled by Postgres defaults
       })

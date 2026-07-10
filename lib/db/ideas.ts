@@ -22,6 +22,7 @@ export type CreateIdeaInput = Omit<
   | "admin_comments"
   | "converted_to_project_id"
   | "ai_overlap_analysis"
+  | "edited_since_review"
   | "attachments"
 > &
   Partial<
@@ -53,6 +54,41 @@ export const IdeaRepository = {
       .maybeSingle();
     if (error) throw new Error(`ideas.getById failed: ${error.message}`);
     return (data as ProjectIdea | null) ?? null;
+  },
+
+  /**
+   * Look up an idea by the SHA-256 hash of its edit token. Powers the
+   * public, account-less "edit your idea" link. Returns null when no row
+   * matches (invalid / stale link). Requires the `edit_token_hash` column
+   * (migration 0013) — throws if it's absent, which is the correct signal
+   * to the caller that the edit feature isn't provisioned yet.
+   */
+  async getByEditTokenHash(hash: string): Promise<ProjectIdea | null> {
+    const { data, error } = await getServiceRoleClient()
+      .from(TABLE)
+      .select("*")
+      .eq("edit_token_hash", hash)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`ideas.getByEditTokenHash failed: ${error.message}`);
+    }
+    return (data as ProjectIdea | null) ?? null;
+  },
+
+  /**
+   * Store the edit-token hash on an idea. Separate from `update` because
+   * `edit_token_hash` is intentionally not part of the public `ProjectIdea`
+   * shape (only its hash ever lives in the DB). Called best-effort at
+   * submission time.
+   */
+  async setEditTokenHash(id: IdeaId, hash: string): Promise<void> {
+    const { error } = await getServiceRoleClient()
+      .from(TABLE)
+      .update({ edit_token_hash: hash })
+      .eq("idea_id", id);
+    if (error) {
+      throw new Error(`ideas.setEditTokenHash failed: ${error.message}`);
+    }
   },
 
   async create(input: CreateIdeaInput): Promise<ProjectIdea> {

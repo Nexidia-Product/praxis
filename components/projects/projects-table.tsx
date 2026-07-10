@@ -1163,6 +1163,8 @@ export function ProjectsTable({
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
           }
+          aiEnabled={aiEnabled}
+          isAdmin={currentUserRole === "Admin"}
           onClose={() => setQuickViewId(null)}
           onEdit={() => {
             setModalProject(quickViewProject);

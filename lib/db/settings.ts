@@ -135,6 +135,7 @@ const DEFAULT_AI_CONFIG: AiConfig = {
   estimate_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
   prioritize_model_id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
   overlap_model_id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  document_model_id: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
 };
 
 const DEFAULTS: AppSettings = {
@@ -372,6 +373,10 @@ function mergeAiConfig(
       defaults.prioritize_model_id,
     ),
     overlap_model_id: pick(stored.overlap_model_id, defaults.overlap_model_id),
+    document_model_id: pick(
+      stored.document_model_id,
+      defaults.document_model_id,
+    ),
   };
 }
 

@@ -194,7 +194,15 @@ export function IdeaReviewPanel({
               ) : null}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {idea.edited_since_review ? (
+              <span
+                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-900 ring-1 ring-inset ring-amber-300"
+                title="The submitter edited this idea after it entered review. Re-check the details before acting."
+              >
+                Edited since review
+              </span>
+            ) : null}
             <span
               className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${URGENCY_BADGE[idea.urgency]}`}
             >

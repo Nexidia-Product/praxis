@@ -28,6 +28,7 @@ import {
   type Priority,
   type ProjectId,
   type Task,
+  type KeyFindingEntry,
   type TaskCommentEntry,
   type TaskDependency,
   type TaskDependencyType,
@@ -43,6 +44,8 @@ import {
 } from "@/lib/projects/links";
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
+import { sanitizeKeyFindingHtml } from "./key-findings";
+import { randomUUID } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Constants — kept in sync with type aliases in `lib/db/types.ts`.
@@ -1187,6 +1190,57 @@ async function releaseFsDependentTasks(
       );
     }
   }
+}
+
+/**
+ * Append a key finding to a task.
+ *
+ * Distinct from `updateTask` because a key finding is a discrete,
+ * append-only entry with sanitized rich content — not a field edit. The
+ * HTML is sanitized here (server-side, the source of truth) before it
+ * ever touches storage, so a crafted request can't persist a script
+ * payload. Health is not recalculated: key findings are metadata and
+ * feed no health input.
+ */
+export async function addKeyFinding(
+  id: TaskId,
+  html: unknown,
+  ctx: { userId: UserId; userName?: string | null } = { userId: "system" },
+): Promise<Task> {
+  const existing = await TaskRepository.getById(id);
+  if (!existing) throw new NotFoundError(`Task ${id} not found.`);
+
+  if (typeof html !== "string") {
+    throw new ValidationError("Key finding content must be a string.");
+  }
+  const clean = sanitizeKeyFindingHtml(html);
+  if (!clean) {
+    throw new ValidationError("Key finding is empty.");
+  }
+
+  const entry: KeyFindingEntry = {
+    id: randomUUID(),
+    html: clean,
+    created_at: nowIsoTimestamp(),
+    created_by: ctx.userId === "system" ? null : ctx.userId,
+    created_by_name: await resolveUserDisplayName(ctx.userId),
+  };
+
+  const updated = await TaskRepository.update(id, {
+    key_findings: [...existing.key_findings, entry],
+  });
+
+  await audit({
+    actorId: ctx.userId,
+    actorName: ctx.userName,
+    entityType: "Task",
+    entityId: id,
+    entityLabel: updated.task_name,
+    action: "update",
+    summary: "Added a key finding.",
+  });
+
+  return updated;
 }
 
 export async function deleteTask(

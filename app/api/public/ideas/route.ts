@@ -159,6 +159,10 @@ export async function POST(request: Request): Promise<Response> {
           submitted_at: idea.submitted_at,
           status: idea.status,
           attachments_count: idea.attachments.length,
+          // Capability token for the account-less edit link. Returned once,
+          // here, so the confirmation screen can show/copy it. Null when the
+          // edit feature isn't provisioned (migration 0013 not yet applied).
+          edit_token: idea.edit_token,
         },
       },
       {

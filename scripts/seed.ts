@@ -501,6 +501,7 @@ function transformTasks(
       blocker_task_id: null,
       blocker_project_id: null,
       comment_history: [],
+      key_findings: [],
       // Section 4.2 follow-up: import the "Time Estimate (in Hours)"
       // column when present. Ranges (e.g. "48 to 64") are coerced to
       // their midpoint with a warning so all real data flows through;
@@ -699,6 +700,7 @@ function transformIdeas(
       admin_comments: asString(raw["Comments"]),
       converted_to_project_id: convertedProjectId,
       ai_overlap_analysis: null,
+      edited_since_review: false,
       attachments: [],
     });
   }

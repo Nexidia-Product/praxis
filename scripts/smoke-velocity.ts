@@ -196,6 +196,7 @@ async function main() {
       blocker_project_id: null,
       comments: "",
       comment_history: [],
+      key_findings: [],
       estimate_hours: null,
       document_links: [],
       dependencies: [],
@@ -220,6 +221,7 @@ async function main() {
       admin_comments: "",
       converted_to_project_id: null,
       ai_overlap_analysis: null,
+      edited_since_review: false,
       attachments: [],
       ...overrides,
     };

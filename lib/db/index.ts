@@ -50,3 +50,18 @@ export { AuditLogRepository } from "./audit-log";
 export type { CreateAuditEntryInput, RecentAuditQuery } from "./audit-log";
 
 export { SettingsRepository } from "./settings";
+
+export { DocumentSkillRepository } from "./document-skills";
+export type {
+  CreateDocumentSkillInput,
+  UpdateDocumentSkillInput,
+} from "./document-skills";
+
+export { GeneratedDocumentRepository } from "./generated-documents";
+export type {
+  CreateGeneratedDocumentInput,
+  UpdateGeneratedDocumentInput,
+} from "./generated-documents";
+
+export { ProjectFindingSummaryRepository } from "./project-finding-summaries";
+export type { UpsertProjectFindingSummaryInput } from "./project-finding-summaries";

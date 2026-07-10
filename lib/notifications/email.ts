@@ -387,3 +387,61 @@ async function sendEmail(opts: {
     return { delivered: false, reason: "send-error" };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Transactional: idea edit link
+// ---------------------------------------------------------------------------
+
+/**
+ * Email a public idea submitter their private "edit this idea" link.
+ * Transactional (not part of the preference-driven notification system —
+ * submitters have no account and no preferences), so it calls the transport
+ * directly. Best-effort: a `false` return (no key, send error) is swallowed
+ * by the caller.
+ */
+export async function sendIdeaEditLink(opts: {
+  to: string;
+  ideaName: string;
+  editUrl: string;
+}): Promise<{ delivered: boolean; reason?: string }> {
+  const escape = (s: string): string =>
+    s.replace(
+      /[&<>"]/g,
+      (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c,
+    );
+  const subject = `Edit your submitted idea: ${opts.ideaName}`;
+  const text = [
+    `Thanks for submitting "${opts.ideaName}".`,
+    "",
+    "Need to change something? You can edit your idea any time until the team converts it into a project, using your private link:",
+    opts.editUrl,
+    "",
+    "Keep this link private — anyone who has it can edit your submission.",
+  ].join("\n");
+  const html = `
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escape(subject)}</title></head>
+  <body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111827;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="background-color:#f9fafb;padding:24px 0;">
+      <tr><td>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="560" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
+          <tr><td style="padding:24px 28px 8px 28px;">
+            <p style="margin:0 0 12px 0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;font-weight:600;">Praxis</p>
+            <h1 style="margin:0;font-size:18px;font-weight:600;color:#111827;line-height:1.4;">Thanks for your idea</h1>
+          </td></tr>
+          <tr><td style="padding:8px 28px 20px 28px;">
+            <p style="margin:0 0 14px 0;font-size:14px;line-height:1.55;color:#374151;">We received &ldquo;${escape(opts.ideaName)}&rdquo;. You can edit it any time until the team converts it into a project.</p>
+            <p style="margin:0 0 18px 0;">
+              <a href="${escape(opts.editUrl)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:6px;">Edit my idea</a>
+            </p>
+            <p style="margin:0;font-size:12px;line-height:1.55;color:#6b7280;">Keep this link private — anyone who has it can edit your submission. If the button doesn't work, paste this address into your browser:<br /><span style="word-break:break-all;color:#374151;">${escape(opts.editUrl)}</span></p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`.trim();
+  return sendEmail({ to: opts.to, subject, text, html });
+}

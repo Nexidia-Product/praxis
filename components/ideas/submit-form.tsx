@@ -61,6 +61,8 @@ interface SubmittedIdea {
   submitted_at: string;
   status: string;
   attachments_count?: number;
+  /** Capability token for the account-less edit link (null when disabled). */
+  edit_token?: string | null;
 }
 
 export function IdeaSubmitForm() {
@@ -69,6 +71,7 @@ export function IdeaSubmitForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<SubmittedIdea | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -220,12 +223,56 @@ export function IdeaSubmitForm() {
         <p className="mt-1 text-xs text-emerald-900/80">
           Reference ID: <span className="font-mono">{submitted.idea_id}</span>
         </p>
+
+        {submitted.edit_token ? (
+          <div className="mt-4 rounded-md border border-emerald-300 bg-white p-3">
+            <p className="text-sm font-medium text-emerald-900">
+              Need to change something later?
+            </p>
+            <p className="mt-1 text-xs text-emerald-900/80">
+              Use this private link to edit your idea any time until it&rsquo;s
+              converted to a project. Keep it to yourself — anyone with the link
+              can edit your submission.
+              {state.submitter_email
+                ? " We&rsquo;ve also emailed it to you."
+                : ""}
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                readOnly
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/submit/edit/${submitted.edit_token}`}
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono text-xs text-emerald-900"
+                aria-label="Your private edit link"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      `${window.location.origin}/submit/edit/${submitted.edit_token}`,
+                    );
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 2000);
+                  } catch {
+                    /* clipboard unavailable — the field is selectable to copy manually */
+                  }
+                }}
+                className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-100"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <button
           type="button"
           onClick={() => {
             setSubmitted(null);
             setState(EMPTY);
             setFiles([]);
+            setCopied(false);
           }}
           className="mt-4 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-900 shadow-sm transition hover:bg-emerald-100"
         >

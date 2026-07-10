@@ -89,6 +89,20 @@ interface ProjectQuickViewProps {
    * cluster-browsing motion fluid.
    */
   onSelectRelatedProject?: (id: ProjectId) => void;
+  /**
+   * Whether AI features are enabled (process.env.AI_ENABLED, resolved
+   * server-side and threaded down). Gates the Documents tab and its
+   * "Generate PRFAQ" button — hidden in production where AI is off so
+   * users don't hit a button that would 503. Same rule as the form
+   * modal's "Generate AI estimate".
+   */
+  aiEnabled?: boolean;
+  /**
+   * Whether the current user is an Admin. Gates the Documents tab — the
+   * AI document-generation feature is admin-only while it's still being
+   * built out.
+   */
+  isAdmin?: boolean;
   onClose: () => void;
   onEdit: () => void;
   /**
@@ -117,7 +131,8 @@ type Tab =
   | "decisions"
   | "links"
   | "dependencies"
-  | "groups";
+  | "groups"
+  | "documents";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
@@ -137,6 +152,8 @@ export function ProjectQuickView({
   phaseOptions,
   priorityOptions,
   groupsForProject = [],
+  aiEnabled = false,
+  isAdmin = false,
   onSelectRelatedProject,
   onClose,
   onEdit,
@@ -157,6 +174,18 @@ export function ProjectQuickView({
   const priorityList =
     priorityOptions ??
     PRIORITIES.map((p) => ({ id: p, label: p } as EnumOption));
+
+  // The Documents tab is admin-only for now (the document-generation
+  // feature is still being built out) and additionally requires AI to
+  // be enabled — generation 503s otherwise, same rule as the form's
+  // "Generate AI estimate".
+  const tabs = useMemo<{ id: Tab; label: string }[]>(
+    () =>
+      aiEnabled && isAdmin
+        ? [...TABS, { id: "documents", label: "Documents" }]
+        : TABS,
+    [aiEnabled, isAdmin],
+  );
 
   // Reset to Details when switching projects so the user doesn't end up on
   // an unexpected tab after opening a different row.
@@ -259,7 +288,7 @@ export function ProjectQuickView({
           role="tablist"
           aria-label="Project details"
         >
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             const active = tab === t.id;
             return (
               <button
@@ -648,6 +677,16 @@ export function ProjectQuickView({
                 allProjects={allProjects}
                 onSelectRelatedProject={onSelectRelatedProject}
               />
+            </div>
+          ) : null}
+
+          {tab === "documents" ? (
+            <div
+              role="tabpanel"
+              id="quickview-panel-documents"
+              aria-labelledby="quickview-tab-documents"
+            >
+              <DocumentsTab project={project} canEdit={canEdit} />
             </div>
           ) : null}
         </div>
@@ -1074,6 +1113,277 @@ function StatusHistoryRow({ entry }: { entry: StatusHistoryEntry }) {
         ) : null}
       </div>
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Documents tab
+// ---------------------------------------------------------------------------
+
+/**
+ * "Documents" tab body: generate AI-authored documents for this project
+ * and browse the ones already saved.
+ *
+ * On mount it lists prior drafts (GET /api/ai/documents), newest first.
+ * "Generate PRFAQ" POSTs to /api/ai/documents/generate, which drafts the
+ * document section-by-section via Bedrock and persists it; the new draft
+ * is prepended to the list and selected. The selected draft renders
+ * inline as Markdown (a plain preformatted block — no Markdown renderer
+ * is bundled) with a copy-to-clipboard affordance.
+ *
+ * Generation needs the project's description and target date (the PRFAQ
+ * skill binds both), so the button is disabled with an explanatory hint
+ * until those are set. The tab is only mounted when `aiEnabled`, so the
+ * generate path never renders where the API would 503; the list itself
+ * is read-only and would work regardless.
+ *
+ * Not yet wired: publishing to Confluence (the draft is already saved
+ * server-side, so that's additive).
+ */
+interface SavedDoc {
+  id: string;
+  title: string;
+  markdown: string;
+  status: string;
+  skill_key: string;
+  skill_version: number;
+  model_id: string;
+  created_at: string;
+}
+
+function docStatusClass(status: string): string {
+  if (status === "published") return "pol-tag pol-tag-green";
+  if (status === "reviewed") return "pol-tag pol-tag-blue";
+  return "pol-tag pol-tag-yellow";
+}
+
+function DocumentsTab({
+  project,
+  canEdit,
+}: {
+  project: Project;
+  canEdit: boolean;
+}) {
+  const [docs, setDocs] = useState<SavedDoc[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // The PRFAQ skill requires project.description and project.target_date.
+  // Mirror that here so the user gets a clear reason rather than a 502.
+  const missing: string[] = [];
+  if (!project.description?.trim()) missing.push("a description");
+  if (!project.target_date) missing.push("a target date");
+  const canGenerate = canEdit && missing.length === 0 && !busy;
+
+  // Load saved drafts on mount / when the project changes.
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingList(true);
+    setListError(null);
+    fetch(
+      `/api/ai/documents?projectId=${encodeURIComponent(project.project_id)}`,
+    )
+      .then(async (resp) => {
+        const data = (await resp.json()) as {
+          documents?: SavedDoc[];
+          error?: string;
+        };
+        if (!resp.ok) {
+          throw new Error(data.error ?? "Failed to load documents.");
+        }
+        return data.documents ?? [];
+      })
+      .then((list) => {
+        if (cancelled) return;
+        setDocs(list);
+        setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setListError(
+          err instanceof Error ? err.message : "Failed to load documents.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingList(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.project_id]);
+
+  // Clear the "Copied" affordance whenever the selection changes.
+  useEffect(() => {
+    setCopied(false);
+  }, [selectedId]);
+
+  async function generate() {
+    setBusy(true);
+    setError(null);
+    try {
+      const resp = await fetch("/api/ai/documents/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: project.project_id,
+          skillKey: "prfaq",
+        }),
+      });
+      const data = (await resp.json()) as SavedDoc & { error?: string };
+      if (!resp.ok) {
+        throw new Error(data.error ?? "Generation failed.");
+      }
+      setDocs((prev) => [data, ...prev]);
+      setSelectedId(data.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selected = docs.find((d) => d.id === selectedId) ?? null;
+
+  async function copyMarkdown() {
+    if (!selected) return;
+    try {
+      await navigator.clipboard.writeText(selected.markdown);
+      setCopied(true);
+    } catch {
+      // Clipboard can be blocked (permissions / insecure context);
+      // leave the button label unchanged rather than throwing.
+    }
+  }
+
+  return (
+    <section className="space-y-4">
+      <p className="text-sm text-gray-700">
+        Generate a PRFAQ draft for this project with the AI Advisor. It uses
+        the project name, description, and target date, drafts each section in
+        turn, and saves the result so you can revisit it.
+      </p>
+
+      {!canEdit ? (
+        <p className="text-sm text-gray-500">
+          You need edit access to generate documents.
+        </p>
+      ) : missing.length > 0 ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Add {missing.join(" and ")} to this project before generating a
+          PRFAQ.
+        </p>
+      ) : null}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={generate}
+          disabled={!canGenerate}
+          className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy
+            ? "Generating…"
+            : docs.length > 0
+              ? "Generate another PRFAQ"
+              : "Generate PRFAQ"}
+        </button>
+        {busy ? (
+          <span className="text-xs text-gray-500">
+            Drafting section by section — this can take up to a minute.
+          </span>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      {/* Saved drafts */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          Saved drafts
+        </h3>
+        {loadingList ? (
+          <p className="mt-2 text-sm text-gray-500">Loading…</p>
+        ) : listError ? (
+          <p
+            role="alert"
+            className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+          >
+            {listError}
+          </p>
+        ) : docs.length === 0 ? (
+          <p className="mt-2 text-sm text-gray-500">
+            No documents generated yet.
+          </p>
+        ) : (
+          <ul className="mt-2 divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+            {docs.map((d) => {
+              const active = d.id === selectedId;
+              return (
+                <li key={d.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(d.id)}
+                    aria-current={active}
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left ${
+                      active ? "bg-gray-50" : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-gray-900">
+                        {d.title}
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        {d.skill_key.toUpperCase()} ·{" "}
+                        {formatRelative(d.created_at)}
+                      </span>
+                    </span>
+                    <span className={docStatusClass(d.status)}>{d.status}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Selected draft viewer */}
+      {selected ? (
+        <div className="rounded-md border border-gray-200 bg-white">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">
+                {selected.title}
+              </p>
+              <p className="text-[11px] text-gray-500">
+                {selected.status} · generated{" "}
+                {formatRelative(selected.created_at)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={copyMarkdown}
+              className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {copied ? "Copied" : "Copy markdown"}
+            </button>
+          </div>
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap px-3 py-3 text-[13px] leading-relaxed text-gray-800">
+            {selected.markdown}
+          </pre>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
