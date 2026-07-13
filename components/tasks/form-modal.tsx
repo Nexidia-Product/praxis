@@ -727,52 +727,35 @@ export function TaskFormModal({
                   </div>
                 </fieldset>
 
-                {/* Conditional picker. We render task / project
-                    pickers as `<select>` not autocomplete, since
-                    structured ID selection is the whole point —
-                    free-text would defeat the purpose. Each option
-                    shows ID + name so the user can find what they
-                    need without opening a separate window. */}
+                {/* Conditional picker. The blocking-task picker is a
+                    searchable combobox (task lists get long); the
+                    blocking-project picker stays a plain <select>. Both
+                    show ID + name so the user can find what they need
+                    inline. */}
                 {state.blocker_type === "task" ? (
                   <Field id="task-blocker-task" label="Blocking task">
-                    <select
-                      id="task-blocker-task"
-                      value={state.blocker_task_id}
-                      onChange={(e) =>
-                        update("blocker_task_id", e.target.value)
-                      }
-                      disabled={locked}
-                      className={baseInput}
-                    >
-                      <option value="">— Select a task —</option>
-                      {(allTasks ?? [])
-                        // Don't list self — a task can't block itself.
-                        // Don't list closed tasks — they aren't a
-                        // realistic blocker. Both filters are
-                        // defensive; the service rejects either case.
+                    <TaskPicker
+                      // Don't list self — a task can't block itself.
+                      // Don't list closed tasks — they aren't a realistic
+                      // blocker. Both filters are defensive; the service
+                      // rejects either case.
+                      candidates={(allTasks ?? [])
                         .filter(
                           (t) =>
                             t.task_id !== task?.task_id &&
                             t.status !== "Complete" &&
                             t.status !== "Canceled",
                         )
-                        .sort((a, b) =>
-                          a.task_id < b.task_id ? -1 : 1,
-                        )
-                        .map((t) => {
-                          const proj = projects.find(
-                            (p) => p.project_id === t.project_id,
-                          );
-                          return (
-                            <option key={t.task_id} value={t.task_id}>
-                              {t.task_id} — {t.task_name}
-                              {proj
-                                ? ` (${proj.name})`
-                                : ` (${t.project_id})`}
-                            </option>
-                          );
-                        })}
-                    </select>
+                        .sort((a, b) => (a.task_id < b.task_id ? -1 : 1))}
+                      projectsById={
+                        new Map(projects.map((p) => [p.project_id, p]))
+                      }
+                      value={state.blocker_task_id}
+                      onChange={(id) => update("blocker_task_id", id)}
+                      disabled={locked}
+                      placeholder="Select a task…"
+                      ariaLabel="Blocking task"
+                    />
                   </Field>
                 ) : null}
                 {state.blocker_type === "project" ? (
@@ -1637,11 +1620,17 @@ function TaskPicker({
   projectsById,
   value,
   onChange,
+  disabled,
+  placeholder = "Select a predecessor task…",
+  ariaLabel = "Predecessor task",
 }: {
   candidates: Task[];
   projectsById: Map<string, Project>;
   value: string;
   onChange: (taskId: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -1726,13 +1715,14 @@ function TaskPicker({
     <div ref={ref} className="relative min-w-0 flex-1">
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-left text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-        aria-label="Predecessor task"
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-left text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100"
+        aria-label={ariaLabel}
       >
         <span className={`truncate ${selected ? "" : "text-gray-400"}`}>
-          {selected ? labelFor(selected) : "Select a predecessor task…"}
+          {selected ? labelFor(selected) : placeholder}
         </span>
         <span aria-hidden className="text-gray-400">
           ▾
