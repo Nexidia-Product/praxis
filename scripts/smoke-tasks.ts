@@ -236,7 +236,7 @@ async function main() {
   const created = await instantiateTemplate(tpl2.template_id, "2026-001");
   assert(created.length === 1, "instantiated 1 task");
   assert(created[0].template_id === tpl2.template_id, "template_id stamped");
-  assert(created[0].responsible === "lead-user-id", "responsible defaulted to project_lead");
+  assert(created[0].responsible === "", "responsible left unassigned");
   assert(created[0].priority === "Low", "priority carried from template item");
   console.log("OK: instantiateTemplate fans out");
 

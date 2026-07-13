@@ -1357,7 +1357,9 @@ export async function moveTask(
  *
  * Defaults applied:
  *   - status     `"Not Started"`
- *   - responsible      project's `project_lead`, falling back to "" if unset
+ *   - responsible      unassigned (""). Template tasks are created
+ *                      without an owner so someone deliberately picks
+ *                      the responsible person afterward.
  *   - target_date      null
  *   - blocked          false
  *   - template_id      the template ID, so deletions and reporting can
@@ -1401,7 +1403,9 @@ export async function instantiateTemplate(
       detailed_description: item.description,
       status: "Not Started",
       priority: item.default_priority,
-      responsible: project.project_lead || "",
+      // Template-created tasks start unassigned — a person is chosen
+      // deliberately afterward, not defaulted to the project lead.
+      responsible: "",
       additional_assignees: [],
       target_date: null,
       blocked: false,
@@ -1416,18 +1420,8 @@ export async function instantiateTemplate(
     });
     created.push(task);
     idByLocal.set(item.local_id, task.task_id);
-
-    // Step 7 (Section 5.12): notify the project lead per template task.
-    // The lead is the default `responsible` here, so they get N
-    // TaskAssigned messages — one per template task. That looks
-    // chatty but it's accurate; the user can mark them all read in
-    // one click via the bell drawer.
-    await fireTaskAssignedHook(task).catch((err) => {
-      console.warn(
-        `[notifications] instantiateTemplate post-hook failed for ${task.task_id}:`,
-        err,
-      );
-    });
+    // No TaskAssigned notification here: template tasks are created
+    // unassigned, so there's no owner to notify.
   }
 
   // Second pass: rewrite dependencies from template-local IDs to the
