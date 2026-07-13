@@ -1586,23 +1586,12 @@ function DependenciesTab({
             Add dependency
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <select
+            <TaskPicker
+              candidates={candidates}
+              projectsById={projectsById}
               value={picker}
-              onChange={(e) => setPicker(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-              aria-label="Predecessor task"
-            >
-              <option value="">— Select a predecessor task —</option>
-              {candidates.map((t) => {
-                const project = projectsById.get(t.project_id);
-                return (
-                  <option key={t.task_id} value={t.task_id}>
-                    {t.task_id} — {t.task_name}
-                    {project ? ` (${project.project_id})` : ""}
-                  </option>
-                );
-              })}
-            </select>
+              onChange={setPicker}
+            />
             <select
               value={type}
               onChange={(e) => setType(e.target.value as TaskDependencyType)}
@@ -1632,6 +1621,170 @@ function DependenciesTab({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Searchable single-select for the predecessor-task picker. Replaces a
+ * plain <select> so a long task list can be typed to filter (by task ID,
+ * task name, or project). Keyboard: ↑/↓ move the highlight, Enter
+ * selects, Esc closes the list (stopped from bubbling so it dismisses
+ * only the dropdown, not the whole task pane).
+ */
+function TaskPicker({
+  candidates,
+  projectsById,
+  value,
+  onChange,
+}: {
+  candidates: Task[];
+  projectsById: Map<string, Project>;
+  value: string;
+  onChange: (taskId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return candidates;
+    return candidates.filter((t) => {
+      const project = projectsById.get(t.project_id);
+      const hay = `${t.task_id} ${t.task_name} ${
+        project ? `${project.project_id} ${project.name}` : ""
+      }`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [candidates, projectsById, query]);
+
+  const selected = candidates.find((t) => t.task_id === value) ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [query, open]);
+
+  function choose(t: Task) {
+    onChange(t.task_id);
+    setOpen(false);
+    setQuery("");
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        setQuery("");
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setActiveIdx((i) => Math.min(filtered.length - 1, i + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && filtered[activeIdx]) choose(filtered[activeIdx]);
+      else setOpen(true);
+    }
+  }
+
+  function labelFor(t: Task): string {
+    const project = projectsById.get(t.project_id);
+    return `${t.task_id} — ${t.task_name}${
+      project ? ` (${project.project_id})` : ""
+    }`;
+  }
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={onKeyDown}
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-left text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+        aria-label="Predecessor task"
+      >
+        <span className={`truncate ${selected ? "" : "text-gray-400"}`}>
+          {selected ? labelFor(selected) : "Select a predecessor task…"}
+        </span>
+        <span aria-hidden className="text-gray-400">
+          ▾
+        </span>
+      </button>
+      {open ? (
+        <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+          <div className="p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Search tasks…"
+              className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </div>
+          <ul role="listbox" className="max-h-56 overflow-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-500">No matches.</li>
+            ) : (
+              filtered.map((t, i) => {
+                const project = projectsById.get(t.project_id);
+                return (
+                  <li key={t.task_id}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => choose(t)}
+                      className={`flex w-full flex-col items-start px-3 py-1.5 text-left text-sm ${
+                        i === activeIdx ? "bg-gray-100" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className="truncate">
+                        <span className="font-mono text-[11px] text-gray-500">
+                          {t.task_id}
+                        </span>{" "}
+                        {t.task_name}
+                      </span>
+                      {project ? (
+                        <span className="text-[11px] text-gray-400">
+                          {project.project_id} — {project.name}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
