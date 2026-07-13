@@ -29,11 +29,19 @@ const PRFAQ: CreateDocumentSkillInput = {
   title_pattern: "PRFAQ — {feature_name}",
   // null -> falls back to settings.ai_config.document_model_id (Sonnet).
   model_id: null,
-  instructions: `You are a product manager experienced with creating PRFAQ-format documents that describe new product innovations.
+  instructions: `You are a product manager writing a PRFAQ for a NICE executive audience.
 
-The innovation approach: take an idea, build a working prototype to prove the concept, then hand the proven concept to R&D to implement into the product.
+Length & tone:
+- The whole document must fit 2-3 pages. Be ruthless about brevity.
+- Lead with the customer/business outcome and impact, not implementation detail.
+- Executive tone: plain, confident, active voice; short paragraphs; no jargon and no exhaustive lists.
 
-Write the PRFAQ for the innovation described in the input. Follow the section outline exactly, in order. Be concrete and calibrated. Do not invent metrics, customers, quotes, or dates that are not supported by the input or the product context.`,
+Grounding:
+- Innovation approach: take an idea, build a working prototype to prove the concept, then hand the proven concept to R&D to implement into the product.
+- Write using ONLY the information in the input blocks and the product context. Do NOT invent capabilities, metrics, customers, quotes, data sources, dates, or scope that are not supported by the input.
+- The richer inputs (tasks, key findings, decisions, the originating idea) are grounding material — synthesize them into the executive's language; do NOT restate them item by item.
+- When a section, or a specific point, has no supporting information, write "To be determined" rather than guessing.
+- Follow the section outline and the length limit stated in each section's guidance exactly.`,
   product_profile: `The core product is Automated Insights — it transforms unstructured conversational data into AI-ready intelligence presented in real-time dashboards. It provides an overall operational-effectiveness assessment for contact centers through complex analysis of interactions, across four key areas, each with its own dashboard:
 - Cost-to-Serve analysis — common cost-to-serve metrics and optimization opportunities.
 - Customer Experience analysis — common CX metrics and optimization opportunities.
@@ -51,8 +59,29 @@ Each area supports drill-down on key metrics. Automated Insights is a growing pr
     },
     summary: {
       source: "project.description",
-      label: "Summary of the new product innovation",
+      label: "Summary of the innovation",
       required: true,
+    },
+    application_product: {
+      source: "project.application_product",
+      label: "Product this belongs to",
+      required: false,
+    },
+    definition_of_done: {
+      source: "project.definition_of_done",
+      label: "Definition of done (acceptance criteria)",
+      required: false,
+    },
+    stakeholders: {
+      source: "project.primary_stakeholders",
+      label: "Primary stakeholders",
+      required: false,
+      transform: "list",
+    },
+    start_date: {
+      source: "project.roadmap_timeline_start",
+      label: "Planned start date",
+      required: false,
     },
     target_date: {
       // A real project date; to_quarter turns it into "Q2 2026" in code
@@ -62,13 +91,41 @@ Each area supports drill-down on key metrics. Automated Insights is a growing pr
       required: true,
       transform: "to_quarter",
     },
+    // Grounding sources — formatted from structured data by the
+    // generator. All optional: a sparse project still produces a doc,
+    // and ungrounded sections resolve to "To be determined".
+    outcomes: {
+      kind: "outcomes",
+      label: "Intended outcomes",
+      required: false,
+    },
+    originating_idea: {
+      kind: "originating_idea",
+      label: "Originating idea (problem, urgency, stakeholders)",
+      required: false,
+    },
+    tasks: {
+      kind: "tasks",
+      label: "Project tasks (work breakdown)",
+      required: false,
+    },
+    task_findings: {
+      kind: "task_findings",
+      label: "Key findings recorded on tasks",
+      required: false,
+    },
+    decisions: {
+      kind: "decisions",
+      label: "Decision log",
+      required: false,
+    },
   },
   outline: [
     {
       heading: "Press Release",
       style: "Heading1",
       guidance:
-        "A single narrative. Open with 'FOR IMMEDIATE RELEASE — {target_date}' followed by a headline. Then 2-3 paragraphs derived from the summary: what the innovation is, the problem/impact it addresses across customer experience, cost-to-serve, revenue, and compliance, the initial data scope, and that the prototype hands off to R&D in {target_date}. No leader or customer quotes.",
+        "Two short paragraphs, 120 words maximum total. Open with 'FOR IMMEDIATE RELEASE — {target_date}' then a one-sentence headline. State what it is, the business outcome it drives, the initial scope, and that the prototype hands off to R&D in {target_date}. Executive tone; no implementation detail, no feature enumeration, no quotes.",
     },
     {
       heading: "Frequently Asked Questions",
@@ -83,32 +140,7 @@ Each area supports drill-down on key metrics. Automated Insights is a growing pr
         "How does it integrate with existing dashboards?",
       ],
       guidance:
-        "One numbered sub-heading per question, in order, each with a 1-3 sentence answer grounded in the summary and product context.",
-    },
-    {
-      heading: "MVP Scope & Assumptions",
-      style: "Heading1",
-      guidance:
-        "What is in scope for the prototype versus deferred, and the key assumptions (data quality, language coverage, level of granularity).",
-    },
-    {
-      heading: "MVP Success Criteria",
-      style: "Heading1",
-      format: "bullets",
-      guidance:
-        "3-4 measurable criteria (e.g. detection precision, correlation of the score to measurable outcomes, adoption/engagement).",
-    },
-    {
-      heading: "Privacy, Ethics & Governance",
-      style: "Heading1",
-      guidance:
-        "Explainability of model outputs, exclusion of protected attributes, access controls for sensitive insights, model-drift monitoring, and a supportive-not-punitive framing for any people-level insight.",
-    },
-    {
-      heading: "Roadmap",
-      style: "Heading1",
-      guidance:
-        "A short timeline anchored on {target_date} for prototype and R&D handoff, then near-term and later phases extrapolated from the future-enhancement hints in the summary.",
+        "One numbered sub-heading per question. Answer each in 1-2 sentences maximum, grounded strictly in the input. For data sources, name only sources present in the summary or task findings; otherwise 'To be determined'. No sub-bullets.",
     },
   ],
   version: 1,

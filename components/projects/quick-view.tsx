@@ -184,7 +184,7 @@ export function ProjectQuickView({
   const tabs = useMemo<{ id: Tab; label: string }[]>(
     () =>
       aiEnabled && isAdmin
-        ? [...TABS, { id: "documents", label: "Documents" }]
+        ? [...TABS, { id: "documents", label: "Publish" }]
         : TABS,
     [aiEnabled, isAdmin],
   );
@@ -286,7 +286,7 @@ export function ProjectQuickView({
 
         {/* Tab strip */}
         <nav
-          className="flex gap-1 border-b border-gray-200 px-6"
+          className="flex flex-wrap gap-x-1 gap-y-0.5 border-b border-gray-200 px-6"
           role="tablist"
           aria-label="Project details"
         >
@@ -1202,7 +1202,7 @@ interface SavedDoc {
 }
 
 function docStatusClass(status: string): string {
-  if (status === "published") return "pol-tag pol-tag-green";
+  if (status === "approved" || status === "published") return "pol-tag pol-tag-green";
   if (status === "reviewed") return "pol-tag pol-tag-blue";
   return "pol-tag pol-tag-yellow";
 }
@@ -1221,6 +1221,13 @@ function DocumentsTab({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftText, setDraftText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [confirmingApprove, setConfirmingApprove] = useState(false);
 
   // The PRFAQ skill requires project.description and project.target_date.
   // Mirror that here so the user gets a clear reason rather than a 502.
@@ -1266,9 +1273,13 @@ function DocumentsTab({
     };
   }, [project.project_id]);
 
-  // Clear the "Copied" affordance whenever the selection changes.
+  // Reset per-document UI state whenever the selection changes.
   useEffect(() => {
     setCopied(false);
+    setEditing(false);
+    setEditError(null);
+    setApproveError(null);
+    setConfirmingApprove(false);
   }, [selectedId]);
 
   async function generate() {
@@ -1306,6 +1317,73 @@ function DocumentsTab({
     } catch {
       // Clipboard can be blocked (permissions / insecure context);
       // leave the button label unchanged rather than throwing.
+    }
+  }
+
+  function startEdit() {
+    if (!selected) return;
+    setDraftText(selected.markdown);
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEdit() {
+    if (!selected || savingEdit) return;
+    const text = draftText.trim();
+    if (!text) {
+      setEditError("The document can't be empty.");
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const resp = await fetch(`/api/ai/documents/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: text }),
+      });
+      const data = (await resp.json()) as {
+        document?: SavedDoc;
+        error?: string;
+      };
+      if (!resp.ok || !data.document) {
+        throw new Error(data.error ?? "Could not save the edit.");
+      }
+      const updated = data.document;
+      setDocs((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      setEditing(false);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not save the edit.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function approve() {
+    if (!selected || approving) return;
+    setApproving(true);
+    setApproveError(null);
+    try {
+      const resp = await fetch(`/api/ai/documents/${selected.id}/approve`, {
+        method: "POST",
+      });
+      const data = (await resp.json()) as {
+        document?: SavedDoc;
+        error?: string;
+      };
+      if (!resp.ok || !data.document) {
+        throw new Error(data.error ?? "Could not approve the document.");
+      }
+      const approved = data.document;
+      setDocs([approved]); // other drafts were deleted server-side
+      setSelectedId(approved.id);
+      setConfirmingApprove(false);
+    } catch (err) {
+      setApproveError(
+        err instanceof Error ? err.message : "Could not approve the document.",
+      );
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -1420,20 +1498,177 @@ function DocumentsTab({
                 {formatRelative(selected.created_at)}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={copyMarkdown}
-              className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {copied ? "Copied" : "Copy markdown"}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={savingEdit}
+                    className="rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {savingEdit ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(false)}
+                    disabled={savingEdit}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={copyMarkdown}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                  {canEdit && selected.status !== "approved" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApproveError(null);
+                        setConfirmingApprove(true);
+                      }}
+                      className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      Approve
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
-          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap px-3 py-3 text-[13px] leading-relaxed text-gray-800">
-            {selected.markdown}
-          </pre>
+
+          {editError ? (
+            <p
+              role="alert"
+              className="border-b border-red-100 bg-red-50 px-3 py-2 text-xs text-red-900"
+            >
+              {editError}
+            </p>
+          ) : null}
+          {approveError ? (
+            <p
+              role="alert"
+              className="border-b border-red-100 bg-red-50 px-3 py-2 text-xs text-red-900"
+            >
+              {approveError}
+            </p>
+          ) : null}
+
+          {editing ? (
+            <textarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              disabled={savingEdit}
+              rows={18}
+              className="block max-h-[460px] w-full resize-y overflow-auto border-0 px-3 py-3 font-mono text-[13px] leading-relaxed text-gray-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-gray-900"
+            />
+          ) : (
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap px-3 py-3 text-[13px] leading-relaxed text-gray-800">
+              {selected.markdown}
+            </pre>
+          )}
         </div>
       ) : null}
+
+      {confirmingApprove && selected ? (
+        <ApproveConfirmModal
+          otherCount={docs.length - 1}
+          busy={approving}
+          onCancel={() => setConfirmingApprove(false)}
+          onConfirm={approve}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * In-app confirmation for approving a generated document — replaces the
+ * native confirm() so the styling matches the rest of the app (mirrors
+ * the role-permissions reset modal).
+ */
+function ApproveConfirmModal({
+  otherCount,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  otherCount: number;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-gray-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="approve-confirm-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onCancel();
+      }}
+    >
+      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+        <div className="border-b border-gray-200 px-5 py-4">
+          <h2
+            id="approve-confirm-title"
+            className="text-base font-semibold tracking-tight text-gray-900"
+          >
+            Approve this version?
+          </h2>
+        </div>
+        <div className="space-y-3 px-5 py-4 text-sm text-gray-700">
+          <p>
+            This marks the selected document as the accepted version for the
+            project.
+          </p>
+          {otherCount > 0 ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {otherCount} other draft{otherCount === 1 ? "" : "s"} will be
+              permanently deleted.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              No other drafts exist, so nothing else will be removed.
+            </p>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="pol-btn pol-btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="pol-btn pol-btn-primary"
+          >
+            {busy ? "Approving…" : "Approve version"}
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
 

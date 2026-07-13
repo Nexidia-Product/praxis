@@ -1144,20 +1144,39 @@ export interface AiConfig {
 // Document generation (PRFAQs, Confluence articles, …)
 // =============================================================================
 
-/** Deterministic transforms applied to an input before prompt injection. */
-export type DocumentInputTransform = "to_quarter";
+/** Deterministic transforms applied to a scalar input before injection. */
+export type DocumentInputTransform = "to_quarter" | "list";
 
 /**
- * One bound input on a document skill. `source` is a dot-path into the
- * generation context (e.g. "project.description"); `transform` runs in
- * code before injection so derived values (a quarter from a date) are
- * never left to the model.
+ * What an input pulls from the generation context. "scalar" (the
+ * default) reads a single project field via `source`; the others format
+ * structured grounding data — the project's outcomes, its tasks, the
+ * latest key finding per task, its decision log, or the originating idea
+ * — into a text block so the model can ground on real information
+ * instead of inventing.
+ */
+export type DocumentInputKind =
+  | "scalar"
+  | "outcomes"
+  | "originating_idea"
+  | "tasks"
+  | "task_findings"
+  | "decisions";
+
+/**
+ * One bound input on a document skill. For `kind: "scalar"` (the
+ * default), `source` is a dot-path into the project (e.g.
+ * "project.description") and `transform` runs in code before injection
+ * so derived values (a quarter from a date) are never left to the model.
+ * For the richer kinds, `source` is unused and the generator formats the
+ * corresponding data.
  */
 export interface DocumentInputSpec {
-  source: string;
+  source?: string;
   label: string;
   required: boolean;
   transform?: DocumentInputTransform;
+  kind?: DocumentInputKind;
 }
 
 export type DocumentInputSpecMap = Record<string, DocumentInputSpec>;
@@ -1219,7 +1238,11 @@ export interface ProjectFindingSummary {
   updated_at: string;
 }
 
-export type GeneratedDocumentStatus = "draft" | "reviewed" | "published";
+export type GeneratedDocumentStatus =
+  | "draft"
+  | "reviewed"
+  | "published"
+  | "approved";
 
 /** One rendered section of a generated document. */
 export interface GeneratedSection {

@@ -81,6 +81,22 @@ export const GeneratedDocumentRepository = {
     return data as GeneratedDocument;
   },
 
+  /** Delete every document for a project except the one to keep (approval cleanup). */
+  async deleteByProjectExcept(
+    projectId: ProjectId,
+    keepId: string,
+  ): Promise<void> {
+    const { error } = await getServiceRoleClient()
+      .from(TABLE)
+      .delete()
+      .eq("project_id", projectId)
+      .neq("id", keepId);
+    if (error)
+      throw new Error(
+        `generated_documents.deleteByProjectExcept failed: ${error.message}`,
+      );
+  },
+
   async delete(id: string): Promise<void> {
     const { data, error } = await getServiceRoleClient()
       .from(TABLE)
