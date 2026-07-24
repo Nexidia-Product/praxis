@@ -62,7 +62,7 @@ const paragraphs: Para[] = [
   { style: "Title", text: "Praxis" },
   { style: "Subtitle", text: "Administrator Guide" },
   gap(),
-  p("Version 1.1  |  June 2026"),
+  p("Version 1.2  |  July 2026"),
   gap(),
   p("This guide is written for administrators of Praxis — the people who set up the application, manage users and access, tune how the system scores and reports on work, and keep it running day to day. It explains what every part of the application does, how an administrator controls it, and gives step-by-step instructions for each common task. No prior familiarity with the codebase is assumed."),
   gap(),
@@ -261,7 +261,7 @@ const paragraphs: Para[] = [
   h2("5.4 Dependencies, Links, and Templates (Reference)"),
   li("Internal dependencies: 'Blocks Start' (upstream must finish before this starts) and 'Blocks Phase' (upstream must reach a specified phase). Cycles are detected and rejected."),
   li("External dependencies track work outside Praxis (vendor deliverables, another team's Jira ticket) with a label, owner, optional link, status (Open / In Progress / Resolved), and optional target date. They feed the health score's upstream-risk consideration."),
-  li("Document links are labeled links to GitHub, Confluence, SharePoint, network drives, Figma, Miro, Jira, and generic external resources; each records who added it and when."),
+  li("Document links are labeled links to GitHub, Confluence, SharePoint, network drives, Figma, Miro, Jira, and generic external resources; each records who added it and when. Most links are stored purely as references. The one exception is a link pointing directly at a GitHub Markdown file (a github.com \"blob\" URL ending in .md/.markdown/.txt, or a raw.githubusercontent.com URL): when AI is enabled, the document generator fetches that file's content and uses it to ground the PRFAQ it drafts (Section 18.2). Other link types, and repository-root or non-Markdown GitHub URLs, are not fetched."),
   li("Applying a task template at creation creates the template's tasks on the new project with their inter-task dependencies preserved (Section 13)."),
 
   // ===================================================================
@@ -537,6 +537,7 @@ const paragraphs: Para[] = [
   li("AI_ENABLED — set to 'true' to turn on the AI features. Unset/false disables them (the endpoints then refuse to run)."),
   li("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY — long-lived IAM-user credentials for AWS Bedrock, required when AI is enabled (Section 18)."),
   li("BEDROCK_REGION (and/or AWS_REGION) — the AWS region for Bedrock calls; defaults to us-east-1."),
+  li("GITHUB_TOKEN — optional, used only by AI document generation. When a project has a document link pointing at a GitHub Markdown file, the generator fetches that file to ground the draft (Section 18.2). Public repositories work without this token; set it (a fine-grained or classic token with read access to the relevant repositories) only to reach private repositories. If unset, private-repo links are simply skipped."),
   li("Seed/admin overrides (default admin email and name, seed-source path) and PPTX template path overrides exist for setup and customization."),
   h2("16.3 Supabase Auth Configuration"),
   li("In the Supabase dashboard, set the Site URL and the allowed redirect URLs to include the application's auth callback for both local and production hosts."),
@@ -549,6 +550,7 @@ const paragraphs: Para[] = [
   p("A set of maintenance scripts is run from the server (not the application UI), typically by an operator with database credentials, via the project's package scripts. The most relevant to administrators:"),
   h2("17.1 Setup & Data"),
   li("Seed — build the initial data set and a default administrator."),
+  li("Seed document skills — publish (or update) the authored prompt library the AI document generator reads, including the PRFAQ. Re-running supersedes the active version of each skill without losing history; run it after a deployment that changes the built-in skills so the new version is picked up (Section 18.2)."),
   li("Spreadsheet import — re-import ideas/projects from the source spreadsheet; supports a dry-run before applying."),
   li("Supabase / auth-user migration — one-time historical steps from the original migration to Supabase; retained for reference."),
   h2("17.2 User Administration"),
@@ -563,10 +565,11 @@ const paragraphs: Para[] = [
 
   // ===================================================================
   h1("18. AI Advisor"),
-  p("Praxis includes three optional AI features. All three are gated by the AI_ENABLED environment flag; when it is off, the feature buttons are hidden, the endpoints decline to run, and idea-overlap falls back to its keyword heuristic so it always returns something useful."),
+  p("Praxis includes four optional AI features. All four are gated by the AI_ENABLED environment flag; when it is off, the feature buttons and the Publish tab are hidden, the endpoints decline to run, and idea-overlap falls back to its keyword heuristic so it always returns something useful."),
   li("Complexity & time estimate — suggests a project's complexity and a rough time estimate from its description."),
   li("Priority recommendation — reasons across the open-project list and proposes a ranking, presented for review rather than applied automatically."),
   li("Idea overlap — compares a submitted idea against existing projects and ideas to surface likely duplicates (Section 7.2)."),
+  li("Document generation (PRFAQ) — drafts a PRFAQ document for a project from its structured data, which you can edit and approve before use (Section 18.2)."),
   ...proc(
     "How to: Generate an AI complexity & time estimate for a project",
     "Open a project's create or edit form (AI must be enabled, and you need create/edit permission).",
@@ -579,11 +582,27 @@ const paragraphs: Para[] = [
     "In the \"AI Priority Review\" panel, click \"Run review\".",
     "Read the recommended ranking and per-project rationale. The output is advisory — nothing is applied automatically; click a project to open it and adjust manually. Use \"Re-run review\" to refresh.",
   ),
+  ...proc(
+    "How to: Generate, edit, and approve a PRFAQ for a project",
+    "Open the project's quick-view panel (click its row on the Projects page) and select the \"Publish\" tab. (This tab appears only when AI is enabled.)",
+    "Click \"Generate PRFAQ\" (or \"Generate another PRFAQ\"). The button is disabled with a hint until the project has both a description and a target date, which the PRFAQ skill requires. Drafting runs section by section and can take up to a minute.",
+    "The new draft is added to the list and shown inline. Use \"Copy\" to copy its Markdown, or \"Edit\" to revise the text in place and then \"Save\".",
+    "When the draft is ready, click \"Approve\" and confirm in the dialog to mark that version approved. Earlier drafts are retained in the list.",
+    "Note: publishing directly to Confluence is not yet wired; the approved draft is stored on the project and can be copied out.",
+  ),
   h2("18.1 Models and Credentials"),
   li("Each feature's model is chosen by an administrator on the Admin → Configuration → AI tab (Section 14.1), from the live list of models the account can invoke. By convention the high-volume estimate uses a fast, economical model and the reasoning-heavy features use a stronger one."),
   li("The features call AWS Bedrock using long-lived IAM-user access keys. This replaced an earlier approach based on interactive SSO sign-in, which could not refresh in the hosting environment; the IAM-user keys do not expire and so work in production once provided."),
   li("Region policies matter: some Bedrock 'inference profiles' route across regions and can be blocked by an organization's region-whitelist policy. The model picker labels each option with its routing scope so you can choose one that stays within allowed regions."),
   li("Whether AI is actually active in a given deployment depends on AI_ENABLED and the presence of valid AWS credentials. Treat enabling AI as a deliberate decision (cost and data-handling), and confirm the chosen models are reachable from your region before relying on them."),
+
+  h2("18.2 Document Generation and Grounding"),
+  p("Document generation is driven by authored \"skills\" — reusable prompt bundles (instructions, a product profile, a section outline, and an input specification) stored in the database. The built-in PRFAQ skill ships with the application and is published by the \"seed document skills\" script (Section 17.1); re-running that script after an update supersedes the active version without losing history. Requires the projects.edit permission (whoever can edit a project can generate its documents)."),
+  p("The generator grounds each draft strictly in real project information rather than inventing — it is instructed to write \"To be determined\" where a section has no supporting input. The PRFAQ skill draws on:"),
+  li("Project fields — name, description, application/product, definition of done, primary stakeholders, and the start and target dates."),
+  li("Structured project data — the project's intended outcomes, its tasks, the latest key finding recorded on each task, its decision log, and the originating idea it was converted from."),
+  li("Linked GitHub Markdown documents — the content of any document link (Section 5.4) that points at a GitHub Markdown file is fetched and folded in as source material. This is the only document-link type whose content is retrieved; up to five such files are fetched per generation, each capped in size, and any that cannot be reached (private without a token, moved, or too slow) are simply skipped so generation still succeeds."),
+  li("Reaching private repositories requires the optional GITHUB_TOKEN environment variable (Section 16.2); public repositories need no token. Fetching happens server-side during generation, so allow for the extra time on the first draft."),
 
   // ===================================================================
   h1("Appendix A: Permission Catalog"),
