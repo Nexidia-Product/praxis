@@ -1151,9 +1151,9 @@ export type DocumentInputTransform = "to_quarter" | "list";
  * What an input pulls from the generation context. "scalar" (the
  * default) reads a single project field via `source`; the others format
  * structured grounding data — the project's outcomes, its tasks, the
- * latest key finding per task, its decision log, or the originating idea
- * — into a text block so the model can ground on real information
- * instead of inventing.
+ * latest key finding per task, its decision log, the originating idea, or
+ * the fetched content of its GitHub Markdown document links — into a text
+ * block so the model can ground on real information instead of inventing.
  */
 export type DocumentInputKind =
   | "scalar"
@@ -1161,7 +1161,8 @@ export type DocumentInputKind =
   | "originating_idea"
   | "tasks"
   | "task_findings"
-  | "decisions";
+  | "decisions"
+  | "document_links";
 
 /**
  * One bound input on a document skill. For `kind: "scalar"` (the

@@ -20,6 +20,7 @@
     "smoke:velocity": "tsx scripts/smoke-velocity.ts",
     "smoke:admin-exclusion": "tsx scripts/smoke-admin-exclusion.ts",
     "smoke:ideas": "tsx scripts/smoke-ideas.ts",
+    "smoke:fetch-links": "tsx scripts/smoke-fetch-links.ts",
     "smoke:template": "tsx scripts/smoke-template.ts",
     "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
     "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",

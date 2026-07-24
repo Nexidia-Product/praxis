@@ -37,6 +37,7 @@ import type {
   Task,
 } from "@/lib/db";
 import { runConverse } from "../converse";
+import { fetchLinkedDocs, type LinkedDoc } from "./fetch-links";
 
 export interface GeneratedDraft {
   title: string;
@@ -93,6 +94,8 @@ interface DocumentContext {
   tasks?: Task[];
   decisions?: DecisionLogEntry[];
   idea?: ProjectIdea | null;
+  /** Fetched content of the project's GitHub Markdown document links. */
+  linkedDocs?: LinkedDoc[];
 }
 
 async function buildContext(
@@ -115,6 +118,11 @@ async function buildContext(
     ctx.idea =
       ideas.find((i) => i.converted_to_project_id === project.project_id) ??
       null;
+  }
+  if (kinds.has("document_links")) {
+    // Fetch the content behind fetchable (GitHub Markdown) links so it can
+    // ground generation. Unreachable links are silently dropped.
+    ctx.linkedDocs = await fetchLinkedDocs(project.document_links ?? []);
   }
   return ctx;
 }
@@ -163,6 +171,10 @@ function formatKind(kind: DocumentInputKind, ctx: DocumentContext): string {
             }`,
         )
         .join("\n");
+    case "document_links":
+      return (ctx.linkedDocs ?? [])
+        .map((d) => `### ${d.label} (${d.url})\n${d.content}`)
+        .join("\n\n");
     case "originating_idea": {
       const i = ctx.idea;
       if (!i) return "";

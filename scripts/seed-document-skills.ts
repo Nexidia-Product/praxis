@@ -39,7 +39,7 @@ Length & tone:
 Grounding:
 - Innovation approach: take an idea, build a working prototype to prove the concept, then hand the proven concept to R&D to implement into the product.
 - Write using ONLY the information in the input blocks and the product context. Do NOT invent capabilities, metrics, customers, quotes, data sources, dates, or scope that are not supported by the input.
-- The richer inputs (tasks, key findings, decisions, the originating idea) are grounding material — synthesize them into the executive's language; do NOT restate them item by item.
+- The richer inputs (tasks, key findings, decisions, the originating idea, linked reference documents) are grounding material — synthesize them into the executive's language; do NOT restate them item by item or quote them verbatim.
 - When a section, or a specific point, has no supporting information, write "To be determined" rather than guessing.
 - Follow the section outline and the length limit stated in each section's guidance exactly.`,
   product_profile: `The core product is Automated Insights — it transforms unstructured conversational data into AI-ready intelligence presented in real-time dashboards. It provides an overall operational-effectiveness assessment for contact centers through complex analysis of interactions, across four key areas, each with its own dashboard:
@@ -117,6 +117,11 @@ Each area supports drill-down on key metrics. Automated Insights is a growing pr
     decisions: {
       kind: "decisions",
       label: "Decision log",
+      required: false,
+    },
+    linked_docs: {
+      kind: "document_links",
+      label: "Linked reference documents (GitHub Markdown)",
       required: false,
     },
   },

@@ -23,6 +23,10 @@ import { loadSkill } from "@/lib/ai/documents/loader";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Generation does section-by-section model calls plus (optionally)
+// fetches linked GitHub Markdown docs, so give it headroom over the
+// default serverless budget.
+export const maxDuration = 30;
 
 export const POST = withAuth(async (request: Request) => {
   const session = await requirePermission("projects.edit");
