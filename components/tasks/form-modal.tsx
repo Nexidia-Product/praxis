@@ -56,6 +56,14 @@ interface TaskFormModalProps {
    */
   readOnly?: boolean;
   /**
+   * The signed-in user's id. Used to gate the per-finding "Edit" control
+   * on the Key Findings tab: a finding can only be revised by its author,
+   * so the button appears only on the current user's own findings. The
+   * server enforces the same rule. Optional; when absent, no Edit control
+   * is offered.
+   */
+  currentUserId?: string;
+  /**
    * When true (edit mode only), the otherwise read-only Project field
    * becomes a destination picker with a "Move" button that reparents the
    * task via POST /api/tasks/[id]/move. Driven by the `tasks.move`
@@ -210,6 +218,7 @@ export function TaskFormModal({
   defaultResponsible,
   responsibleOptions,
   readOnly = false,
+  currentUserId,
   canMove = false,
   onClose,
   onSaved,
@@ -846,6 +855,7 @@ export function TaskFormModal({
               <KeyFindingsTab
                 task={task!}
                 readOnly={readOnly}
+                currentUserId={currentUserId}
                 onAdded={onTaskUpdated}
               />
             </div>
@@ -1258,10 +1268,12 @@ function CommentHistoryRow({ entry }: { entry: TaskCommentEntry }) {
 function KeyFindingsTab({
   task,
   readOnly,
+  currentUserId,
   onAdded,
 }: {
   task: Task;
   readOnly?: boolean;
+  currentUserId?: string;
   onAdded?: (task: Task) => void;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -1371,7 +1383,20 @@ function KeyFindingsTab({
         ) : (
           <ol className="mt-2 space-y-3">
             {newestFirst.map((f) => (
-              <KeyFindingRow key={f.id} finding={f} />
+              <KeyFindingRow
+                key={f.id}
+                finding={f}
+                taskId={task.task_id}
+                canEdit={
+                  !readOnly &&
+                  currentUserId != null &&
+                  f.created_by === currentUserId
+                }
+                onEdited={(t) => {
+                  setFindings(t.key_findings);
+                  onAdded?.(t);
+                }}
+              />
             ))}
           </ol>
         )}
@@ -1380,10 +1405,10 @@ function KeyFindingsTab({
   );
 }
 
-function KeyFindingRow({ finding }: { finding: KeyFindingEntry }) {
-  const when = new Date(finding.created_at);
-  const display = Number.isNaN(when.getTime())
-    ? finding.created_at
+function formatFindingTime(iso: string): string {
+  const when = new Date(iso);
+  return Number.isNaN(when.getTime())
+    ? iso
     : when.toLocaleString(undefined, {
         year: "numeric",
         month: "short",
@@ -1391,6 +1416,66 @@ function KeyFindingRow({ finding }: { finding: KeyFindingEntry }) {
         hour: "numeric",
         minute: "2-digit",
       });
+}
+
+function KeyFindingRow({
+  finding,
+  taskId,
+  canEdit,
+  onEdited,
+}: {
+  finding: KeyFindingEntry;
+  taskId: string;
+  /** Author-only: whether the current user may revise this finding. */
+  canEdit?: boolean;
+  onEdited?: (task: Task) => void;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Seed the editor with the current content whenever edit mode opens.
+  useEffect(() => {
+    if (editing && editorRef.current) {
+      editorRef.current.innerHTML = finding.html;
+    }
+  }, [editing, finding.html]);
+
+  async function save() {
+    const el = editorRef.current;
+    if (!el || busy) return;
+    const html = el.innerHTML;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/key-findings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ findingId: finding.id, html }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        task?: Task;
+        error?: string;
+      };
+      if (!res.ok || !data.task) {
+        throw new Error(data.error ?? "Could not save the key finding.");
+      }
+      onEdited?.(data.task);
+      setEditing(false);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not save the key finding.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const created = formatFindingTime(finding.created_at);
+  const editedLabel =
+    finding.edited_at != null ? formatFindingTime(finding.edited_at) : null;
+
   return (
     <li className="rounded-md border border-gray-200 bg-white">
       <div className="flex items-center gap-1.5 border-b border-gray-100 px-3 py-1.5 text-xs text-gray-500">
@@ -1403,13 +1488,80 @@ function KeyFindingRow({ finding }: { finding: KeyFindingEntry }) {
         )}
         <span aria-hidden>·</span>
         <time dateTime={finding.created_at} title={finding.created_at}>
-          {display}
+          {created}
         </time>
+        {editedLabel ? (
+          <span
+            className="text-gray-400"
+            title={
+              finding.edited_by_name
+                ? `Edited by ${finding.edited_by_name} on ${editedLabel}`
+                : `Edited on ${editedLabel}`
+            }
+          >
+            (edited)
+          </span>
+        ) : null}
+        {canEdit && !editing ? (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setEditing(true);
+            }}
+            className="ml-auto rounded px-1.5 py-0.5 font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          >
+            Edit
+          </button>
+        ) : null}
       </div>
-      <div
-        className="pol-rich overflow-x-auto px-3 py-2"
-        dangerouslySetInnerHTML={{ __html: finding.html }}
-      />
+      {editing ? (
+        <div className="px-3 py-2">
+          <div
+            ref={editorRef}
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Edit key finding content"
+            contentEditable={!busy}
+            suppressContentEditableWarning
+            className="pol-rich pol-rich-editor max-h-72 min-h-[6rem] overflow-auto rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEditing(false);
+              }}
+              disabled={busy}
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+          {error ? (
+            <p
+              role="alert"
+              className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+            >
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className="pol-rich overflow-x-auto px-3 py-2"
+          dangerouslySetInnerHTML={{ __html: finding.html }}
+        />
+      )}
     </li>
   );
 }

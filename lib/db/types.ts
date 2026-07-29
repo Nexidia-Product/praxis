@@ -581,7 +581,9 @@ export interface TaskCommentEntry {
  * One key finding recorded on a task. `html` is sanitized rich content
  * (see lib/tasks/key-findings.ts) and may include tables, headings, and
  * lists pasted from another source. Each finding is an independent,
- * timestamped, attributed entry — the log is append-only.
+ * timestamped, attributed entry. Findings are appended in order; an
+ * existing finding's content can be edited in place, in which case the
+ * `edited_*` fields record who last revised it and when.
  */
 export interface KeyFindingEntry {
   id: string;
@@ -589,6 +591,10 @@ export interface KeyFindingEntry {
   created_at: IsoTimestamp;
   created_by: UserId | null;
   created_by_name: string | null;
+  /** Set when the finding has been revised after it was first recorded. */
+  edited_at?: IsoTimestamp | null;
+  edited_by?: UserId | null;
+  edited_by_name?: string | null;
 }
 
 // ---------------------------------------------------------------------------

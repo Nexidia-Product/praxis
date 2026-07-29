@@ -69,6 +69,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         projects={projects}
         templates={templates}
         currentUserRole={session.user.role}
+        currentUserId={session.user.user_id}
         permissions={permissions}
         defaultProjectId={projectFilter ?? undefined}
         activeUserNames={activeUserNames}
