@@ -160,6 +160,12 @@ interface TasksTableProps {
   templates?: TaskTemplate[];
   currentUserRole: UserRole;
   /**
+   * The signed-in user's id. Threaded to the task modal so the Key
+   * Findings tab can offer an "Edit" control only on the user's own
+   * findings (author-only editing; the server enforces the same rule).
+   */
+  currentUserId?: string;
+  /**
    * Optional permission map. When provided, edit/delete affordances are
    * driven by `tasks.edit` / `tasks.delete` rather than the role. The
    * role-only fallback below preserves existing behavior for callers
@@ -215,6 +221,7 @@ export function TasksTable({
   projects,
   templates,
   currentUserRole,
+  currentUserId,
   permissions,
   scopeToUser,
   defaultProjectId,
@@ -795,6 +802,7 @@ export function TasksTable({
           defaultProjectId={defaultProjectId}
           defaultResponsible={defaultResponsible}
           responsibleOptions={formResponsibleOptions}
+          currentUserId={currentUserId}
           onClose={() => setShowCreate(false)}
           onSaved={(t) => {
             applyCreated(t);
@@ -810,6 +818,7 @@ export function TasksTable({
           allTasks={tasks}
           responsibleOptions={formResponsibleOptions}
           readOnly={!canEdit}
+          currentUserId={currentUserId}
           canMove={canMove}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {

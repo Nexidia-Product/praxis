@@ -99,6 +99,8 @@ interface Props {
   aiEnabled: boolean;
   activeUserNames: string[];
   currentUserRole: UserRole;
+  /** The signed-in user's id — threaded through for author-only finding edits. */
+  currentUserId?: string;
   permissions: Record<string, boolean>;
 }
 
@@ -113,6 +115,7 @@ export function WorkInProgressView({
   aiEnabled,
   activeUserNames,
   currentUserRole,
+  currentUserId,
   permissions,
 }: Props) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -677,6 +680,7 @@ export function WorkInProgressView({
           allTasks={tasks}
           responsibleOptions={formResponsibleOptions}
           readOnly={!canEditTask}
+          currentUserId={currentUserId}
           canMove={canMoveTask}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {

@@ -73,6 +73,7 @@ export default async function MyTasksPage() {
         projects={projects}
         templates={templates}
         currentUserRole={session.user.role}
+        currentUserId={userId}
         permissions={permissions}
         defaultResponsible={userName || undefined}
         activeUserNames={activeUserNames}

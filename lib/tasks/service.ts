@@ -44,6 +44,7 @@ import {
 } from "@/lib/projects/links";
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
+import { ForbiddenError } from "@/lib/auth/permissions";
 import { sanitizeKeyFindingHtml } from "./key-findings";
 import { randomUUID } from "node:crypto";
 
@@ -1238,6 +1239,77 @@ export async function addKeyFinding(
     entityLabel: updated.task_name,
     action: "update",
     summary: "Added a key finding.",
+  });
+
+  return updated;
+}
+
+/**
+ * Edit the content of an existing key finding in place.
+ *
+ * Mirrors `addKeyFinding`: the new HTML is sanitized server-side (the
+ * source of truth) before it touches storage. The finding's identity,
+ * original author, and creation time are preserved; only `html` changes
+ * and the `edited_*` fields record who revised it and when. Health is not
+ * recalculated — key findings feed no health input.
+ *
+ * Editing is restricted to the finding's original author: `tasks.edit`
+ * lets a user add findings and revise their own, but not rewrite someone
+ * else's. System-authored findings (`created_by === null`) have no human
+ * author and so cannot be edited through this path.
+ */
+export async function editKeyFinding(
+  id: TaskId,
+  findingId: unknown,
+  html: unknown,
+  ctx: { userId: UserId; userName?: string | null } = { userId: "system" },
+): Promise<Task> {
+  const existing = await TaskRepository.getById(id);
+  if (!existing) throw new NotFoundError(`Task ${id} not found.`);
+
+  if (typeof findingId !== "string" || !findingId) {
+    throw new ValidationError("A key finding id is required.");
+  }
+  if (typeof html !== "string") {
+    throw new ValidationError("Key finding content must be a string.");
+  }
+  const clean = sanitizeKeyFindingHtml(html);
+  if (!clean) {
+    throw new ValidationError("Key finding is empty.");
+  }
+
+  const index = existing.key_findings.findIndex((f) => f.id === findingId);
+  if (index === -1) {
+    throw new NotFoundError(`Key finding ${findingId} not found.`);
+  }
+
+  const original = existing.key_findings[index];
+  if (original.created_by == null || original.created_by !== ctx.userId) {
+    throw new ForbiddenError(
+      "Only the author of a key finding can edit it.",
+    );
+  }
+
+  const revised: KeyFindingEntry = {
+    ...original,
+    html: clean,
+    edited_at: nowIsoTimestamp(),
+    edited_by: ctx.userId === "system" ? null : ctx.userId,
+    edited_by_name: await resolveUserDisplayName(ctx.userId),
+  };
+  const next = [...existing.key_findings];
+  next[index] = revised;
+
+  const updated = await TaskRepository.update(id, { key_findings: next });
+
+  await audit({
+    actorId: ctx.userId,
+    actorName: ctx.userName,
+    entityType: "Task",
+    entityId: id,
+    entityLabel: updated.task_name,
+    action: "update",
+    summary: "Edited a key finding.",
   });
 
   return updated;

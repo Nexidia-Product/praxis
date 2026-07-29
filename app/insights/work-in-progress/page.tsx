@@ -100,6 +100,7 @@ export default async function WorkInProgressPage() {
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
         currentUserRole={session.user.role}
+        currentUserId={session.user.user_id}
         permissions={permissions}
       />
     </PolarisShell>

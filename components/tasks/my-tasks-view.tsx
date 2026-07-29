@@ -39,6 +39,8 @@ interface MyTasksViewProps {
   projects: Project[];
   templates?: TaskTemplate[];
   currentUserRole: UserRole;
+  /** The signed-in user's id — threaded through for author-only finding edits. */
+  currentUserId?: string;
   permissions?: Record<string, boolean>;
   defaultResponsible?: string;
   activeUserNames?: string[];
@@ -51,6 +53,7 @@ export function MyTasksView({
   projects,
   templates,
   currentUserRole,
+  currentUserId,
   permissions,
   defaultResponsible,
   activeUserNames = [],
@@ -189,6 +192,7 @@ export function MyTasksView({
           projects={projects}
           templates={templates}
           currentUserRole={currentUserRole}
+          currentUserId={currentUserId}
           permissions={permissions}
           scopeToUser
           defaultResponsible={defaultResponsible}
@@ -217,6 +221,7 @@ export function MyTasksView({
           allTasks={tasks}
           defaultResponsible={defaultResponsible}
           responsibleOptions={responsibleOptions}
+          currentUserId={currentUserId}
           onClose={() => setShowCreate(false)}
           onSaved={(t) => {
             applyCreated(t);
@@ -231,6 +236,7 @@ export function MyTasksView({
           allTasks={tasks}
           responsibleOptions={responsibleOptions}
           readOnly={!canEdit}
+          currentUserId={currentUserId}
           canMove={canMove}
           onClose={() => setEditTask(null)}
           onSaved={(t) => {
