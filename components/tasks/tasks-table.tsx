@@ -56,6 +56,7 @@ type StatusGroup =
   | "blocked"
   | "past_due"
   | "on_hold"
+  | "under_review"
   | "closed"
   | "all";
 
@@ -64,6 +65,7 @@ const STATUS_GROUP_LABEL: Record<StatusGroup, string> = {
   blocked: "Blocked",
   past_due: "Past due",
   on_hold: "On hold",
+  under_review: "Review",
   closed: "Closed",
   all: "All",
 };
@@ -118,6 +120,11 @@ function statusGroupMatches(
     // "On Hold" is neither open nor closed — without its own bucket it
     // was only reachable via "All". This surfaces parked work on its own.
     return task.status === "On Hold";
+  }
+  if (group === "under_review") {
+    // "Under Review" is parked awaiting sign-off — neither open nor
+    // closed. Its own bucket so review work is reachable without "All".
+    return task.status === "Under Review";
   }
   // "open" — anything in the open-statuses set
   return isOpenStatus(task.status);
@@ -461,6 +468,7 @@ export function TasksTable({
       blocked: 0,
       past_due: 0,
       on_hold: 0,
+      under_review: 0,
       closed: 0,
       all: adminFilteredTasks.length,
     };
@@ -474,6 +482,7 @@ export function TasksTable({
       if (statusGroupMatches("blocked", t, today)) counts.blocked++;
       if (statusGroupMatches("past_due", t, today)) counts.past_due++;
       if (statusGroupMatches("on_hold", t, today)) counts.on_hold++;
+      if (statusGroupMatches("under_review", t, today)) counts.under_review++;
       if (statusGroupMatches("closed", t, today)) counts.closed++;
     }
     return counts;
@@ -1052,6 +1061,7 @@ function StatusGroupToggle({
     "blocked",
     "past_due",
     "on_hold",
+    "under_review",
     "closed",
     "all",
   ];

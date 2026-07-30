@@ -75,7 +75,14 @@ const DUE_SOON_LEAD_DAYS = 3;
 const PURGE_READ_OLDER_THAN_DAYS = 90;
 
 /** Statuses that count as "still being worked on" for the due-soon sweep. */
-const ACTIVE_TASK_STATUSES = ["Not Started", "In Progress", "Blocked"] as const;
+const ACTIVE_TASK_STATUSES = [
+  "Not Started",
+  "In Progress",
+  "Blocked",
+  // "Under Review" work isn't done — a review can run past its target
+  // date, so due-soon / overdue reminders should still fire.
+  "Under Review",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Day arithmetic

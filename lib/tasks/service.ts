@@ -59,6 +59,7 @@ const TASK_STATUSES: TaskStatus[] = [
   "Blocked",
   "Delayed",
   "On Hold",
+  "Under Review",
   "Complete",
   "Canceled",
 ];
