@@ -29,6 +29,7 @@ export const TASK_STATUSES: TaskStatus[] = [
   "Blocked",
   "Delayed",
   "On Hold",
+  "Under Review",
   "Complete",
   "Canceled",
 ];
@@ -37,7 +38,8 @@ export const TASK_STATUSES: TaskStatus[] = [
  * Statuses that count as "open" in the default Tasks-page view.
  * "Awaiting Dependency" is open — it's a task that's still expected
  * to happen, just paused on a structured upstream relationship.
- * "On Hold" and "Delayed" stay out (active but explicitly parked).
+ * "On Hold", "Delayed", and "Under Review" stay out (active but
+ * explicitly parked — the work isn't being pushed forward right now).
  */
 export const OPEN_TASK_STATUSES: TaskStatus[] = [
   "Not Started",
@@ -57,9 +59,10 @@ export function isOpenStatus(s: TaskStatus): boolean {
 
 /**
  * Statuses that count as "closed" — work is done or won't be done.
- * Distinct from `isOpenStatus`: a task with status "On Hold" or
- * "Delayed" is neither in the default open-tasks filter (it's not
- * actively being worked) nor closed (work is still expected). This
+ * Distinct from `isOpenStatus`: a task with status "On Hold",
+ * "Delayed", or "Under Review" is neither in the default open-tasks
+ * filter (it's not actively being worked) nor closed (work is still
+ * expected). This
  * helper draws the closed/not-closed line cleanly so KPIs and dashboards
  * can count "anything still on the table" without inheriting the more
  * restrictive open-tasks-page semantics.
@@ -116,6 +119,11 @@ export const TASK_STATUS_BADGE: Record<TaskStatus, string> = {
     "bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-200",
   "On Hold":
     "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200",
+  // Under Review: sky. Reads as "awaiting sign-off" — cool/neutral,
+  // distinct from the amber/orange "parked" pair and from the
+  // green "actively progressing / done" pair.
+  "Under Review":
+    "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200",
   Complete:
     "bg-emerald-100 text-emerald-900 ring-1 ring-inset ring-emerald-300",
   Canceled:

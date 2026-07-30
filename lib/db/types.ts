@@ -129,6 +129,13 @@ export type TaskStatus =
   | "Blocked"
   | "Delayed"
   | "On Hold"
+  /**
+   * Work is done being actively worked and is now awaiting review or
+   * sign-off. Parked like "On Hold" / "Delayed" — not terminal (the
+   * task isn't Complete yet) and not in the default open-work flow, but
+   * still on the table. Set and cleared manually.
+   */
+  | "Under Review"
   | "Complete"
   | "Canceled";
 

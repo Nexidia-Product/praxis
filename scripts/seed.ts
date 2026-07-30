@@ -249,10 +249,12 @@ const PROJECT_PHASES: ReadonlySet<ProjectPhase> = new Set([
 ]);
 const TASK_STATUSES: ReadonlySet<TaskStatus> = new Set([
   "Not Started",
+  "Awaiting Dependency",
   "In Progress",
   "Blocked",
   "Delayed",
   "On Hold",
+  "Under Review",
   "Complete",
   "Canceled",
 ]);
