@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import {
   getCurrentUserPermissions,
-  requirePagePermission,
+  requireAnyPagePermission,
 } from "@/lib/auth/permissions";
 import {
   ProjectRepository,
@@ -37,10 +37,11 @@ interface PageProps {
 export const dynamic = "force-dynamic";
 
 export default async function AdminIdeaDetailPage({ params }: PageProps) {
-  await requirePagePermission("ideas.review");
+  await requireAnyPagePermission(["ideas.view", "ideas.review"]);
   const session = await auth();
   if (!session?.user) return null;
   const { permissions } = await getCurrentUserPermissions();
+  const canReview = permissions["ideas.review"] === true;
 
   const { id } = await params;
 
@@ -93,8 +94,12 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
     >
       <PolarisPageHeader
         eyebrow="Insights"
-        title="Idea review"
-        subtitle="Review the submission, capture notes, run an overlap check, or convert to a project."
+        title={canReview ? "Idea review" : "Idea"}
+        subtitle={
+          canReview
+            ? "Review the submission, capture notes, run an overlap check, or convert to a project."
+            : "View the submitted idea and its current status."
+        }
       />
       <IdeaReviewPanel
         initialIdea={idea}
@@ -104,7 +109,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         applicationOptions={applicationOptions}
         statusOptions={statusOptions}
         phaseOptions={phaseOptions}
-        priorityOptions={priorityOptions}
+        canReview={canReview}
         canConvert={permissions["ideas.convert"] === true}
         aiEnabled={isAiEnabled()}
       />

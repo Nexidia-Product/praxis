@@ -62,6 +62,16 @@ interface IdeaReviewPanelProps {
   phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /**
+   * Whether the current user holds `ideas.review`. When false the user
+   * has read-only access (`ideas.view` only): the entire "Reviewer
+   * actions" section — status buttons, reviewer notes, and the overlap
+   * run button — is hidden, leaving just the submission summary and any
+   * previously-saved analysis. The mutation routes (PATCH /api/ideas,
+   * POST .../overlap) enforce `ideas.review` server-side too, so this
+   * is a UI affordance rather than the security boundary.
+   */
+  canReview: boolean;
+  /**
    * Whether the current user holds `ideas.convert`. The Convert
    * button (and the conversion form it opens) are hidden when false
    * (IDEA-09). Without this gate, a user with `ideas.review` but
@@ -91,6 +101,7 @@ export function IdeaReviewPanel({
   statusOptions,
   phaseOptions,
   priorityOptions,
+  canReview,
   canConvert,
   aiEnabled = false,
 }: IdeaReviewPanelProps) {
@@ -262,7 +273,12 @@ export function IdeaReviewPanel({
         ) : null}
       </section>
 
-      {/* ---- Reviewer controls ---- */}
+      {/* ---- Reviewer controls ----
+          Hidden entirely for read-only (`ideas.view`-only) users. The
+          reviewer notes are internal ("visible only to reviewers"), so
+          this section is gated as a unit rather than merely disabling
+          the buttons. */}
+      {canReview ? (
       <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="text-base font-semibold text-gray-900">
           Reviewer actions
@@ -354,6 +370,7 @@ export function IdeaReviewPanel({
           </div>
         ) : null}
       </section>
+      ) : null}
 
       {/* ---- Attachments ----
           Files the submitter uploaded with their idea. Only rendered
@@ -406,7 +423,7 @@ export function IdeaReviewPanel({
           surfacing even though the trigger is hidden). In production
           with AI off and no cached analysis, the section collapses
           entirely. */}
-      {(aiEnabled || idea.ai_overlap_analysis) ? (
+      {((aiEnabled && canReview) || idea.ai_overlap_analysis) ? (
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -418,7 +435,7 @@ export function IdeaReviewPanel({
                 duplicates or related work.
               </p>
             </div>
-            {aiEnabled ? (
+            {aiEnabled && canReview ? (
               <button
                 type="button"
                 onClick={handleOverlapCheck}
