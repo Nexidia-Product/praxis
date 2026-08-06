@@ -2,8 +2,10 @@
  * GET /api/ideas/[id]/attachments/[attachmentId]
  *
  * Mints a short-lived Supabase signed URL for one attachment and
- * redirects to it. Requires `ideas.review` — anonymous submitters
- * never get a path to anyone else's files.
+ * redirects to it. Requires `ideas.view` or `ideas.review` — the
+ * attachment is part of the idea content, so any role that can read
+ * the idea can download it; anonymous submitters never get a path to
+ * anyone else's files.
  *
  * Implemented as a 302 redirect rather than returning the URL as
  * JSON so the browser's native download flow (Content-Disposition:
@@ -13,7 +15,7 @@
 
 import { NextResponse } from "next/server";
 
-import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { requireAnyPermission, withAuth } from "@/lib/auth/permissions";
 import { IdeaRepository } from "@/lib/db";
 import { getDownloadUrl } from "@/lib/ideas/attachments-server";
 
@@ -27,7 +29,7 @@ export const GET = withAuth(async (
   _request: Request,
   context: RouteContext,
 ) => {
-  await requirePermission("ideas.review");
+  await requireAnyPermission("ideas.view", "ideas.review");
   const { id, attachmentId } = await context.params;
 
   const idea = await IdeaRepository.getById(id);

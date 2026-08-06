@@ -50,6 +50,7 @@ export type PermissionKey =
   | "tasks.delete"
   | "tasks.move"
   // Ideas (public submissions / review queue)
+  | "ideas.view"
   | "ideas.review"
   | "ideas.convert"
   // Roadmap
@@ -158,6 +159,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
   },
 
   // Ideas
+  {
+    key: "ideas.view",
+    label: "View submitted ideas",
+    description:
+      "Open the Ideas queue and idea detail pages read-only — see submissions and their status without approving, rejecting, or commenting.",
+    category: "Ideas",
+  },
   {
     key: "ideas.review",
     label: "Review submitted ideas",
@@ -326,6 +334,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     "tasks.edit",
     "tasks.delete",
     "tasks.move",
+    "ideas.view",
     "ideas.review",
     "ideas.convert",
     "roadmap.view",
@@ -347,6 +356,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   Viewer: [
     "projects.view",
     "tasks.view",
+    "ideas.view",
     "roadmap.view",
     "velocity.view",
   ],

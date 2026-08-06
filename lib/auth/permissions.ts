@@ -191,6 +191,27 @@ export async function requirePermission(
 }
 
 /**
+ * Like `requirePermission` but passes when the user holds ANY of the
+ * named permissions. For API routes whose resource has a read/write
+ * split — e.g. an idea is readable with `ideas.view` OR `ideas.review`
+ * but only writable with `ideas.review`. Throws `UnauthorizedError` if
+ * not signed in, `ForbiddenError` if signed in with none of them.
+ */
+export async function requireAnyPermission(
+  ...permissions: PermissionKey[]
+): Promise<Session> {
+  const session = await requireSession();
+  if (session.user.role === "Admin") return session;
+  const grants = await getPermissionsForRole(session.user.role);
+  for (const p of permissions) {
+    if (grants.has(p)) return session;
+  }
+  throw new ForbiddenError(
+    `Missing permission: one of ${permissions.join(", ")}`,
+  );
+}
+
+/**
  * Page-friendly wrapper around `requirePermission` (ADM-15).
  *
  * Server-rendered pages that throw `ForbiddenError` would surface

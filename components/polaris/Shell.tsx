@@ -142,7 +142,7 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Ideas",
         href: "/admin/ideas",
         icon: "✶",
-        permission: "ideas.review",
+        permissionsAny: ["ideas.view", "ideas.review"],
       },
     ],
   },

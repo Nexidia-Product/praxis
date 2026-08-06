@@ -46,9 +46,18 @@ const URGENCY_BADGE: Record<IdeaUrgency, string> = {
 
 interface IdeasReviewTableProps {
   initialIdeas: ProjectIdea[];
+  /**
+   * Whether the current user holds `ideas.review`. Controls the row
+   * action label only ("Review" vs "View") — read-only users still
+   * open the same detail page, where the reviewer controls are hidden.
+   */
+  canReview?: boolean;
 }
 
-export function IdeasReviewTable({ initialIdeas }: IdeasReviewTableProps) {
+export function IdeasReviewTable({
+  initialIdeas,
+  canReview = true,
+}: IdeasReviewTableProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<IdeaStatus | "All" | "Open">("Open");
 
@@ -232,7 +241,7 @@ export function IdeasReviewTable({ initialIdeas }: IdeasReviewTableProps) {
                       href={`/admin/ideas/${idea.idea_id}`}
                       className="pol-btn pol-btn-sm pol-btn-secondary"
                     >
-                      Review
+                      {canReview ? "Review" : "View"}
                     </Link>
                   </td>
                 </tr>

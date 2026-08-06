@@ -6,10 +6,12 @@
  * state (after status changes, conversions) is managed locally in the
  * client.
  *
- * Gated by the `ideas.review` permission — granted by default to Admin
- * and Project Lead, but reassignable via the Roles & permissions
- * matrix. Anyone without the permission gets a 403 from the
- * server-component error boundary.
+ * Gated by `ideas.view` OR `ideas.review`. `ideas.review` (Admin,
+ * Project Lead by default) grants the reviewer action controls;
+ * `ideas.view` (also Viewer by default) grants read-only access so a
+ * read-only role can see the queue without acting on it. Both are
+ * reassignable via the Roles & permissions matrix. Anyone with neither
+ * is redirected to /403.
  */
 
 import Link from "next/link";
@@ -17,7 +19,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import {
   getCurrentUserPermissions,
-  requirePagePermission,
+  requireAnyPagePermission,
 } from "@/lib/auth/permissions";
 import { listIdeas } from "@/lib/ideas/service";
 import { IdeasReviewTable } from "@/components/ideas/review-table";
@@ -26,10 +28,11 @@ import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 export const dynamic = "force-dynamic";
 
 export default async function AdminIdeasPage() {
-  await requirePagePermission("ideas.review");
+  await requireAnyPagePermission(["ideas.view", "ideas.review"]);
   const session = await auth();
   if (!session?.user) return null;
   const { permissions } = await getCurrentUserPermissions();
+  const canReview = permissions["ideas.review"] === true;
 
   const ideas = await listIdeas();
 
@@ -44,8 +47,12 @@ export default async function AdminIdeasPage() {
     >
       <PolarisPageHeader
         eyebrow="Insights"
-        title="Ideas review"
-        subtitle="Submitted ideas from the public portal. Review, approve, reject, or convert to a project."
+        title={canReview ? "Ideas review" : "Ideas"}
+        subtitle={
+          canReview
+            ? "Submitted ideas from the public portal. Review, approve, reject, or convert to a project."
+            : "Submitted ideas from the public portal, shown read-only."
+        }
       />
 
       <div
@@ -73,7 +80,7 @@ export default async function AdminIdeasPage() {
         </span>
       </div>
 
-      <IdeasReviewTable initialIdeas={ideas} />
+      <IdeasReviewTable initialIdeas={ideas} canReview={canReview} />
     </PolarisShell>
   );
 }

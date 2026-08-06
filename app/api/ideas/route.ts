@@ -14,7 +14,7 @@
 
 import { NextResponse } from "next/server";
 
-import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { requireAnyPermission, withAuth } from "@/lib/auth/permissions";
 import type { IdeaStatus } from "@/lib/db";
 import { listIdeas } from "@/lib/ideas/service";
 
@@ -27,7 +27,7 @@ const VALID_STATUSES: IdeaStatus[] = [
 ];
 
 export const GET = withAuth(async (request: Request) => {
-  await requirePermission("ideas.review");
+  await requireAnyPermission("ideas.view", "ideas.review");
   const { searchParams } = new URL(request.url);
   const statusParam = searchParams.get("status");
   const status =

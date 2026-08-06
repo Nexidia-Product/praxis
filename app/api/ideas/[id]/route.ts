@@ -1,10 +1,12 @@
 /**
  * Single-idea API.
  *
- *   GET    /api/ideas/[id]    Read an idea record.
- *   PATCH  /api/ideas/[id]    Update status / admin_comments.
+ *   GET    /api/ideas/[id]    Read an idea record.   (ideas.view | ideas.review)
+ *   PATCH  /api/ideas/[id]    Update status / admin_comments.  (ideas.review)
  *
- * Both Admin and Project Lead may review and update ideas (Section 4.7).
+ * Read is open to any role that can see the idea (`ideas.view`, e.g.
+ * Viewer, or `ideas.review`); writes require `ideas.review` so a
+ * read-only role can't change status or notes (Section 4.7).
  *
  * Conversion (status → Converted) is intentionally NOT handled here;
  * that's a compound operation that goes through
@@ -14,7 +16,11 @@
 
 import { NextResponse } from "next/server";
 
-import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import {
+  requireAnyPermission,
+  requirePermission,
+  withAuth,
+} from "@/lib/auth/permissions";
 import {
   ConflictError,
   NotFoundError,
@@ -28,7 +34,7 @@ interface RouteContext {
 }
 
 export const GET = withAuth(async (_request: Request, context: RouteContext) => {
-  await requirePermission("ideas.review");
+  await requireAnyPermission("ideas.view", "ideas.review");
   const { id } = await context.params;
   try {
     const idea = await getIdea(id);
