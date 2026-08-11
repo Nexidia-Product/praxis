@@ -27,6 +27,7 @@ import { useState } from "react";
 import {
   DOCUMENT_LINK_TYPES,
   detectLinkType,
+  isBrowserOpenable,
 } from "@/lib/projects/links";
 import type { DocumentLink, DocumentLinkType } from "@/lib/db";
 
@@ -64,6 +65,9 @@ export function DocumentLinksEditor({
   // pick one explicitly, we stop auto-detecting on every URL keystroke.
   const [userPickedType, setUserPickedType] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks which non-openable link most recently had its path copied, so
+  // that chip can flash "copied!" briefly (LINK-04).
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   // Inline-edit state (LINK-03). The chip with `editingUrl === link.url`
   // renders as a small form rather than the read-only chip; the rest
@@ -109,6 +113,34 @@ export function DocumentLinksEditor({
     setDraftLabel("");
     setDraftType("External");
     setUserPickedType(false);
+  }
+
+  async function copyPath(url: string) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for non-secure contexts / older browsers where the
+        // async Clipboard API is unavailable.
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopiedUrl(url);
+      // Clear the flash after a beat, but only if this same url is still
+      // the one showing "copied!" (guards against races with other chips).
+      window.setTimeout(
+        () => setCopiedUrl((cur) => (cur === url ? null : cur)),
+        1500,
+      );
+    } catch {
+      setCopiedUrl(null);
+    }
   }
 
   function removeLink(url: string) {
@@ -253,15 +285,33 @@ export function DocumentLinksEditor({
                 className="group inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs"
               >
                 <span aria-hidden>{LINK_TYPE_ICON[link.link_type]}</span>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="font-medium text-gray-900 underline-offset-2 hover:underline"
-                  title={link.url}
-                >
-                  {link.label}
-                </a>
+                {isBrowserOpenable(link.url) ? (
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="font-medium text-gray-900 underline-offset-2 hover:underline"
+                    title={link.url}
+                  >
+                    {link.label}
+                  </a>
+                ) : (
+                  // Non-web reference (network share / file://): a browser
+                  // can't navigate to it, so offer the path to copy and
+                  // paste into File Explorer rather than a dead link.
+                  <button
+                    type="button"
+                    onClick={() => copyPath(link.url)}
+                    className="inline-flex items-center gap-1 font-medium text-gray-900 underline-offset-2 hover:underline"
+                    title={`${link.url}\n\nBrowsers can't open network paths directly. Click to copy the path, then paste it into File Explorer.`}
+                    aria-label={`Copy path for ${link.label}`}
+                  >
+                    {link.label}
+                    <span className="text-[10px] font-normal text-gray-500">
+                      {copiedUrl === link.url ? "· copied!" : "· copy path"}
+                    </span>
+                  </button>
+                )}
                 <span className="text-[10px] uppercase tracking-wider text-gray-500">
                   {link.link_type}
                 </span>
