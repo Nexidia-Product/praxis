@@ -64,6 +64,35 @@ export function detectLinkType(url: string): DocumentLinkType {
   return "External";
 }
 
+/**
+ * Whether a document-link URL can be opened by the browser via a plain
+ * anchor. Only web schemes (http/https) and mailto qualify. Network-drive
+ * UNC paths (`\\server\share\file`), `file://` URLs, and other custom
+ * schemes (`smb://`, …) can't be navigated to from a web page — browsers
+ * block them for security — so the link editor offers a copy-path
+ * affordance for those instead of a dead anchor (LINK-04).
+ *
+ * Keyed off the URL scheme, not the `link_type` label: a "Network Drive"
+ * entry that actually holds an https SharePoint URL stays openable, and a
+ * mistyped `file://` under any type is caught.
+ */
+export function isBrowserOpenable(url: string): boolean {
+  let parsed: URL;
+  try {
+    // No base URL on purpose: a bare UNC path or relative string must fail
+    // to parse here (unlike the lenient validator above) so it's treated
+    // as non-openable rather than resolved against some origin.
+    parsed = new URL(url.trim());
+  } catch {
+    return false;
+  }
+  return (
+    parsed.protocol === "http:" ||
+    parsed.protocol === "https:" ||
+    parsed.protocol === "mailto:"
+  );
+}
+
 export class LinkValidationError extends Error {
   constructor(message: string) {
     super(message);
