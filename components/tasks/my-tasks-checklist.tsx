@@ -3,9 +3,12 @@
 /**
  * My Tasks → "Checklist" mode (Section 5.3).
  *
- * A single, manually-orderable list of the user's OPEN tasks, meant to be
- * worked top-to-bottom like a checklist. Drag a row by its grip to move it;
- * tick the checkbox to complete it; click the body to open the full task.
+ * A single, manually-orderable list of the user's OPEN tasks — plus any
+ * "Under Review" tasks (parked awaiting sign-off, but still worth keeping
+ * visible since this view has no status tabs to fall back to) — meant to
+ * be worked top-to-bottom like a checklist. Drag a row by its grip to move
+ * it; tick the checkbox to complete it; click the body to open the full
+ * task.
  *
  * Ordering:
  *   - `savedOrder` (task IDs) seeds the list once; the user's drag edits are
@@ -14,8 +17,8 @@
  *   - Tasks not present in `order` (e.g. created since the last save) are
  *     appended at the BOTTOM in creation order, so a brand-new task always
  *     lands last.
- *   - IDs in `order` that are no longer open are ignored on render; the next
- *     reorder persists a cleaned list.
+ *   - IDs in `order` that are no longer open/under-review are ignored on
+ *     render; the next reorder persists a cleaned list.
  *
  * Selection & drag:
  *   - Each row has a selection checkbox. Select one or more rows (Shift-click
@@ -33,7 +36,7 @@ import { TASK_PRIORITY_BADGE, TASK_STATUS_BADGE } from "@/lib/tasks/display";
 import type { Project, Task } from "@/lib/db";
 
 interface MyTasksChecklistProps {
-  /** The user's open tasks (parent filters to open statuses). */
+  /** The user's open + under-review tasks (parent applies that filter). */
   tasks: Task[];
   projects: Project[];
   /** Saved manual order (task IDs); seeds the list. */
@@ -164,7 +167,7 @@ export function MyTasksChecklist({
   if (displayTasks.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-4 py-12 text-center text-sm text-gray-500">
-        No open tasks. Nothing to check off — nice.
+        No open or under-review tasks. Nothing to check off — nice.
       </p>
     );
   }

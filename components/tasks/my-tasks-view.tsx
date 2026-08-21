@@ -5,8 +5,14 @@
  *
  * Hosts two interchangeable views of the signed-in user's tasks:
  *   - "List"      — the standard TasksTable (status tabs, filters, grouping).
- *   - "Checklist" — a manually-orderable, drag-to-reorder list of OPEN tasks
- *                   (MyTasksChecklist), persisted per-user.
+ *   - "Checklist" — a manually-orderable, drag-to-reorder list of the user's
+ *                   OPEN tasks plus anything "Under Review" (MyTasksChecklist),
+ *                   persisted per-user. Under Review is included here even
+ *                   though it's excluded from the Tasks page's default
+ *                   "open" tab — unlike the Tasks/My Tasks list view, the
+ *                   checklist has no tabs, so leaving it out would make
+ *                   those tasks disappear entirely instead of just moving
+ *                   to a different tab.
  *
  * This component owns the canonical `tasks` state so both views stay in sync
  * within a session: TasksTable reports its edits back via `onTasksChange`,
@@ -83,8 +89,11 @@ export function MyTasksView({
     ? permissions["tasks.move"] === true
     : currentUserRole === "Admin" || currentUserRole === "Project Lead";
 
-  const openTasks = useMemo(
-    () => tasks.filter((t) => isOpenStatus(t.status)),
+  const checklistTasks = useMemo(
+    () =>
+      tasks.filter(
+        (t) => isOpenStatus(t.status) || t.status === "Under Review",
+      ),
     [tasks],
   );
 
@@ -203,7 +212,7 @@ export function MyTasksView({
         />
       ) : (
         <MyTasksChecklist
-          tasks={openTasks}
+          tasks={checklistTasks}
           projects={projects}
           savedOrder={order}
           canEdit={canEdit}
