@@ -80,6 +80,7 @@ export type ProjectType =
   | "New Feature"
   | "New Prototype"
   | "Enhancement"
+  | "Validation"
   | "Admin"
   | (string & {});
 

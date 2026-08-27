@@ -141,6 +141,7 @@ const PROJECT_TYPE_ORDER: Record<string, number> = {
   "New Feature": 2,
   "New Prototype": 3,
   "New Application": 4,
+  Validation: 5,
 };
 
 /**
@@ -202,6 +203,7 @@ export const BUBBLE_AXES: BubbleAxis[] = [
       { value: 2, label: "New Feature" },
       { value: 3, label: "New Prototype" },
       { value: 4, label: "New Application" },
+      { value: 5, label: "Validation" },
     ],
   },
   {

@@ -96,6 +96,7 @@ export const PROJECT_TYPES: ProjectType[] = [
   "New Feature",
   "New Prototype",
   "Enhancement",
+  "Validation",
   "Admin",
 ];
 
