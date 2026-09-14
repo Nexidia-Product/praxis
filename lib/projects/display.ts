@@ -166,6 +166,25 @@ export function isAdminProject(p: {
   );
 }
 
+/**
+ * The Application/Product label used by Complaints work. Same rationale
+ * as `ADMIN_APPLICATION_PRODUCT`: a named constant so the Work in
+ * Progress exclusion/inclusion toggle and the dedicated Complaints Work
+ * in Progress page reference it without a magic string.
+ */
+export const COMPLAINTS_APPLICATION_PRODUCT = "Complaints";
+
+/**
+ * True when a project's `application_product` is "Complaints". Work in
+ * Progress hides these by default (mirroring the Admin-projects
+ * exclusion) since they get their own dedicated dashboard; the
+ * Complaints Work in Progress page uses this same predicate to scope
+ * itself to only that work.
+ */
+export function isComplaintsProject(p: { application_product: string }): boolean {
+  return p.application_product === COMPLAINTS_APPLICATION_PRODUCT;
+}
+
 // ---------------------------------------------------------------------------
 // Phase (Appendix C)
 // ---------------------------------------------------------------------------

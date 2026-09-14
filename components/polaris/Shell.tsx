@@ -44,6 +44,7 @@ export type NavKey =
   | "velocity"
   | "resources"
   | "work-in-progress"
+  | "complaints-work-in-progress"
   | "key-findings"
   | "key-capabilities"
   | "ideas"
@@ -121,6 +122,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Work in progress",
         href: "/insights/work-in-progress",
         icon: "◐",
+        permission: "projects.view",
+      },
+      {
+        key: "complaints-work-in-progress",
+        label: "Complaints work in progress",
+        href: "/insights/complaints-work-in-progress",
+        icon: "◑",
         permission: "projects.view",
       },
       {
