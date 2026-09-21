@@ -913,6 +913,20 @@ export interface User {
    * default to `{}`.
    */
   ui_preferences?: UserUIPreferences;
+  /**
+   * Restricts which programs (Section: project `program` field) this
+   * user's projects/tasks views include. Null means unrestricted — sees
+   * every program. Per-user rather than per-role: two users sharing a
+   * role may need different program access.
+   */
+  allowed_programs: string[] | null;
+  /**
+   * Default program view when `allowed_programs` grants more than one
+   * program. Null means no explicit preference has been set. Moot when
+   * `allowed_programs` has exactly one entry — that one is always the
+   * default regardless of this field.
+   */
+  primary_program: string | null;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }

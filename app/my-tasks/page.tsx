@@ -24,6 +24,11 @@ import {
 } from "@/lib/db";
 import { isAssignedToUser } from "@/lib/tasks/display";
 import { getMyTasksOrder } from "@/lib/tasks/my-tasks-order";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { MyTasksView } from "@/components/tasks/my-tasks-view";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -35,7 +40,7 @@ export default async function MyTasksPage() {
   const userId = session.user.user_id;
   const userName = session.user.name ?? "";
 
-  const [allTasks, projects, templates, users, savedOrder] = await Promise.all([
+  const [allTasksRaw, allProjects, templates, users, savedOrder] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
@@ -44,6 +49,11 @@ export default async function MyTasksPage() {
     // ui_preferences column hasn't been migrated yet.
     getMyTasksOrder(userId).catch(() => [] as string[]),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const allTasks = filterTasksByVisibleProjects(allTasksRaw, visibleProjectIds);
 
   const activeUserNames = users
     .filter((u) => u.active)

@@ -16,8 +16,9 @@
 
 import { NextResponse } from "next/server";
 
-import { requirePermission, requireSession, withAuth } from "@/lib/auth/permissions";
-import { TaskRepository } from "@/lib/db";
+import { requirePermission, requireSession, withAuth, type Session } from "@/lib/auth/permissions";
+import { ProjectRepository, TaskRepository, type Task } from "@/lib/db";
+import { getAllowedPrograms } from "@/lib/projects/visibility";
 import {
   NotFoundError,
   ValidationError,
@@ -30,11 +31,23 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * True if the caller is allowed to see this task — i.e. its parent
+ * project's program. Used to 404 (not 403) a task a program-restricted
+ * user shouldn't be able to reach by ID.
+ */
+async function isVisible(session: Session, task: Task): Promise<boolean> {
+  const allowed = await getAllowedPrograms(session);
+  if (allowed === "all") return true;
+  const project = await ProjectRepository.getById(task.project_id);
+  return !!project && allowed.includes(project.program);
+}
+
 export const GET = withAuth(async (_request: Request, ctx: RouteContext) => {
-  await requireSession();
+  const session = await requireSession();
   const { id } = await ctx.params;
   const task = await TaskRepository.getById(id);
-  if (!task) {
+  if (!task || !(await isVisible(session, task))) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
   return NextResponse.json({ task });
@@ -52,6 +65,11 @@ export const PATCH = withAuth(async (request: Request, ctx: RouteContext) => {
       { error: "Request body must be JSON." },
       { status: 400 },
     );
+  }
+
+  const existing = await TaskRepository.getById(id);
+  if (!existing || !(await isVisible(session, existing))) {
+    return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
   try {
@@ -74,6 +92,11 @@ export const PATCH = withAuth(async (request: Request, ctx: RouteContext) => {
 export const DELETE = withAuth(async (_request: Request, ctx: RouteContext) => {
   const session = await requirePermission("tasks.delete");
   const { id } = await ctx.params;
+
+  const existing = await TaskRepository.getById(id);
+  if (!existing || !(await isVisible(session, existing))) {
+    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+  }
 
   try {
     await deleteTask(id, {

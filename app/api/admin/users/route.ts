@@ -147,6 +147,8 @@ export const POST = withAuth(async (request: Request) => {
     active: true,
     notification_preferences: settings.notification_defaults.per_type,
     digest_mode: settings.notification_defaults.digest_mode,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   await audit({

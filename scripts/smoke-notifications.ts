@@ -129,6 +129,8 @@ async function main() {
       active: opts.active ?? true,
       notification_preferences: { ...defaultPrefs, ...(opts.prefs ?? {}) },
       digest_mode: opts.digest_mode ?? false,
+      allowed_programs: null,
+      primary_program: null,
     });
   }
 

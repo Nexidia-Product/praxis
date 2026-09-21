@@ -228,6 +228,8 @@ async function main() {
       IdeaStatusChanged: "InAppOnly",
     },
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   // Preview reflects the idea fields and maps urgency → priority.

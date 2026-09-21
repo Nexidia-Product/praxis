@@ -547,6 +547,8 @@ async function main() {
     active: true,
     notification_preferences: DEFAULT_PREFS,
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   // type=Admin, product=anything → accepted.

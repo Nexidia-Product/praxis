@@ -36,6 +36,11 @@ import {
   UserRepository,
 } from "@/lib/db";
 import { buildResourceRoster } from "@/lib/resources/roster";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { ResourceDetail } from "@/components/resources/detail";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -52,12 +57,17 @@ export default async function ResourceDetailPage({
   const { permissions } = await getCurrentUserPermissions();
   const { user_id } = await params;
 
-  const [projects, tasks, publicUsers, settings] = await Promise.all([
+  const [allProjects, allTasks, publicUsers, settings] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
     UserRepository.getAllPublic(),
     SettingsRepository.get(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   const fullRoster = buildResourceRoster(
     projects,

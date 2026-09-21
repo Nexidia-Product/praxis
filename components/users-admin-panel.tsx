@@ -33,6 +33,8 @@
 import { useState } from "react";
 import type { AdminUser } from "@/lib/auth/admin-user-view";
 import type { UserId, UserRole } from "@/lib/db";
+import type { EnumOption } from "@/lib/projects/enum-options";
+import { ProgramAccessCell } from "@/components/admin/program-access-cell";
 
 const ROLE_OPTIONS: UserRole[] = [
   "Admin",
@@ -44,6 +46,7 @@ const ROLE_OPTIONS: UserRole[] = [
 interface UsersAdminPanelProps {
   initialUsers: AdminUser[];
   currentUserId: UserId;
+  programOptions: EnumOption[];
 }
 
 interface ShareableLink {
@@ -57,6 +60,7 @@ interface ShareableLink {
 export function UsersAdminPanel({
   initialUsers,
   currentUserId,
+  programOptions,
 }: UsersAdminPanelProps) {
   const [users, setUsers] = useState<AdminUser[]>(initialUsers);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +87,31 @@ export function UsersAdminPanel({
     };
     if (!res.ok) {
       setError(data.error ?? "Could not change role.");
+      return;
+    }
+    if (data.user) applyUpdate(data.user);
+  }
+
+  async function changeProgramAccess(
+    user: AdminUser,
+    allowedPrograms: string[] | null,
+    primaryProgram: string | null,
+  ) {
+    setError(null);
+    const res = await fetch(`/api/admin/users/${user.user_id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        allowed_programs: allowedPrograms,
+        primary_program: primaryProgram,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      user?: AdminUser;
+      error?: string;
+    };
+    if (!res.ok) {
+      setError(data.error ?? "Could not update program access.");
       return;
     }
     if (data.user) applyUpdate(data.user);
@@ -204,7 +233,7 @@ export function UsersAdminPanel({
           className="col-header"
           style={{
             display: "grid",
-            gridTemplateColumns: "1.5fr 2fr 1fr 1fr 1.4fr",
+            gridTemplateColumns: "1.3fr 1.7fr 0.9fr 1.2fr 0.9fr 1.3fr",
             gap: 12,
             padding: "8px 14px",
           }}
@@ -212,6 +241,7 @@ export function UsersAdminPanel({
           <div>Name</div>
           <div>Email</div>
           <div>Role</div>
+          <div>Programs</div>
           <div>Status</div>
           <div style={{ textAlign: "right" }}>Actions</div>
         </div>
@@ -225,7 +255,7 @@ export function UsersAdminPanel({
               className="grid-row"
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.5fr 2fr 1fr 1fr 1.4fr",
+                gridTemplateColumns: "1.3fr 1.7fr 0.9fr 1.2fr 0.9fr 1.3fr",
                 gap: 12,
                 padding: "10px 14px",
                 alignItems: "center",
@@ -267,6 +297,17 @@ export function UsersAdminPanel({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <ProgramAccessCell
+                  allowedPrograms={u.allowed_programs}
+                  primaryProgram={u.primary_program}
+                  programOptions={programOptions}
+                  disabled={u.role === "Admin"}
+                  onApply={(allowed, primary) =>
+                    changeProgramAccess(u, allowed, primary)
+                  }
+                />
               </div>
               <div>
                 <UserStatusTag user={u} />

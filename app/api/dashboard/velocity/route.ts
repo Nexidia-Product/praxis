@@ -53,6 +53,7 @@ import {
   type ProjectType,
 } from "@/lib/db";
 import { PORTFOLIO_PROJECT_TYPES, isAdminProject } from "@/lib/projects/display";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   getCachedVelocityMetrics,
   setCachedVelocityMetrics,
@@ -233,9 +234,13 @@ export const GET = withAuth(async (request: Request) => {
     );
   }
 
-  // Cache lookup. The cache key is the full filter set, so a
-  // one-character change to any field misses cleanly.
-  const cached = getCachedVelocityMetrics(filters);
+  const allowedPrograms = await getAllowedPrograms(session);
+
+  // Cache lookup. The cache key is the full filter set plus the viewer's
+  // allowed-programs scope, so a one-character change to either misses
+  // cleanly and two viewers with different program access never share
+  // a cached response.
+  const cached = getCachedVelocityMetrics(filters, allowedPrograms);
   if (cached) {
     const payload: VelocityMetrics = { ...cached, from_cache: true };
     return NextResponse.json({ metrics: payload });
@@ -257,7 +262,10 @@ export const GET = withAuth(async (request: Request) => {
   // the signal those metrics are meant to carry. Tasks belonging to
   // dropped projects also drop, so the task-throughput chart stays
   // consistent with the project-level numbers.
-  const projects = allProjects.filter((p) => !isAdminProject(p));
+  const projects = filterProjectsByProgram(
+    allProjects.filter((p) => !isAdminProject(p)),
+    allowedPrograms,
+  );
   const portfolioProjectIds = new Set(projects.map((p) => p.project_id));
   const tasks = allTasks.filter((t) => portfolioProjectIds.has(t.project_id));
 
@@ -268,7 +276,7 @@ export const GET = withAuth(async (request: Request) => {
     filters,
     now,
   );
-  setCachedVelocityMetrics(filters, computed);
+  setCachedVelocityMetrics(filters, computed, allowedPrograms);
 
   const payload: VelocityMetrics = { ...computed, from_cache: false };
   return NextResponse.json({ metrics: payload });

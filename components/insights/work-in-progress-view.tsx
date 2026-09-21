@@ -109,6 +109,9 @@ interface Props {
   /** The signed-in user's id — threaded through for author-only finding edits. */
   currentUserId?: string;
   permissions: Record<string, boolean>;
+  /** Current user's resolved default program (see `getDefaultProgram` in
+   *  `lib/projects/visibility.ts`). Defaults to "Innovation". */
+  defaultProgram?: string;
 }
 
 export function WorkInProgressView({
@@ -124,20 +127,21 @@ export function WorkInProgressView({
   currentUserRole,
   currentUserId,
   permissions,
+  defaultProgram = "Innovation",
 }: Props) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [today, setToday] = useState<string>(() => todayLocal());
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // Standard project filters, opened scoped to the Innovation program by
-  // default (cleared or changed via the filter bar's Program multi-select
+  // Standard project filters, opened scoped to the current user's default
+  // program (cleared or changed via the filter bar's Program multi-select
   // like any other dimension), plus the Admin-projects inclusion toggle.
   // Admin projects (Admin type or Admin application/product) are hidden
   // by default and only surface when `includeAdmin` is checked.
   const [filters, setFilters] = useState<ProjectFilters>({
     ...EMPTY_FILTERS,
-    program: ["Innovation"],
+    program: [defaultProgram],
   });
   const [includeAdmin, setIncludeAdmin] = useState(false);
 

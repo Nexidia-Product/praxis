@@ -36,6 +36,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   IdeaRepository,
   ProjectRepository,
@@ -276,7 +277,7 @@ function summarizeFilters(filters: RoadmapFilters): string {
 // ---------------------------------------------------------------------------
 
 export const POST = withAuth(async (request: Request) => {
-  await requirePermission("roadmap.export");
+  const session = await requirePermission("roadmap.export");
 
   let payload: ExportPptxRequest;
   try {
@@ -313,9 +314,12 @@ export const POST = withAuth(async (request: Request) => {
   const includeClosed =
     filters.status.includes("Completed") ||
     filters.status.includes("Canceled");
-  const filteredProjects = applyRoadmapFilters(allProjects, filters, {
-    includeClosed,
-  });
+  const allowedPrograms = await getAllowedPrograms(session);
+  const filteredProjects = applyRoadmapFilters(
+    filterProjectsByProgram(allProjects, allowedPrograms),
+    filters,
+    { includeClosed },
+  );
 
   // Tasks for the at-risk slide are scoped to the filtered project set.
   // A task whose parent project was filtered out shouldn't surface in

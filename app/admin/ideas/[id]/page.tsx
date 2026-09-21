@@ -27,6 +27,7 @@ import {
 import { getIdea, NotFoundError } from "@/lib/ideas/service";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import { IdeaReviewPanel } from "@/components/ideas/review-panel";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -69,8 +70,10 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
   // "Merge into project" candidates: closed projects can't accept new
   // tasks (lib/tasks/service.ts rejects it), so exclude them here rather
   // than let the picker offer a project that's guaranteed to fail.
-  const openProjects = projects.filter(
-    (p) => p.status !== "Completed" && p.status !== "Canceled",
+  const allowedPrograms = await getAllowedPrograms(session);
+  const openProjects = filterProjectsByProgram(
+    projects.filter((p) => p.status !== "Completed" && p.status !== "Canceled"),
+    allowedPrograms,
   );
 
   // Merged option lists (Section 5.19) — built-ins plus admin-added

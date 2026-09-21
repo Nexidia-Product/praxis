@@ -43,24 +43,30 @@ import type {
 interface VelocityDashboardProps {
   currentUserId: UserId;
   currentUserRole: UserRole;
+  /** Current user's resolved default program (see `getDefaultProgram` in
+   *  `lib/projects/visibility.ts`). Defaults to "Innovation". */
+  defaultProgram?: string;
 }
 
-// Opens scoped to the Innovation program by default (same convention as
-// Roadmap and Work in Progress) — cleared or changed via the Program filter.
-const DEFAULT_FILTERS: VelocityFilters = {
-  range: { kind: "90d", start: null, end: "" },
-  project_types: [],
-  application_products: [],
-  programs: ["Innovation"],
-  project_leads: [],
-  individual_user_id: null,
-};
+function buildDefaultFilters(defaultProgram: string): VelocityFilters {
+  return {
+    range: { kind: "90d", start: null, end: "" },
+    project_types: [],
+    application_products: [],
+    programs: [defaultProgram],
+    project_leads: [],
+    individual_user_id: null,
+  };
+}
 
 export function VelocityDashboard({
   currentUserId,
   currentUserRole,
+  defaultProgram = "Innovation",
 }: VelocityDashboardProps) {
-  const [filters, setFilters] = useState<VelocityFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<VelocityFilters>(() =>
+    buildDefaultFilters(defaultProgram),
+  );
   // Custom range dates live separately from `filters` so toggling between
   // preset ranges doesn't lose them.
   const [customStart, setCustomStart] = useState("");

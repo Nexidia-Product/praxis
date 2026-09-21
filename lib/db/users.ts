@@ -112,6 +112,8 @@ export const UserRepository = {
       active: input.active,
       notification_preferences: input.notification_preferences,
       digest_mode: input.digest_mode,
+      allowed_programs: input.allowed_programs,
+      primary_program: input.primary_program,
     };
     if (input.user_id) payload.user_id = input.user_id;
 

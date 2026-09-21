@@ -20,6 +20,7 @@ import {
   ProjectRepository,
   UserRepository,
 } from "@/lib/db";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import { GroupsWorkspace } from "@/components/groups/workspace";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -29,11 +30,14 @@ export default async function GroupsPage() {
   const session = await requirePagePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [groups, projects, users] = await Promise.all([
+  const [groups, allProjects, users] = await Promise.all([
     ProjectGroupRepository.getAll(),
     ProjectRepository.getAll(),
     UserRepository.getAll(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
 
   // Pre-resolve user IDs to display names so the client component
   // doesn't have to ship the whole users table to the browser just

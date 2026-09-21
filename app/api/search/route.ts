@@ -27,12 +27,17 @@
 
 import { NextResponse } from "next/server";
 
-import { getCurrentUserPermissions, withAuth } from "@/lib/auth/permissions";
+import { getCurrentUserPermissions, getSession, withAuth } from "@/lib/auth/permissions";
 import {
   IdeaRepository,
   ProjectRepository,
   TaskRepository,
 } from "@/lib/db";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -74,11 +79,17 @@ export const GET = withAuth(async (request: Request) => {
   // returns the full file, so even an empty filter doesn't save much
   // — but it keeps the result set tight and prevents leaking idea
   // submissions through the search to a non-reviewer.
-  const [projects, tasks, ideas] = await Promise.all([
+  const [allProjects, allTasks, ideas] = await Promise.all([
     canViewProjects ? ProjectRepository.getAll() : Promise.resolve([]),
     canViewTasks ? TaskRepository.getAll() : Promise.resolve([]),
     canReviewIdeas ? IdeaRepository.getAll() : Promise.resolve([]),
   ]);
+
+  const session = await getSession();
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   const hits: SearchHit[] = [];
 

@@ -597,7 +597,11 @@ async function main() {
   eq("cache: different filter set misses", miss, null);
 
   // TTL expiry
-  const expired = getCachedVelocityMetrics(f1, Date.now() + VELOCITY_CACHE_TTL_MS + 1);
+  const expired = getCachedVelocityMetrics(
+    f1,
+    "all",
+    Date.now() + VELOCITY_CACHE_TTL_MS + 1,
+  );
   eq("cache: TTL expiry returns null", expired, null);
 
   // Invalidate clears
@@ -617,6 +621,8 @@ async function main() {
     active: true,
     notification_preferences: DEFAULT_PREFS,
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   // Seed cache entry, then create a project and confirm the cache was blown.

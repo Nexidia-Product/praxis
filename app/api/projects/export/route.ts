@@ -43,7 +43,8 @@ import {
   customFieldMatches,
   type CustomFieldFilterValue,
 } from "@/lib/projects/custom-filter";
-import { requireSession, withAuth } from "@/lib/auth/permissions";
+import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   ProjectRepository,
   SettingsRepository,
@@ -292,7 +293,7 @@ async function buildXlsx(
 // ---------------------------------------------------------------------------
 
 export const GET = withAuth(async (request: Request) => {
-  await requireSession();
+  const session = await requirePermission("projects.view");
   const url = new URL(request.url);
   const format = (url.searchParams.get("format") ?? "csv").toLowerCase();
 
@@ -301,7 +302,12 @@ export const GET = withAuth(async (request: Request) => {
     SettingsRepository.get(),
   ]);
   const customFields = settings.custom_field_definitions;
-  const filtered = applyFilters(all, url, customFields);
+  const allowedPrograms = await getAllowedPrograms(session);
+  const filtered = applyFilters(
+    filterProjectsByProgram(all, allowedPrograms),
+    url,
+    customFields,
+  );
 
   // Stable order so re-exports diff cleanly. The Projects page sort
   // is a UI concern and intentionally not mirrored here.

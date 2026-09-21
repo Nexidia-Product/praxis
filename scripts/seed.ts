@@ -595,6 +595,8 @@ async function buildDefaultAdmin(): Promise<User> {
     active: true,
     notification_preferences: DEFAULT_NOTIFICATION_PREFERENCES,
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
     created_at: SEED_TIMESTAMP,
     updated_at: SEED_TIMESTAMP,
   };

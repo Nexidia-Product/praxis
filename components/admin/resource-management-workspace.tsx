@@ -39,6 +39,7 @@ import type {
   PermissionCategory,
 } from "@/lib/auth/role-permissions";
 import type { ResourceSettings, UserRole } from "@/lib/db";
+import type { EnumOption } from "@/lib/projects/enum-options";
 
 export type ResourceManagementTab =
   | "users"
@@ -67,6 +68,7 @@ interface ResourceManagementWorkspaceProps {
   // Users tab data
   initialUsers: AdminUser[];
   currentUserId: string;
+  programOptions: EnumOption[];
 
   // Roles & permissions tab data
   catalog: ReadonlyArray<PermissionDefinition>;
@@ -89,6 +91,7 @@ export function ResourceManagementWorkspace({
   permissions,
   initialUsers,
   currentUserId,
+  programOptions,
   catalog,
   catalogByCategory,
   allKeys,
@@ -133,6 +136,7 @@ export function ResourceManagementWorkspace({
         <UsersAdminPanel
           initialUsers={initialUsers}
           currentUserId={currentUserId}
+          programOptions={programOptions}
         />
       ) : null}
 

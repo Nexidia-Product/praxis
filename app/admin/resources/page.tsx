@@ -36,6 +36,7 @@ import {
 } from "@/lib/auth/role-permissions";
 import { SettingsRepository, UserRepository, type UserRole } from "@/lib/db";
 import { getServiceRoleClient } from "@/lib/supabase/server";
+import { getEnumOptions } from "@/lib/projects/enum-options";
 import {
   ResourceManagementWorkspace,
   type ResourceManagementTab,
@@ -83,10 +84,11 @@ export default async function ResourceManagementPage({
   // trips to the database/auth service on render; small datasets so
   // it's fine.
   const supabase = getServiceRoleClient();
-  const [allUsers, settings, authPage] = await Promise.all([
+  const [allUsers, settings, authPage, programOptions] = await Promise.all([
     UserRepository.getAll(),
     SettingsRepository.get(),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    getEnumOptions("program"),
   ]);
 
   const lastSignInById = buildLastSignInIndex(
@@ -124,6 +126,7 @@ export default async function ResourceManagementPage({
         permissions={permissions}
         initialUsers={users}
         currentUserId={session.user.user_id}
+        programOptions={programOptions}
         catalog={PERMISSION_CATALOG}
         catalogByCategory={getCatalogByCategory()}
         allKeys={[...ALL_PERMISSION_KEYS]}

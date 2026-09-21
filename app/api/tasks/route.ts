@@ -20,7 +20,12 @@
 import { NextResponse } from "next/server";
 
 import { requirePermission, requireSession, withAuth } from "@/lib/auth/permissions";
-import { TaskRepository } from "@/lib/db";
+import { ProjectRepository, TaskRepository } from "@/lib/db";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import {
   ValidationError,
   createTask,
@@ -28,12 +33,22 @@ import {
 } from "@/lib/tasks/service";
 
 export const GET = withAuth(async (request: Request) => {
-  await requireSession();
+  const session = await requireSession();
   const url = new URL(request.url);
   const projectId = url.searchParams.get("project_id");
   const responsibleParams = url.searchParams.getAll("responsible");
 
   let tasks = await TaskRepository.getAll();
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  if (allowedPrograms !== "all") {
+    const visibleProjectIds = new Set(
+      filterProjectsByProgram(await ProjectRepository.getAll(), allowedPrograms).map(
+        (p) => p.project_id,
+      ),
+    );
+    tasks = filterTasksByVisibleProjects(tasks, visibleProjectIds);
+  }
 
   if (projectId) {
     tasks = tasks.filter((t) => t.project_id === projectId);
