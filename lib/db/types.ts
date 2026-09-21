@@ -738,6 +738,7 @@ export type AuditAction =
   | "delete"
   | "status_change"
   | "convert"
+  | "merge"
   | "invite"
   | "deactivate"
   | "activate"
@@ -825,6 +826,14 @@ export interface ProjectIdea {
    * bucket (private — admin reviewers download via signed URLs).
    */
   attachments: IdeaAttachment[];
+  /**
+   * Flags the idea as a minor usability tweak (e.g. one that would help
+   * with customer demos) rather than a substantive feature request. Any
+   * idea can be flagged; defaults false. Settable by the submitter at
+   * submission time or by a reviewer afterward — same rationale as
+   * `Project.is_key_capability`.
+   */
+  is_quality_of_life: boolean;
 }
 
 /**

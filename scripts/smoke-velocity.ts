@@ -224,6 +224,7 @@ async function main() {
       ai_overlap_analysis: null,
       edited_since_review: false,
       attachments: [],
+      is_quality_of_life: false,
       ...overrides,
     };
   }

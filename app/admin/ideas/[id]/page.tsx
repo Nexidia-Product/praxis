@@ -66,6 +66,13 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
     new Set(projects.map((p) => p.application_product).filter(Boolean)),
   ).sort();
 
+  // "Merge into project" candidates: closed projects can't accept new
+  // tasks (lib/tasks/service.ts rejects it), so exclude them here rather
+  // than let the picker offer a project that's guaranteed to fail.
+  const openProjects = projects.filter(
+    (p) => p.status !== "Completed" && p.status !== "Canceled",
+  );
+
   // Merged option lists (Section 5.19) — built-ins plus admin-added
   // extensions, archived excluded. The conversion form uses these so
   // promoting an idea picks up admin-defined statuses/phases/priorities.
@@ -107,6 +114,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         templates={templates}
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
+        projects={openProjects}
         statusOptions={statusOptions}
         phaseOptions={phaseOptions}
         canReview={canReview}

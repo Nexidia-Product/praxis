@@ -27,10 +27,12 @@ import type {
   IdeaUrgency,
   Project,
   ProjectIdea,
+  Task,
   TaskTemplate,
 } from "@/lib/db";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import { IdeaConversionForm } from "./conversion-form";
+import { IdeaMergeForm } from "./merge-form";
 
 const STATUS_BADGE: Record<IdeaStatus, string> = {
   New: "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200",
@@ -53,6 +55,11 @@ interface IdeaReviewPanelProps {
   templates: TaskTemplate[];
   leadOptions: string[];
   applicationOptions: string[];
+  /**
+   * Open (non-Completed/Canceled) projects — the candidate list for the
+   * "Merge into project" form's project picker.
+   */
+  projects: Project[];
   /**
    * Merged option lists for the four extensible enums. Optional;
    * passed through to `IdeaConversionForm` so admin-added values
@@ -98,6 +105,7 @@ export function IdeaReviewPanel({
   templates,
   leadOptions,
   applicationOptions,
+  projects,
   statusOptions,
   phaseOptions,
   priorityOptions,
@@ -110,15 +118,18 @@ export function IdeaReviewPanel({
   const [comments, setComments] = useState(initialIdea.admin_comments);
   const [savingComments, setSavingComments] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [qolBusy, setQolBusy] = useState(false);
   const [overlapBusy, setOverlapBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showConvert, setShowConvert] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
 
   const isFinal = idea.status === "Converted";
 
   async function patchIdea(patch: {
     status?: IdeaStatus;
     admin_comments?: string;
+    is_quality_of_life?: boolean;
   }): Promise<boolean> {
     setError(null);
     const res = await fetch(`/api/ideas/${idea.idea_id}`, {
@@ -144,6 +155,13 @@ export function IdeaReviewPanel({
     setStatusBusy(true);
     await patchIdea({ status: next });
     setStatusBusy(false);
+  }
+
+  async function handleQolToggle(next: boolean) {
+    if (qolBusy || isFinal) return;
+    setQolBusy(true);
+    await patchIdea({ is_quality_of_life: next });
+    setQolBusy(false);
   }
 
   async function handleSaveComments() {
@@ -183,6 +201,14 @@ export function IdeaReviewPanel({
     router.push(`/projects?focus=${result.project.project_id}`);
   }
 
+  function onMerged(result: { task: Task; idea: ProjectIdea }) {
+    setIdea(result.idea);
+    setShowMerge(false);
+    router.refresh();
+    // Land the user on the existing project the task was added to.
+    router.push(`/projects?focus=${result.task.project_id}`);
+  }
+
   return (
     <div className="space-y-6">
       {/* ---- Submission summary ---- */}
@@ -206,6 +232,14 @@ export function IdeaReviewPanel({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {idea.is_quality_of_life ? (
+              <span
+                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200"
+                title="Flagged as a minor usability tweak, not a substantive feature request."
+              >
+                Quality of Life
+              </span>
+            ) : null}
             {idea.edited_since_review ? (
               <span
                 className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-900 ring-1 ring-inset ring-amber-300"
@@ -317,17 +351,48 @@ export function IdeaReviewPanel({
           >
             Reject
           </ActionButton>
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            {canConvert ? (
+              <ActionButton
+                disabled={isFinal || showMerge}
+                onClick={() => {
+                  setShowConvert(false);
+                  setShowMerge(true);
+                }}
+                tone="neutral"
+              >
+                Merge into project →
+              </ActionButton>
+            ) : null}
             {canConvert ? (
               <ActionButton
                 disabled={isFinal || showConvert}
-                onClick={() => setShowConvert(true)}
+                onClick={() => {
+                  setShowMerge(false);
+                  setShowConvert(true);
+                }}
                 tone="primary"
               >
                 Convert to project →
               </ActionButton>
             ) : null}
           </div>
+        </div>
+
+        {/* Quality of Life flag */}
+        <div className="mt-4 flex items-center gap-2">
+          <input
+            id="is_quality_of_life"
+            type="checkbox"
+            checked={idea.is_quality_of_life}
+            onChange={(e) => handleQolToggle(e.target.checked)}
+            disabled={isFinal || qolBusy}
+            className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          />
+          <label htmlFor="is_quality_of_life" className="text-sm text-gray-900">
+            Quality of Life request — a minor usability tweak, not a
+            substantive feature request.
+          </label>
         </div>
 
         {/* Admin comments */}
@@ -461,6 +526,16 @@ export function IdeaReviewPanel({
             </p>
           )}
         </section>
+      ) : null}
+
+      {/* ---- Merge form ---- */}
+      {showMerge && canConvert ? (
+        <IdeaMergeForm
+          idea={idea}
+          projects={projects}
+          onCancel={() => setShowMerge(false)}
+          onMerged={onMerged}
+        />
       ) : null}
 
       {/* ---- Convert form ---- */}

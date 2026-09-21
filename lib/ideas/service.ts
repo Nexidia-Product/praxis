@@ -38,6 +38,7 @@ import {
   type ProjectPhase,
   type ProjectStatus,
   type ProjectType,
+  type Task,
   type UserId,
 } from "@/lib/db";
 import {
@@ -54,6 +55,11 @@ import {
   ValidationError as ProjectValidationError,
   type ProjectCreatePayload,
 } from "@/lib/projects/service";
+import {
+  createTask,
+  ValidationError as TaskValidationError,
+  type TaskCreatePayload,
+} from "@/lib/tasks/service";
 import { notifyIdeaStatusChanged } from "@/lib/notifications/service";
 import { sendIdeaEditLink } from "@/lib/notifications/email";
 import { audit } from "@/lib/audit/service";
@@ -154,6 +160,20 @@ function asNullableDate(value: unknown, field: string): string | null {
 }
 
 /**
+ * Accepts a real boolean or the string form a multipart form field sends
+ * ("true"/"false"); falls back for absent/empty. Anything else is rejected
+ * rather than silently coerced, matching the strictness of the other
+ * validators here.
+ */
+function asBoolean(value: unknown, field: string, fallback = false): boolean {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ValidationError(`${field} must be a boolean.`);
+}
+
+/**
  * Cheap email-shape check — we don't try to be RFC-strict, just block the
  * obvious typo cases ("foo", "foo@") so a bad address doesn't get baked
  * onto the record permanently.
@@ -183,6 +203,7 @@ export interface IdeaSubmitPayload {
   urgency?: unknown;
   requested_target_date?: unknown;
   key_stakeholders?: unknown;
+  is_quality_of_life?: unknown;
 }
 
 /** Soft caps on free-text fields so the public form can't accept a 5MB blob. */
@@ -274,6 +295,11 @@ export async function submitIdea(
     );
   }
 
+  const is_quality_of_life = asBoolean(
+    payload.is_quality_of_life,
+    "is_quality_of_life",
+  );
+
   // Attachments are validated against the MIME allowlist and size
   // caps BEFORE we touch storage or the database. If any file fails,
   // the whole submission is rejected — partial accepts would either
@@ -302,6 +328,7 @@ export async function submitIdea(
     requested_target_date,
     key_stakeholders,
     status: "New",
+    is_quality_of_life,
   });
 
   // Upload each file to Supabase Storage. We do this AFTER the idea
@@ -400,6 +427,7 @@ export interface IdeaUpdatePayload {
   status?: unknown;
   admin_comments?: unknown;
   ai_overlap_analysis?: unknown;
+  is_quality_of_life?: unknown;
 }
 
 /**
@@ -427,7 +455,12 @@ export async function updateIdea(
     );
   }
 
-  const patch: { status?: IdeaStatus; admin_comments?: string; ai_overlap_analysis?: string | null } = {};
+  const patch: {
+    status?: IdeaStatus;
+    admin_comments?: string;
+    ai_overlap_analysis?: string | null;
+    is_quality_of_life?: boolean;
+  } = {};
 
   if (payload.status !== undefined) {
     const nextStatus = asEnum(payload.status, IDEA_STATUSES, "status");
@@ -472,6 +505,14 @@ export async function updateIdea(
       );
     }
     patch.ai_overlap_analysis = payload.ai_overlap_analysis;
+  }
+
+  if (payload.is_quality_of_life !== undefined) {
+    patch.is_quality_of_life = asBoolean(
+      payload.is_quality_of_life,
+      "is_quality_of_life",
+      existing.is_quality_of_life,
+    );
   }
 
   const updated = await IdeaRepository.update(ideaId, patch);
@@ -849,6 +890,98 @@ export async function convertIdeaToProject(
   });
 
   return { project, idea: updatedIdea };
+}
+
+// ---------------------------------------------------------------------------
+// Merge idea → task on an existing project
+// ---------------------------------------------------------------------------
+
+/**
+ * Alternative disposition to `convertIdeaToProject`: instead of spinning up
+ * a brand-new project, create a task carrying the idea's content on a
+ * project that already exists, then mark the idea `Converted` with
+ * `converted_to_project_id` pointing at that existing project. Same
+ * terminal-state semantics as a normal conversion — once merged, the idea
+ * is frozen and the link is the only way back to where the work landed.
+ *
+ * We do NOT roll back the task if the idea write fails — same rationale as
+ * `convertIdeaToProject`: the task is the higher-value record, and a
+ * dangling idea is recoverable by an admin.
+ *
+ * The `taskPayload` is whatever the admin's merge form posted — run through
+ * `createTask` for validation, so it has identical semantics to creating a
+ * task from scratch through the normal Tasks page.
+ */
+export async function mergeIdeaIntoProject(
+  ideaId: IdeaId,
+  taskPayload: TaskCreatePayload,
+  ctx: { createdBy: UserId; userName?: string | null },
+): Promise<{ task: Task; idea: ProjectIdea }> {
+  const idea = await IdeaRepository.getById(ideaId);
+  if (!idea) throw new NotFoundError(`Idea ${ideaId} not found.`);
+  if (idea.status === "Converted") {
+    throw new ConflictError(
+      "This idea has already been converted to a project.",
+    );
+  }
+
+  const projectId = asString(taskPayload.project_id, "project_id");
+  if (!projectId) {
+    throw new ValidationError("project_id is required.");
+  }
+
+  // Translate the task service's ValidationError into ours so the API
+  // route only needs to handle one error type — mirrors the
+  // ProjectValidationError translation in convertIdeaToProject above.
+  let task: Task;
+  try {
+    task = await createTask(taskPayload, {
+      createdBy: ctx.createdBy,
+      userName: ctx.userName,
+    });
+  } catch (err) {
+    if (err instanceof TaskValidationError) {
+      throw new ValidationError(err.message);
+    }
+    throw err;
+  }
+
+  let updatedIdea: ProjectIdea;
+  try {
+    updatedIdea = await IdeaRepository.update(ideaId, {
+      status: "Converted",
+      converted_to_project_id: projectId,
+    });
+  } catch (err) {
+    console.error(
+      `[ideas] idea ${ideaId} update failed AFTER task ${task.task_id} was created on project ${projectId}. The task exists; the idea is orphaned and must be repaired manually:`,
+      err,
+    );
+    throw err;
+  }
+
+  // Fire submitter notification (best-effort).
+  notifyIdeaStatusChanged({
+    idea: updatedIdea,
+    priorStatus: idea.status,
+  }).catch((err) => {
+    console.warn(
+      `[ideas] notifyIdeaStatusChanged failed for ${ideaId} after merge:`,
+      err,
+    );
+  });
+
+  await audit({
+    actorId: ctx.createdBy,
+    actorName: ctx.userName,
+    entityType: "Idea",
+    entityId: ideaId,
+    entityLabel: updatedIdea.idea_name,
+    action: "merge",
+    summary: `Merged idea into project ${projectId} as task ${task.task_id}.`,
+  });
+
+  return { task, idea: updatedIdea };
 }
 
 // ---------------------------------------------------------------------------

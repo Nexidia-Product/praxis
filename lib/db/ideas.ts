@@ -24,11 +24,16 @@ export type CreateIdeaInput = Omit<
   | "ai_overlap_analysis"
   | "edited_since_review"
   | "attachments"
+  | "is_quality_of_life"
 > &
   Partial<
     Pick<
       ProjectIdea,
-      "status" | "admin_comments" | "ai_overlap_analysis" | "attachments"
+      | "status"
+      | "admin_comments"
+      | "ai_overlap_analysis"
+      | "attachments"
+      | "is_quality_of_life"
     >
   >;
 
@@ -105,6 +110,7 @@ export const IdeaRepository = {
         status: input.status ?? "New",
         admin_comments: input.admin_comments ?? "",
         ai_overlap_analysis: input.ai_overlap_analysis ?? null,
+        is_quality_of_life: input.is_quality_of_life ?? false,
         // submitted_at, idea_id, converted_to_project_id all have
         // sensible Postgres defaults.
       })

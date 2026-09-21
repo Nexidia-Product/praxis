@@ -189,6 +189,14 @@ export function IdeasReviewTable({
                       >
                         {idea.idea_name}
                       </Link>
+                      {idea.is_quality_of_life ? (
+                        <span
+                          className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-inset ring-violet-300"
+                          title="Flagged as a minor usability tweak, not a substantive feature request."
+                        >
+                          QoL
+                        </span>
+                      ) : null}
                       {idea.edited_since_review ? (
                         <span
                           className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300"
