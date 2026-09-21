@@ -43,6 +43,7 @@ interface FormState {
   urgency: IdeaUrgency;
   requested_target_date: string;
   key_stakeholders: string;
+  is_quality_of_life: boolean;
 }
 
 const EMPTY: FormState = {
@@ -53,6 +54,7 @@ const EMPTY: FormState = {
   urgency: "Medium",
   requested_target_date: "",
   key_stakeholders: "",
+  is_quality_of_life: false,
 };
 
 interface SubmittedIdea {
@@ -159,6 +161,7 @@ export function IdeaSubmitForm() {
     form.set("urgency", state.urgency);
     form.set("requested_target_date", state.requested_target_date);
     form.set("key_stakeholders", state.key_stakeholders.trim());
+    form.set("is_quality_of_life", String(state.is_quality_of_life));
     for (const f of files) {
       form.append("attachments", f, f.name);
     }
@@ -397,6 +400,24 @@ export function IdeaSubmitForm() {
         <p className="mt-1 text-xs text-gray-500">
           Teams or individuals who would benefit or need to be involved.
         </p>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <input
+          id="is_quality_of_life"
+          name="is_quality_of_life"
+          type="checkbox"
+          checked={state.is_quality_of_life}
+          onChange={(e) => update("is_quality_of_life", e.target.checked)}
+          disabled={submitting}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+        />
+        <label htmlFor="is_quality_of_life" className="text-sm text-gray-900">
+          This is a{" "}
+          <span className="font-medium">Quality of Life</span> request — a
+          minor tweak that would improve usability (e.g., for customer
+          demos), not a new feature.
+        </label>
       </div>
 
       {/* Attachments */}
