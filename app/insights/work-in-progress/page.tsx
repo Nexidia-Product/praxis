@@ -71,6 +71,7 @@ export default async function WorkInProgressPage() {
       "application_product",
       settings.enum_extensions.application_product,
     ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program),
   };
 
   // Stable base order: project_id ascending (YYYY-NNN). The client sorts

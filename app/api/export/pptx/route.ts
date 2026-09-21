@@ -138,6 +138,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
       project_type: [],
       project_lead: [],
       application_product: [],
+      program: [],
       search: "",
     };
   }
@@ -156,6 +157,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
     project_type: arr(f.project_type) as RoadmapFilters["project_type"],
     project_lead: arr(f.project_lead),
     application_product: arr(f.application_product),
+    program: arr(f.program),
     search: typeof f.search === "string" ? f.search : "",
   };
 }
@@ -419,6 +421,7 @@ export const POST = withAuth(async (request: Request) => {
             range: velocityRange,
             project_types: [],
             application_products: [],
+            programs: [],
             project_leads: [],
             individual_user_id: null,
           },

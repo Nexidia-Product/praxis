@@ -24,6 +24,7 @@
  *   start, end     YYYY-MM-DD; only consulted when `range=custom`
  *   types          comma-separated project types
  *   products       comma-separated application_product values
+ *   programs       comma-separated program values
  *   leads          comma-separated user IDs
  *   individual     user_id for the individual-contributor view
  *
@@ -176,6 +177,11 @@ function parseFilters(
   }
 
   const products = csv(params, "products");
+  // Not validated against the curated program list, same treatment as
+  // `products` (application_product) just above — both are open,
+  // admin-extensible free-text fields, unlike the closed `types` enum
+  // checked above. An unrecognized value just matches nothing.
+  const programs = csv(params, "programs");
   const leads = csv(params, "leads");
   const individualUserId = params.get("individual");
 
@@ -185,6 +191,7 @@ function parseFilters(
       range,
       project_types: types as ProjectType[],
       application_products: products,
+      programs,
       project_leads: leads,
       individual_user_id: individualUserId && individualUserId.length > 0
         ? individualUserId

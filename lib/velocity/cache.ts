@@ -42,6 +42,7 @@ function keyFor(filters: VelocityFilters): string {
     range: filters.range,
     project_types: filters.project_types,
     application_products: filters.application_products,
+    programs: filters.programs,
     project_leads: filters.project_leads,
     individual_user_id: filters.individual_user_id,
   });

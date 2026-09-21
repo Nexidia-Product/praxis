@@ -70,6 +70,7 @@ export default async function ProjectsPage() {
       "application_product",
       settings.enum_extensions.application_product,
     ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program),
   };
 
   // Initial sort: by project_id ascending — oldest projects on top,

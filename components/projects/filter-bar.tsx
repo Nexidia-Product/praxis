@@ -75,6 +75,7 @@ export interface ProjectFilters {
   project_type: ProjectType[];
   project_lead: string[];
   application_product: string[];
+  program: string[];
   /**
    * Multi-select on the strategic-position bucket keys (quick_win,
    * major_bet, fill_in, deprioritize, unknown). The filter operates
@@ -96,6 +97,7 @@ export const EMPTY_FILTERS: ProjectFilters = {
   project_type: [],
   project_lead: [],
   application_product: [],
+  program: [],
   portfolio_position: [],
   target_from: "",
   target_to: "",
@@ -128,6 +130,7 @@ export function filtersToQueryString(filters: ProjectFilters): string {
   for (const l of filters.project_lead) params.append("project_lead", l);
   for (const a of filters.application_product)
     params.append("application_product", a);
+  for (const g of filters.program) params.append("program", g);
   for (const pos of filters.portfolio_position)
     params.append("portfolio_position", pos);
   if (filters.target_from) params.set("target_from", filters.target_from);
@@ -159,6 +162,7 @@ export function isFilterActive(filters: ProjectFilters): boolean {
     filters.project_type.length > 0 ||
     filters.project_lead.length > 0 ||
     filters.application_product.length > 0 ||
+    filters.program.length > 0 ||
     filters.portfolio_position.length > 0 ||
     filters.target_from !== "" ||
     filters.target_to !== "" ||
@@ -306,6 +310,8 @@ interface ProjectFilterBarProps {
   leadOptions: string[];
   /** Distinct application_product values in the current dataset. */
   applicationOptions: string[];
+  /** Distinct program values in the current dataset. */
+  programOptions: string[];
   /**
    * Merged option lists from `lib/projects/enum-options`. Optional —
    * when omitted we fall back to the static built-in arrays so admin
@@ -330,6 +336,7 @@ export function ProjectFilterBar({
   onChange,
   leadOptions,
   applicationOptions,
+  programOptions,
   statusOptions,
   phaseOptions,
   priorityOptions,
@@ -424,6 +431,12 @@ export function ProjectFilterBar({
           options={applicationOptions}
           selected={filters.application_product}
           onChange={(v) => update("application_product", v)}
+        />
+        <MultiSelect
+          label="Program"
+          options={programOptions}
+          selected={filters.program}
+          onChange={(v) => update("program", v)}
         />
 
         <div className="flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 shadow-sm">

@@ -236,7 +236,7 @@ export function ProjectQuickView({
               {project.name}
             </h2>
             <p className="mt-1 text-sm text-gray-600">
-              {project.application_product} · {project.project_type}
+              {project.program} · {project.application_product} · {project.project_type}
             </p>
           </div>
           <button

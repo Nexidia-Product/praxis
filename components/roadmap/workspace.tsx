@@ -130,8 +130,12 @@ export function RoadmapWorkspace({
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [savedConfigs, setSavedConfigs] =
     useState<SavedKanbanConfig[]>(initialKanbanConfigs);
-  const [filters, setFilters] =
-    useState<RoadmapFilters>(EMPTY_ROADMAP_FILTERS);
+  // Opens scoped to the Innovation program by default (same convention as
+  // Work in Progress) — cleared or changed via the Program filter chip.
+  const [filters, setFilters] = useState<RoadmapFilters>({
+    ...EMPTY_ROADMAP_FILTERS,
+    program: ["Innovation"],
+  });
   const [view, setView] = useState<RoadmapView>("timeline");
   const [includeClosed, setIncludeClosed] = useState(false);
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
@@ -160,16 +164,19 @@ export function RoadmapWorkspace({
   // Lead and application/product option lists for the filter bar.
   // Derived from the projects we actually have, deduplicated and sorted.
   // Recomputed only when the project list changes.
-  const { leadOptions, applicationOptions } = useMemo(() => {
+  const { leadOptions, applicationOptions, programOptions } = useMemo(() => {
     const leads = new Set<string>();
     const apps = new Set<string>();
+    const programs = new Set<string>();
     for (const p of projects) {
       if (p.project_lead) leads.add(p.project_lead);
       if (p.application_product) apps.add(p.application_product);
+      if (p.program) programs.add(p.program);
     }
     return {
       leadOptions: Array.from(leads).sort(),
       applicationOptions: Array.from(apps).sort(),
+      programOptions: Array.from(programs).sort(),
     };
   }, [projects]);
 
@@ -348,6 +355,7 @@ export function RoadmapWorkspace({
         onChange={setFilters}
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
+        programOptions={programOptions}
         includeClosed={showIncludeClosed ? includeClosed : undefined}
         onIncludeClosedChange={
           showIncludeClosed ? setIncludeClosed : undefined
@@ -490,6 +498,7 @@ export function RoadmapWorkspace({
           customFields={customFields}
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
+          programOptions={programOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}

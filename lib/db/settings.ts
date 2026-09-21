@@ -111,6 +111,7 @@ const DEFAULT_ENUM_EXTENSIONS: EnumExtensionsMap = {
   phase: [],
   priority: [],
   application_product: [],
+  program: [],
 };
 
 const DEFAULT_RESOURCE_SETTINGS_SEED: ResourceSettings = DEFAULT_RESOURCE_SETTINGS;

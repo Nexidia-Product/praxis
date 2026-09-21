@@ -41,6 +41,7 @@ import {
   PROJECT_PHASES,
   PROJECT_STATUSES,
   SYSTEM_APPLICATION_PRODUCTS,
+  SYSTEM_PROGRAMS,
 } from "@/lib/projects/display";
 
 /**
@@ -148,6 +149,18 @@ const SYSTEM_APP_OPTIONS: EnumOption[] = SYSTEM_APPLICATION_PRODUCTS.map(
   }),
 );
 
+/**
+ * Program ships with three built-in values (see `SYSTEM_PROGRAMS` in
+ * `lib/projects/display.ts`) — Innovation, Complaints, UI Maintenance.
+ * Admin-curated extensions are merged on top.
+ */
+const SYSTEM_PROGRAM_OPTIONS: EnumOption[] = SYSTEM_PROGRAMS.map((id) => ({
+  id,
+  label: id,
+  source: "system",
+  archived: false,
+}));
+
 // ---------------------------------------------------------------------------
 // Merge logic
 // ---------------------------------------------------------------------------
@@ -186,6 +199,8 @@ function systemOptionsFor(enumKey: ExtensibleEnumKey): EnumOption[] {
       return SYSTEM_PRIORITY_OPTIONS;
     case "application_product":
       return SYSTEM_APP_OPTIONS;
+    case "program":
+      return SYSTEM_PROGRAM_OPTIONS;
   }
 }
 
@@ -214,6 +229,7 @@ function sortOptions(
       out.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
       return out;
     case "application_product":
+    case "program":
       out.sort((a, b) => a.label.localeCompare(b.label));
       return out;
     case "status":
@@ -295,6 +311,11 @@ export async function getAllEnumOptions(
     application_product: mergeEnumOptions(
       "application_product",
       settings.enum_extensions.application_product ?? [],
+      includeArchived,
+    ),
+    program: mergeEnumOptions(
+      "program",
+      settings.enum_extensions.program ?? [],
       includeArchived,
     ),
   };

@@ -413,6 +413,12 @@ function transformProjects(
       description: asString(raw["Project Description"]),
       definition_of_done: "",
       application_product: asString(raw["Application/Product"]),
+      // Mirrors the DB backfill in migration 0021: rows already tagged
+      // Complaints via application_product become that program too.
+      program:
+        asString(raw["Application/Product"]) === "Complaints"
+          ? "Complaints"
+          : "Innovation",
       project_type: projectType,
       date_added: dateAdded,
       priority,

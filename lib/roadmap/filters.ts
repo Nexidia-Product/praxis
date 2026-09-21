@@ -23,6 +23,7 @@ export interface RoadmapFilters {
   project_type: ProjectType[];
   project_lead: string[];
   application_product: string[];
+  program: string[];
   search: string;
 }
 
@@ -33,6 +34,7 @@ export const EMPTY_ROADMAP_FILTERS: RoadmapFilters = {
   project_type: [],
   project_lead: [],
   application_product: [],
+  program: [],
   search: "",
 };
 
@@ -84,6 +86,9 @@ export function applyRoadmapFilters(
       filters.application_product.length &&
       !filters.application_product.includes(p.application_product)
     ) {
+      return false;
+    }
+    if (filters.program.length && !filters.program.includes(p.program)) {
       return false;
     }
     if (search) {

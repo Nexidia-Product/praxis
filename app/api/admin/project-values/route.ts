@@ -49,6 +49,7 @@ const ENUM_KEYS: ExtensibleEnumKey[] = [
   "phase",
   "priority",
   "application_product",
+  "program",
 ];
 
 export const GET = withAuth(async () => {
@@ -72,6 +73,7 @@ export const GET = withAuth(async () => {
       settings.enum_extensions.application_product,
       true,
     ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program, true),
   };
 
   return NextResponse.json({
@@ -118,6 +120,7 @@ export const PUT = withAuth(async (request: Request) => {
     phase: [],
     priority: [],
     application_product: [],
+    program: [],
   };
 
   for (const enumKey of ENUM_KEYS) {
@@ -241,6 +244,7 @@ export const PUT = withAuth(async (request: Request) => {
         validated.application_product,
         true,
       ),
+      program: mergeEnumOptions("program", validated.program, true),
     },
     extensions: validated,
   });

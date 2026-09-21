@@ -350,6 +350,15 @@ export interface Project {
   definition_of_done: string;
   /** e.g. `"Automated Insights"`, `"Complaints"`. Free-form. */
   application_product: string;
+  /**
+   * Top-level workstream grouping — which program this project belongs
+   * to (e.g. "Innovation", "Complaints", "UI Maintenance"). Orthogonal to
+   * `application_product` (which part of the product) — drives program-
+   * scoped Roadmap/Velocity/Work in Progress views. Admin-curatable via
+   * the same enum-extension mechanism as `application_product`; ships
+   * with "Innovation" as the default for existing/new projects.
+   */
+  program: string;
   project_type: ProjectType;
   date_added: IsoDate;
   priority: Priority;
@@ -1024,7 +1033,8 @@ export type ExtensibleEnumKey =
   | "status"
   | "phase"
   | "priority"
-  | "application_product";
+  | "application_product"
+  | "program";
 
 /**
  * One admin-added value for an extensible enum.

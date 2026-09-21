@@ -45,10 +45,13 @@ interface VelocityDashboardProps {
   currentUserRole: UserRole;
 }
 
+// Opens scoped to the Innovation program by default (same convention as
+// Roadmap and Work in Progress) — cleared or changed via the Program filter.
 const DEFAULT_FILTERS: VelocityFilters = {
   range: { kind: "90d", start: null, end: "" },
   project_types: [],
   application_products: [],
+  programs: ["Innovation"],
   project_leads: [],
   individual_user_id: null,
 };
@@ -84,6 +87,9 @@ export function VelocityDashboard({
     }
     if (filters.application_products.length > 0) {
       params.set("products", filters.application_products.join(","));
+    }
+    if (filters.programs.length > 0) {
+      params.set("programs", filters.programs.join(","));
     }
     if (filters.project_leads.length > 0) {
       params.set("leads", filters.project_leads.join(","));
@@ -147,6 +153,7 @@ export function VelocityDashboard({
         onChange={setFilters}
         options={{
           application_products: metrics?.filter_options.application_products ?? [],
+          programs: metrics?.filter_options.programs ?? [],
           project_leads: metrics?.filter_options.project_leads ?? [],
         }}
         currentUserId={currentUserId}

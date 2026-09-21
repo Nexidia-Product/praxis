@@ -20,6 +20,12 @@
  * inline project-status edit that moves a project out of "In Planning /
  * In Progress" drops its card, and completing a task removes it from the
  * open list while the card's stats recompute.
+ *
+ * Program scoping: this dashboard opens scoped to the "Innovation"
+ * program by default (via the initial `filters.program` value), using the
+ * same `ProjectFilterBar` Program multi-select every other project view
+ * has — clear it to see everything, or add Complaints/UI Maintenance
+ * alongside it. There is no separate per-program page or route.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -29,7 +35,6 @@ import {
   HEALTH_DOT,
   HEALTH_TOOLTIP,
   isAdminProject,
-  isComplaintsProject,
   priorityBadgeClass,
 } from "@/lib/projects/display";
 import {
@@ -85,6 +90,7 @@ interface EnumOptionSet {
   phase: EnumOption[];
   priority: EnumOption[];
   application_product: EnumOption[];
+  program: EnumOption[];
 }
 
 interface Props {
@@ -103,14 +109,6 @@ interface Props {
   /** The signed-in user's id — threaded through for author-only finding edits. */
   currentUserId?: string;
   permissions: Record<string, boolean>;
-  /**
-   * "default" (the standard Work in Progress dashboard) hides Complaints
-   * projects unless the user opts in, mirroring the Admin-projects
-   * toggle. "complaints" (the dedicated Complaints Work in Progress
-   * dashboard) hard-scopes to only Complaints projects and hides the
-   * now-redundant toggle. Defaults to "default".
-   */
-  scope?: "default" | "complaints";
 }
 
 export function WorkInProgressView({
@@ -126,21 +124,22 @@ export function WorkInProgressView({
   currentUserRole,
   currentUserId,
   permissions,
-  scope = "default",
 }: Props) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [today, setToday] = useState<string>(() => todayLocal());
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // Standard project filters + the Admin-projects inclusion toggle.
+  // Standard project filters, opened scoped to the Innovation program by
+  // default (cleared or changed via the filter bar's Program multi-select
+  // like any other dimension), plus the Admin-projects inclusion toggle.
   // Admin projects (Admin type or Admin application/product) are hidden
   // by default and only surface when `includeAdmin` is checked.
-  const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<ProjectFilters>({
+    ...EMPTY_FILTERS,
+    program: ["Innovation"],
+  });
   const [includeAdmin, setIncludeAdmin] = useState(false);
-  // Complaints-projects inclusion toggle — same pattern as `includeAdmin`.
-  // Not applicable in the "complaints" scope, which always shows them.
-  const [includeComplaints, setIncludeComplaints] = useState(false);
 
   // Overlay state — one project quick view, one project edit modal, one
   // task edit modal open at a time (same pattern as the source tables).
@@ -246,6 +245,30 @@ export function WorkInProgressView({
     return [...out.slice(0, curated), ...out.slice(curated).sort()];
   }, [projects, enumOptions.application_product]);
 
+  // Program options: same admin-curated-first, dataset-discovered-tail
+  // pattern as applicationOptions above.
+  const programOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const o of enumOptions.program) {
+      const key = o.id.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(o.id);
+      }
+    }
+    for (const p of projects) {
+      if (!p.program) continue;
+      const key = p.program.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(p.program);
+      }
+    }
+    const curated = enumOptions.program.length;
+    return [...out.slice(0, curated), ...out.slice(curated).sort()];
+  }, [projects, enumOptions.program]);
+
   // Task-responsible dropdown source for the task form modal.
   const formResponsibleOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -308,11 +331,6 @@ export function WorkInProgressView({
         return false;
       }
       if (!includeAdmin && isAdminProject(p)) return false;
-      if (scope === "complaints") {
-        if (!isComplaintsProject(p)) return false;
-      } else if (!includeComplaints && isComplaintsProject(p)) {
-        return false;
-      }
       if (filters.status.length && !filters.status.includes(p.status)) {
         return false;
       }
@@ -340,6 +358,9 @@ export function WorkInProgressView({
       ) {
         return false;
       }
+      if (filters.program.length && !filters.program.includes(p.program)) {
+        return false;
+      }
       if (filters.portfolio_position.length) {
         const pos = computePortfolioPosition(p, quadrantLabels);
         if (!filters.portfolio_position.includes(pos.key)) return false;
@@ -362,15 +383,7 @@ export function WorkInProgressView({
       }
       return true;
     });
-  }, [
-    projects,
-    includeAdmin,
-    includeComplaints,
-    scope,
-    filters,
-    quadrantLabels,
-    customFields,
-  ]);
+  }, [projects, includeAdmin, filters, quadrantLabels, customFields]);
 
   // Split the filtered set into the two status sections.
   const sections = useMemo(() => {
@@ -557,6 +570,7 @@ export function WorkInProgressView({
         onChange={setFilters}
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
+        programOptions={programOptions}
         statusOptions={enumOptions.status}
         phaseOptions={enumOptions.phase}
         priorityOptions={enumOptions.priority}
@@ -591,17 +605,6 @@ export function WorkInProgressView({
           />
           Include Admin projects
         </label>
-        {scope === "default" ? (
-          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
-            <input
-              type="checkbox"
-              checked={includeComplaints}
-              onChange={(e) => setIncludeComplaints(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
-            />
-            Include Complaints projects
-          </label>
-        ) : null}
       </div>
 
       {globalError ? (
@@ -695,6 +698,7 @@ export function WorkInProgressView({
           customFields={customFields}
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
+          programOptions={programOptions}
           statusOptions={enumOptions.status}
           phaseOptions={enumOptions.phase}
           priorityOptions={enumOptions.priority}
