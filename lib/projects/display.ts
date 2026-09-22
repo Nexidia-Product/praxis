@@ -166,24 +166,24 @@ export function isAdminProject(p: {
   );
 }
 
-/**
- * The Application/Product label used by Complaints work. Same rationale
- * as `ADMIN_APPLICATION_PRODUCT`: a named constant so the Work in
- * Progress exclusion/inclusion toggle and the dedicated Complaints Work
- * in Progress page reference it without a magic string.
- */
-export const COMPLAINTS_APPLICATION_PRODUCT = "Complaints";
+// ---------------------------------------------------------------------------
+// Program
+// ---------------------------------------------------------------------------
 
 /**
- * True when a project's `application_product` is "Complaints". Work in
- * Progress hides these by default (mirroring the Admin-projects
- * exclusion) since they get their own dedicated dashboard; the
- * Complaints Work in Progress page uses this same predicate to scope
- * itself to only that work.
+ * Program values that ship as built-in defaults. Admin-added extensions in
+ * `settings.enum_extensions.program` are merged on top via
+ * `mergeEnumOptions(...)`, same mechanism as `application_product`.
+ *
+ * "Innovation" is the default program for existing/new projects — it's the
+ * baseline portfolio work. "Complaints" and "UI Maintenance" are separate
+ * workstreams with their own Roadmap/Velocity/Work in Progress scoping.
  */
-export function isComplaintsProject(p: { application_product: string }): boolean {
-  return p.application_product === COMPLAINTS_APPLICATION_PRODUCT;
-}
+export const SYSTEM_PROGRAMS: string[] = [
+  "Innovation",
+  "Complaints",
+  "UI Maintenance",
+];
 
 // ---------------------------------------------------------------------------
 // Phase (Appendix C)

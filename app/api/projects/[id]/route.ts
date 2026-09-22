@@ -18,8 +18,9 @@
 
 import { NextResponse } from "next/server";
 
-import { requirePermission, requireSession, withAuth } from "@/lib/auth/permissions";
-import { ProjectRepository } from "@/lib/db";
+import { requirePermission, requireSession, withAuth, type Session } from "@/lib/auth/permissions";
+import { ProjectRepository, type Project } from "@/lib/db";
+import { getAllowedPrograms } from "@/lib/projects/visibility";
 import {
   ValidationError,
   deleteProject,
@@ -31,11 +32,22 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * True if the caller is allowed to see this project's program. Used to
+ * 404 (not 403 — avoids confirming the record exists) a project a
+ * program-restricted user shouldn't be able to reach by ID, even though
+ * it's already excluded from every list.
+ */
+async function isVisible(session: Session, project: Project): Promise<boolean> {
+  const allowed = await getAllowedPrograms(session);
+  return allowed === "all" || allowed.includes(project.program);
+}
+
 export const GET = withAuth(async (_request: Request, ctx: RouteContext) => {
-  await requireSession();
+  const session = await requireSession();
   const { id } = await ctx.params;
   const project = await ProjectRepository.getById(id);
-  if (!project) {
+  if (!project || !(await isVisible(session, project))) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
   return NextResponse.json({ project });
@@ -58,7 +70,7 @@ export const PATCH = withAuth(async (request: Request, ctx: RouteContext) => {
   // Confirm the project exists before validating, so a 404 isn't masked
   // by a 400 from the validator.
   const existing = await ProjectRepository.getById(id);
-  if (!existing) {
+  if (!existing || !(await isVisible(session, existing))) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 
@@ -81,7 +93,7 @@ export const DELETE = withAuth(async (_request: Request, ctx: RouteContext) => {
   const { id } = await ctx.params;
 
   const existing = await ProjectRepository.getById(id);
-  if (!existing) {
+  if (!existing || !(await isVisible(session, existing))) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 

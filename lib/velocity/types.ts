@@ -66,6 +66,7 @@ export interface VelocityFilters {
   range: VelocityRange;
   project_types: ProjectType[];
   application_products: string[];
+  programs: string[];
   project_leads: UserId[];
   /**
    * Individual-contributor view (Section 5.15). When set, the throughput
@@ -289,6 +290,7 @@ export interface VelocityMetrics {
   filter_options: {
     project_types: ProjectType[];
     application_products: string[];
+    programs: string[];
     project_leads: { user_id: UserId; label: string }[];
   };
 }

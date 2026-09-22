@@ -80,6 +80,7 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
       settings.enum_extensions.application_product,
       true,
     ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program, true),
   };
 
   return (

@@ -31,6 +31,7 @@ export type CreateProjectInput = Omit<
   | "is_key_capability"
   | "key_capability_quarter"
   | "outcomes"
+  | "program"
 > &
   Partial<
     Pick<
@@ -42,6 +43,7 @@ export type CreateProjectInput = Omit<
       | "is_key_capability"
       | "key_capability_quarter"
       | "outcomes"
+      | "program"
     >
   >;
 
@@ -76,6 +78,7 @@ export const ProjectRepository = {
         name: input.name,
         description: input.description,
         application_product: input.application_product,
+        program: input.program ?? "Innovation",
         project_type: input.project_type,
         priority: input.priority,
         status: input.status,

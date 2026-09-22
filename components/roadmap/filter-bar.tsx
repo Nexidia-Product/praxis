@@ -24,6 +24,7 @@ interface RoadmapFilterBarProps {
   onChange: (next: RoadmapFilters) => void;
   leadOptions: string[];
   applicationOptions: string[];
+  programOptions: string[];
   /** Optional: render a checkbox to include closed projects. Default off. */
   includeClosed?: boolean;
   onIncludeClosedChange?: (next: boolean) => void;
@@ -34,6 +35,7 @@ export function RoadmapFilterBar({
   onChange,
   leadOptions,
   applicationOptions,
+  programOptions,
   includeClosed,
   onIncludeClosedChange,
 }: RoadmapFilterBarProps) {
@@ -49,6 +51,7 @@ export function RoadmapFilterBar({
     filters.project_type.length +
     filters.project_lead.length +
     filters.application_product.length +
+    filters.program.length +
     (filters.search ? 1 : 0);
 
   return (
@@ -100,6 +103,14 @@ export function RoadmapFilterBar({
           onChange={(v) => set("application_product", v)}
         />
       )}
+      {programOptions.length > 0 && (
+        <MultiPicker
+          label="Program"
+          options={programOptions}
+          selected={filters.program}
+          onChange={(v) => set("program", v)}
+        />
+      )}
       {includeClosed !== undefined && onIncludeClosedChange && (
         <label className="ml-auto flex items-center gap-1.5 text-xs text-gray-700">
           <input
@@ -122,6 +133,7 @@ export function RoadmapFilterBar({
               project_type: [],
               project_lead: [],
               application_product: [],
+              program: [],
               search: "",
             })
           }

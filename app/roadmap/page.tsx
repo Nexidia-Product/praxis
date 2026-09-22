@@ -23,6 +23,11 @@ import {
 } from "@/lib/db";
 import { isAdminProject } from "@/lib/projects/display";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  getDefaultProgram,
+} from "@/lib/projects/visibility";
 import { RoadmapWorkspace } from "@/components/roadmap/workspace";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -67,7 +72,16 @@ export default async function RoadmapPage() {
   // every roadmap view (timeline, kanban, bubble, now/next/later) and
   // every export honors the exclusion without each view re-implementing
   // the rule.
-  const projects = allProjects.filter((p) => !isAdminProject(p));
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(
+    allProjects.filter((p) => !isAdminProject(p)),
+    allowedPrograms,
+  );
+  const currentUser = users.find((u) => u.user_id === session.user.user_id);
+  const defaultProgram = getDefaultProgram(
+    { primary_program: currentUser?.primary_program ?? null },
+    allowedPrograms,
+  );
 
   projects.sort((a, b) => {
     if (a.date_added !== b.date_added) {
@@ -98,6 +112,7 @@ export default async function RoadmapPage() {
         templates={templates}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
+        defaultProgram={defaultProgram}
       />
     </PolarisShell>
   );

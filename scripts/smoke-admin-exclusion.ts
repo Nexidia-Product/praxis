@@ -110,6 +110,7 @@ async function main() {
       description: "test project",
       definition_of_done: "",
       application_product: "Automated Insights",
+      program: "Innovation",
       project_type: "New Application",
       date_added: "2026-01-01",
       priority: "Medium",
@@ -177,6 +178,7 @@ async function main() {
       range: resolveRange("all", new Date("2026-05-01")),
       project_types: [],
       application_products: [],
+      programs: [],
       project_leads: [],
       individual_user_id: null,
       ...over,
@@ -545,6 +547,8 @@ async function main() {
     active: true,
     notification_preferences: DEFAULT_PREFS,
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   // type=Admin, product=anything → accepted.

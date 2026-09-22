@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermission, requireSession, withAuth } from "@/lib/auth/permissions";
 import { ProjectRepository } from "@/lib/db";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   ValidationError,
   createProject,
@@ -25,8 +26,12 @@ import {
 } from "@/lib/projects/service";
 
 export const GET = withAuth(async () => {
-  await requireSession();
-  const projects = await ProjectRepository.getAll();
+  const session = await requireSession();
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(
+    await ProjectRepository.getAll(),
+    allowedPrograms,
+  );
   // Stable, predictable order: most-recent first by date_added, with a
   // secondary sort on project_id so equal-date entries don't shuffle.
   projects.sort((a, b) => {

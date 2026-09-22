@@ -100,6 +100,7 @@ type SortKey =
   | "project_id"
   | "name"
   | "application_product"
+  | "program"
   | "project_type"
   | "status"
   | "phase"
@@ -203,6 +204,7 @@ interface ProjectsTableProps {
     phase: EnumOption[];
     priority: EnumOption[];
     application_product: EnumOption[];
+    program: EnumOption[];
   };
   /**
    * The four user-facing labels for the strategic-position bucket
@@ -389,6 +391,34 @@ export function ProjectsTable({
     return [...head, ...tail];
   }, [projects, enumOptions]);
 
+  const programOptions = useMemo(() => {
+    // Same admin-curated-first, dataset-discovered-tail pattern as
+    // applicationOptions above.
+    const seen = new Set<string>();
+    const out: string[] = [];
+    if (enumOptions) {
+      for (const o of enumOptions.program) {
+        const key = o.id.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          out.push(o.id);
+        }
+      }
+    }
+    for (const p of projects) {
+      if (!p.program) continue;
+      const key = p.program.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(p.program);
+      }
+    }
+    const curatedCount = enumOptions?.program.length ?? 0;
+    const head = out.slice(0, curatedCount);
+    const tail = out.slice(curatedCount).sort();
+    return [...head, ...tail];
+  }, [projects, enumOptions]);
+
   // Per-row dependency-health rollup (Section 5.10). Computed once per
   // project-list render so each row reads its value with O(1) Map lookup
   // rather than re-walking dependencies on every render. Entries with
@@ -429,6 +459,8 @@ export function ProjectsTable({
         filters.application_product.length &&
         !filters.application_product.includes(p.application_product)
       )
+        return false;
+      if (filters.program.length && !filters.program.includes(p.program))
         return false;
       if (filters.portfolio_position.length) {
         const pos = computePortfolioPosition(p, quadrantLabels);
@@ -780,6 +812,7 @@ export function ProjectsTable({
         onChange={setFilters}
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
+        programOptions={programOptions}
         statusOptions={enumOptions?.status}
         phaseOptions={enumOptions?.phase}
         priorityOptions={enumOptions?.priority}
@@ -832,6 +865,13 @@ export function ProjectsTable({
                   onClick={() => handleSortClick("application_product")}
                 >
                   App / Product
+                </Th>
+                <Th
+                  active={sortKey === "program"}
+                  dir={sortDir}
+                  onClick={() => handleSortClick("program")}
+                >
+                  Program
                 </Th>
                 <Th
                   active={sortKey === "status"}
@@ -961,6 +1001,9 @@ export function ProjectsTable({
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">
                       {p.application_product}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-700">
+                      {p.program}
                     </td>
                     <td
                       className="whitespace-nowrap px-3 py-2.5"
@@ -1135,7 +1178,7 @@ export function ProjectsTable({
               {visibleProjects.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canEdit ? 10 : 9}
+                    colSpan={canEdit ? 11 : 10}
                     className="px-4 py-12 text-center text-sm text-gray-500"
                   >
                     {projects.length === 0
@@ -1203,6 +1246,7 @@ export function ProjectsTable({
           customFields={customFields}
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
+          programOptions={programOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
@@ -1225,6 +1269,7 @@ export function ProjectsTable({
           customFields={customFields}
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
+          programOptions={programOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}

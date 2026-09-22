@@ -24,6 +24,7 @@
  *   start, end     YYYY-MM-DD; only consulted when `range=custom`
  *   types          comma-separated project types
  *   products       comma-separated application_product values
+ *   programs       comma-separated program values
  *   leads          comma-separated user IDs
  *   individual     user_id for the individual-contributor view
  *
@@ -52,6 +53,7 @@ import {
   type ProjectType,
 } from "@/lib/db";
 import { PORTFOLIO_PROJECT_TYPES, isAdminProject } from "@/lib/projects/display";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   getCachedVelocityMetrics,
   setCachedVelocityMetrics,
@@ -176,6 +178,11 @@ function parseFilters(
   }
 
   const products = csv(params, "products");
+  // Not validated against the curated program list, same treatment as
+  // `products` (application_product) just above — both are open,
+  // admin-extensible free-text fields, unlike the closed `types` enum
+  // checked above. An unrecognized value just matches nothing.
+  const programs = csv(params, "programs");
   const leads = csv(params, "leads");
   const individualUserId = params.get("individual");
 
@@ -185,6 +192,7 @@ function parseFilters(
       range,
       project_types: types as ProjectType[],
       application_products: products,
+      programs,
       project_leads: leads,
       individual_user_id: individualUserId && individualUserId.length > 0
         ? individualUserId
@@ -226,9 +234,13 @@ export const GET = withAuth(async (request: Request) => {
     );
   }
 
-  // Cache lookup. The cache key is the full filter set, so a
-  // one-character change to any field misses cleanly.
-  const cached = getCachedVelocityMetrics(filters);
+  const allowedPrograms = await getAllowedPrograms(session);
+
+  // Cache lookup. The cache key is the full filter set plus the viewer's
+  // allowed-programs scope, so a one-character change to either misses
+  // cleanly and two viewers with different program access never share
+  // a cached response.
+  const cached = getCachedVelocityMetrics(filters, allowedPrograms);
   if (cached) {
     const payload: VelocityMetrics = { ...cached, from_cache: true };
     return NextResponse.json({ metrics: payload });
@@ -250,7 +262,10 @@ export const GET = withAuth(async (request: Request) => {
   // the signal those metrics are meant to carry. Tasks belonging to
   // dropped projects also drop, so the task-throughput chart stays
   // consistent with the project-level numbers.
-  const projects = allProjects.filter((p) => !isAdminProject(p));
+  const projects = filterProjectsByProgram(
+    allProjects.filter((p) => !isAdminProject(p)),
+    allowedPrograms,
+  );
   const portfolioProjectIds = new Set(projects.map((p) => p.project_id));
   const tasks = allTasks.filter((t) => portfolioProjectIds.has(t.project_id));
 
@@ -261,7 +276,7 @@ export const GET = withAuth(async (request: Request) => {
     filters,
     now,
   );
-  setCachedVelocityMetrics(filters, computed);
+  setCachedVelocityMetrics(filters, computed, allowedPrograms);
 
   const payload: VelocityMetrics = { ...computed, from_cache: false };
   return NextResponse.json({ metrics: payload });

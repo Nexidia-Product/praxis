@@ -22,6 +22,11 @@ import {
   nextQuarters,
   quarterOf,
 } from "@/lib/key-capabilities";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import {
   KeyCapabilitiesView,
@@ -38,10 +43,15 @@ export default async function KeyCapabilitiesPage() {
   const { permissions } = await getCurrentUserPermissions();
   const canManage = permissions["key_capabilities.manage"] === true;
 
-  const [projects, tasks] = await Promise.all([
+  const [allProjects, allTasks] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   const today = todayIso();
   const todayDate = new Date(`${today}T00:00:00Z`);

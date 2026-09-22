@@ -79,6 +79,7 @@ async function main() {
       description: "Lorem ipsum",
       definition_of_done: "",
       application_product: "Insights",
+      program: "Innovation",
       project_type: "New Feature",
       date_added: "2026-01-15",
       priority: "Medium",

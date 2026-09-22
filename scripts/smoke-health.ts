@@ -126,6 +126,8 @@ async function main() {
       active: true,
       notification_preferences: { ...defaultPrefs },
       digest_mode: false,
+      allowed_programs: null,
+      primary_program: null,
     });
     // Force the deterministic ID so subsequent assertions can match.
     void all; // suppress unused warning

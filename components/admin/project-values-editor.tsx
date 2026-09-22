@@ -69,6 +69,12 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     description:
       "Tags identifying the product or application a project belongs to. Ships with one built-in (\"Admin\" for internal / operational work); all other values are admin-curated.",
   },
+  {
+    key: "program",
+    label: "Program",
+    description:
+      "Top-level workstream a project belongs to — drives program-scoped Roadmap, Velocity, and Work in Progress views. Ships with three built-ins (Innovation, Complaints, UI Maintenance); all other values are admin-curated.",
+  },
 ];
 
 export function ProjectValuesEditor({
@@ -91,6 +97,7 @@ export function ProjectValuesEditor({
       phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
+      program: new Set(),
     }),
   );
 
@@ -106,6 +113,7 @@ export function ProjectValuesEditor({
       phase: [],
       priority: [],
       application_product: [],
+      program: [],
     };
     for (const k of Object.keys(initialOptions) as TabKey[]) {
       out[k] = initialOptions[k].filter((o) => o.source === "system");
@@ -203,6 +211,7 @@ export function ProjectValuesEditor({
       phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
+      program: new Set(),
     });
     setError(null);
     setSavedAt(null);
@@ -237,6 +246,7 @@ export function ProjectValuesEditor({
       phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
+      program: new Set(),
     });
     setSavedAt(Date.now());
   }
@@ -630,6 +640,7 @@ function columnTemplate(enumKey: TabKey): string {
     case "phase":
       return "1.4fr 1fr 100px 90px 170px";
     case "application_product":
+    case "program":
       return "1.4fr 1fr 90px 170px";
   }
 }
@@ -850,6 +861,7 @@ function addFormColumns(enumKey: TabKey): string {
     case "phase":
       return "1fr 1fr 100px auto";
     case "application_product":
+    case "program":
       return "1fr 1fr auto";
   }
 }
@@ -886,6 +898,7 @@ function deepEqualExtensions(
     deepEqualOne(a.status, b.status) &&
     deepEqualOne(a.phase, b.phase) &&
     deepEqualOne(a.priority, b.priority) &&
-    deepEqualOne(a.application_product, b.application_product)
+    deepEqualOne(a.application_product, b.application_product) &&
+    deepEqualOne(a.program, b.program)
   );
 }

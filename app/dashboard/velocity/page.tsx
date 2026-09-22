@@ -15,6 +15,8 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
+import { UserRepository } from "@/lib/db";
+import { getAllowedPrograms, getDefaultProgram } from "@/lib/projects/visibility";
 import { VelocityDashboard } from "@/components/velocity/dashboard";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -23,6 +25,12 @@ export const dynamic = "force-dynamic";
 export default async function VelocityPage() {
   const session = await requirePermission("velocity.view");
   const { permissions } = await getCurrentUserPermissions();
+  const allowedPrograms = await getAllowedPrograms(session);
+  const currentUser = await UserRepository.getById(session.user.user_id);
+  const defaultProgram = getDefaultProgram(
+    { primary_program: currentUser?.primary_program ?? null },
+    allowedPrograms,
+  );
 
   return (
     <PolarisShell
@@ -41,6 +49,7 @@ export default async function VelocityPage() {
       <VelocityDashboard
         currentUserId={session.user.user_id}
         currentUserRole={session.user.role}
+        defaultProgram={defaultProgram}
       />
     </PolarisShell>
   );

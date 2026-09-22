@@ -32,6 +32,12 @@ import {
   UserRepository,
 } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+  getDefaultProgram,
+} from "@/lib/projects/visibility";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import { WorkInProgressView } from "@/components/insights/work-in-progress-view";
 
@@ -41,7 +47,7 @@ export default async function WorkInProgressPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [projects, tasks, settings, templates, groups, users] =
+  const [allProjects, allTasks, settings, templates, groups, users] =
     await Promise.all([
       ProjectRepository.getAll(),
       TaskRepository.getAll(),
@@ -50,6 +56,16 @@ export default async function WorkInProgressPage() {
       ProjectGroupRepository.getAll(),
       UserRepository.getAll(),
     ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
+  const currentUser = users.find((u) => u.user_id === session.user.user_id);
+  const defaultProgram = getDefaultProgram(
+    { primary_program: currentUser?.primary_program ?? null },
+    allowedPrograms,
+  );
 
   // Active-user names for the project-lead / task-responsible dropdowns
   // inside the reused edit modals. Mirrors the Projects and Tasks pages so
@@ -70,6 +86,9 @@ export default async function WorkInProgressPage() {
     application_product: mergeEnumOptions(
       "application_product",
       settings.enum_extensions.application_product,
+    ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program).filter(
+      (o) => allowedPrograms === "all" || allowedPrograms.includes(o.id),
     ),
   };
 
@@ -102,6 +121,7 @@ export default async function WorkInProgressPage() {
         currentUserRole={session.user.role}
         currentUserId={session.user.user_id}
         permissions={permissions}
+        defaultProgram={defaultProgram}
       />
     </PolarisShell>
   );

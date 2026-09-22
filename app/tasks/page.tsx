@@ -20,6 +20,11 @@ import {
   TemplateRepository,
   UserRepository,
 } from "@/lib/db";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -36,12 +41,17 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const projectFilter =
     typeof params.project === "string" ? params.project : null;
 
-  const [tasks, projects, templates, users] = await Promise.all([
+  const [allTasks, allProjects, templates, users] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
     UserRepository.getAll(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   // Active-user names for the task form's Responsible dropdown.
   // The filter bar's Responsible list stays task-derived; only the

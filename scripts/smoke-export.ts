@@ -190,6 +190,7 @@ async function main() {
       description: p.description ?? "",
       definition_of_done: p.definition_of_done ?? "",
       application_product: p.application_product ?? "Insights",
+      program: p.program ?? "Innovation",
       project_type: p.project_type ?? "New Application",
       date_added: p.date_added ?? "2026-01-01",
       priority: p.priority ?? "High",

@@ -36,6 +36,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   IdeaRepository,
   ProjectRepository,
@@ -138,6 +139,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
       project_type: [],
       project_lead: [],
       application_product: [],
+      program: [],
       search: "",
     };
   }
@@ -156,6 +158,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
     project_type: arr(f.project_type) as RoadmapFilters["project_type"],
     project_lead: arr(f.project_lead),
     application_product: arr(f.application_product),
+    program: arr(f.program),
     search: typeof f.search === "string" ? f.search : "",
   };
 }
@@ -274,7 +277,7 @@ function summarizeFilters(filters: RoadmapFilters): string {
 // ---------------------------------------------------------------------------
 
 export const POST = withAuth(async (request: Request) => {
-  await requirePermission("roadmap.export");
+  const session = await requirePermission("roadmap.export");
 
   let payload: ExportPptxRequest;
   try {
@@ -311,9 +314,12 @@ export const POST = withAuth(async (request: Request) => {
   const includeClosed =
     filters.status.includes("Completed") ||
     filters.status.includes("Canceled");
-  const filteredProjects = applyRoadmapFilters(allProjects, filters, {
-    includeClosed,
-  });
+  const allowedPrograms = await getAllowedPrograms(session);
+  const filteredProjects = applyRoadmapFilters(
+    filterProjectsByProgram(allProjects, allowedPrograms),
+    filters,
+    { includeClosed },
+  );
 
   // Tasks for the at-risk slide are scoped to the filtered project set.
   // A task whose parent project was filtered out shouldn't surface in
@@ -419,6 +425,7 @@ export const POST = withAuth(async (request: Request) => {
             range: velocityRange,
             project_types: [],
             application_products: [],
+            programs: [],
             project_leads: [],
             individual_user_id: null,
           },

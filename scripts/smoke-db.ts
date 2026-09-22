@@ -56,6 +56,8 @@ async function main() {
       IdeaStatusChanged: "Off",
     },
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
   check("user email is normalized to lowercase", admin.email === "[email protected]");
   const found = await UserRepository.getByEmail("[email protected]");

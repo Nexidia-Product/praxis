@@ -32,18 +32,25 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-function keyFor(filters: VelocityFilters): string {
+function keyFor(filters: VelocityFilters, scope: string[] | "all"): string {
   // Stable key: stringify with the filter fields in a consistent order.
   // We don't sort arrays inside the filter — `[High, Low]` and `[Low, High]`
   // are intentionally treated as different cache entries because the
   // UI emits whichever order the user clicked, and recomputing for both
   // is cheap.
+  //
+  // `scope` is the *viewer's* allowed-programs restriction (distinct from
+  // `filters.programs`, the filter dropdown selection) — it must
+  // participate in the key or a Complaints-only user could be served a
+  // cached response computed for an unrestricted viewer.
   return JSON.stringify({
     range: filters.range,
     project_types: filters.project_types,
     application_products: filters.application_products,
+    programs: filters.programs,
     project_leads: filters.project_leads,
     individual_user_id: filters.individual_user_id,
+    scope,
   });
 }
 
@@ -55,9 +62,10 @@ function keyFor(filters: VelocityFilters): string {
  */
 export function getCachedVelocityMetrics(
   filters: VelocityFilters,
+  scope: string[] | "all" = "all",
   now: number = Date.now(),
 ): Omit<VelocityMetrics, "from_cache"> | null {
-  const entry = cache.get(keyFor(filters));
+  const entry = cache.get(keyFor(filters, scope));
   if (!entry) return null;
   if (entry.expires_at <= now) return null;
   return entry.payload;
@@ -72,9 +80,10 @@ export function getCachedVelocityMetrics(
 export function setCachedVelocityMetrics(
   filters: VelocityFilters,
   payload: Omit<VelocityMetrics, "from_cache">,
+  scope: string[] | "all" = "all",
   now: number = Date.now(),
 ): void {
-  cache.set(keyFor(filters), {
+  cache.set(keyFor(filters, scope), {
     expires_at: now + TTL_MS,
     payload,
   });

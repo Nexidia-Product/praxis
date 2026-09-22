@@ -350,6 +350,15 @@ export interface Project {
   definition_of_done: string;
   /** e.g. `"Automated Insights"`, `"Complaints"`. Free-form. */
   application_product: string;
+  /**
+   * Top-level workstream grouping — which program this project belongs
+   * to (e.g. "Innovation", "Complaints", "UI Maintenance"). Orthogonal to
+   * `application_product` (which part of the product) — drives program-
+   * scoped Roadmap/Velocity/Work in Progress views. Admin-curatable via
+   * the same enum-extension mechanism as `application_product`; ships
+   * with "Innovation" as the default for existing/new projects.
+   */
+  program: string;
   project_type: ProjectType;
   date_added: IsoDate;
   priority: Priority;
@@ -904,6 +913,20 @@ export interface User {
    * default to `{}`.
    */
   ui_preferences?: UserUIPreferences;
+  /**
+   * Restricts which programs (Section: project `program` field) this
+   * user's projects/tasks views include. Null means unrestricted — sees
+   * every program. Per-user rather than per-role: two users sharing a
+   * role may need different program access.
+   */
+  allowed_programs: string[] | null;
+  /**
+   * Default program view when `allowed_programs` grants more than one
+   * program. Null means no explicit preference has been set. Moot when
+   * `allowed_programs` has exactly one entry — that one is always the
+   * default regardless of this field.
+   */
+  primary_program: string | null;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }
@@ -1024,7 +1047,8 @@ export type ExtensibleEnumKey =
   | "status"
   | "phase"
   | "priority"
-  | "application_product";
+  | "application_product"
+  | "program";
 
 /**
  * One admin-added value for an extensible enum.

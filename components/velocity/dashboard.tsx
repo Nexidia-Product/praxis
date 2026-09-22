@@ -43,21 +43,30 @@ import type {
 interface VelocityDashboardProps {
   currentUserId: UserId;
   currentUserRole: UserRole;
+  /** Current user's resolved default program (see `getDefaultProgram` in
+   *  `lib/projects/visibility.ts`). Defaults to "Innovation". */
+  defaultProgram?: string;
 }
 
-const DEFAULT_FILTERS: VelocityFilters = {
-  range: { kind: "90d", start: null, end: "" },
-  project_types: [],
-  application_products: [],
-  project_leads: [],
-  individual_user_id: null,
-};
+function buildDefaultFilters(defaultProgram: string): VelocityFilters {
+  return {
+    range: { kind: "90d", start: null, end: "" },
+    project_types: [],
+    application_products: [],
+    programs: [defaultProgram],
+    project_leads: [],
+    individual_user_id: null,
+  };
+}
 
 export function VelocityDashboard({
   currentUserId,
   currentUserRole,
+  defaultProgram = "Innovation",
 }: VelocityDashboardProps) {
-  const [filters, setFilters] = useState<VelocityFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<VelocityFilters>(() =>
+    buildDefaultFilters(defaultProgram),
+  );
   // Custom range dates live separately from `filters` so toggling between
   // preset ranges doesn't lose them.
   const [customStart, setCustomStart] = useState("");
@@ -84,6 +93,9 @@ export function VelocityDashboard({
     }
     if (filters.application_products.length > 0) {
       params.set("products", filters.application_products.join(","));
+    }
+    if (filters.programs.length > 0) {
+      params.set("programs", filters.programs.join(","));
     }
     if (filters.project_leads.length > 0) {
       params.set("leads", filters.project_leads.join(","));
@@ -147,6 +159,7 @@ export function VelocityDashboard({
         onChange={setFilters}
         options={{
           application_products: metrics?.filter_options.application_products ?? [],
+          programs: metrics?.filter_options.programs ?? [],
           project_leads: metrics?.filter_options.project_leads ?? [],
         }}
         currentUserId={currentUserId}

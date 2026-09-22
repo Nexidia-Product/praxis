@@ -386,6 +386,7 @@ async function main() {
       description: "",
       definition_of_done: "",
       application_product: "Test",
+      program: "Innovation",
       project_type: "New Feature",
       date_added: "2026-04-01",
       priority: "Medium",

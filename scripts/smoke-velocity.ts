@@ -148,6 +148,7 @@ async function main() {
       description: "test project",
       definition_of_done: "",
       application_product: "Automated Insights",
+      program: "Innovation",
       project_type: "New Application",
       date_added: "2026-01-01",
       priority: "Medium",
@@ -234,6 +235,7 @@ async function main() {
       range: resolveRange("all", NOW),
       project_types: [],
       application_products: [],
+      programs: [],
       project_leads: [],
       individual_user_id: null,
       ...overrides,
@@ -595,7 +597,11 @@ async function main() {
   eq("cache: different filter set misses", miss, null);
 
   // TTL expiry
-  const expired = getCachedVelocityMetrics(f1, Date.now() + VELOCITY_CACHE_TTL_MS + 1);
+  const expired = getCachedVelocityMetrics(
+    f1,
+    "all",
+    Date.now() + VELOCITY_CACHE_TTL_MS + 1,
+  );
   eq("cache: TTL expiry returns null", expired, null);
 
   // Invalidate clears
@@ -615,6 +621,8 @@ async function main() {
     active: true,
     notification_preferences: DEFAULT_PREFS,
     digest_mode: false,
+    allowed_programs: null,
+    primary_program: null,
   });
 
   // Seed cache entry, then create a project and confirm the cache was blown.

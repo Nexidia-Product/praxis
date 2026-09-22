@@ -28,6 +28,7 @@ import {
   UserRepository,
 } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -36,13 +37,16 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [projects, settings, templates, groups, users] = await Promise.all([
+  const [allProjects, settings, templates, groups, users] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     ProjectGroupRepository.getAll(),
     UserRepository.getAll(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
 
   // Active-user names for the project form's Project lead dropdown.
   // The filter bar's lead list stays project-derived (filtering by a
@@ -69,6 +73,9 @@ export default async function ProjectsPage() {
     application_product: mergeEnumOptions(
       "application_product",
       settings.enum_extensions.application_product,
+    ),
+    program: mergeEnumOptions("program", settings.enum_extensions.program).filter(
+      (o) => allowedPrograms === "all" || allowedPrograms.includes(o.id),
     ),
   };
 

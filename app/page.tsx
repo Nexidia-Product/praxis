@@ -29,6 +29,11 @@ import {
 } from "@/lib/db";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import { OPEN_PROJECT_STATUSES } from "@/lib/projects/service";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { isActiveStatus, isAssignedToUser } from "@/lib/tasks/display";
 
 export const dynamic = "force-dynamic";
@@ -89,11 +94,16 @@ export default async function HomePage() {
   // Fetch only what we'll display. Skip the ideas read for users
   // without `ideas.review` — they wouldn't see the result anyway and a
   // tiny saving still beats an unconditional read at scale.
-  const [projects, tasks, ideas] = await Promise.all([
+  const [allProjects, allTasks, ideas] = await Promise.all([
     can.viewProjects ? ProjectRepository.getAll() : Promise.resolve([]),
     can.viewTasks ? TaskRepository.getAll() : Promise.resolve([]),
     can.reviewIdeas ? IdeaRepository.getAll() : Promise.resolve([]),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   const openProjects = projects.filter((p) =>
     OPEN_PROJECT_STATUSES.includes(p.status),

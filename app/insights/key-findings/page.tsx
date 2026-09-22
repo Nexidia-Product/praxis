@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { ProjectRepository } from "@/lib/db";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import { KeyFindingsView } from "@/components/insights/key-findings-view";
 
@@ -25,7 +26,11 @@ export default async function KeyFindingsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const projects = await ProjectRepository.getAll();
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(
+    await ProjectRepository.getAll(),
+    allowedPrograms,
+  );
   // Stable seed order (YYYY-NNN); the picker re-sorts by name itself.
   projects.sort((a, b) => (a.project_id < b.project_id ? -1 : 1));
 

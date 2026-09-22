@@ -125,6 +125,12 @@ export function applyProjectFilters(
       return false;
     }
     if (
+      filters.programs.length > 0 &&
+      !filters.programs.includes(p.program)
+    ) {
+      return false;
+    }
+    if (
       filters.project_leads.length > 0 &&
       !filters.project_leads.includes(p.project_lead)
     ) {
@@ -682,9 +688,11 @@ export function computeVelocityMetrics(
 
   // Filter options from the unfiltered pool.
   const product_set = new Set<string>();
+  const program_set = new Set<string>();
   const lead_set = new Set<UserId>();
   for (const p of allProjects) {
     if (p.application_product) product_set.add(p.application_product);
+    if (p.program) program_set.add(p.program);
     if (p.project_lead) lead_set.add(p.project_lead);
   }
 
@@ -702,6 +710,7 @@ export function computeVelocityMetrics(
     filter_options: {
       project_types: [...PORTFOLIO_PROJECT_TYPES],
       application_products: Array.from(product_set).sort((a, b) => a.localeCompare(b)),
+      programs: Array.from(program_set).sort((a, b) => a.localeCompare(b)),
       project_leads: Array.from(lead_set)
         .sort((a, b) => a.localeCompare(b))
         .map((id) => ({ user_id: id, label: id })),

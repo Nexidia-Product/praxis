@@ -51,6 +51,7 @@ interface VelocityFilterBarProps {
   /** Filter-option lists from the most recent metrics response. */
   options: {
     application_products: string[];
+    programs: string[];
     project_leads: { user_id: UserId; label: string }[];
   };
   currentUserId: UserId;
@@ -76,6 +77,7 @@ export function VelocityFilterBar({
   const ids = {
     range: useId(),
     product: useId(),
+    program: useId(),
     lead: useId(),
     individual: useId(),
     customStart: useId(),
@@ -221,6 +223,32 @@ export function VelocityFilterBar({
           </select>
         </div>
 
+        {/* Program */}
+        <div>
+          <label
+            htmlFor={ids.program}
+            className="block text-xs font-medium text-gray-700"
+          >
+            Program
+          </label>
+          <select
+            id={ids.program}
+            className="mt-1 block w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            value={value.programs[0] ?? ""}
+            onChange={(e) => {
+              const next = e.target.value ? [e.target.value] : [];
+              onChange({ ...value, programs: next });
+            }}
+          >
+            <option value="">All</option>
+            {options.programs.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Project lead */}
         <div>
           <label
@@ -286,6 +314,7 @@ export function VelocityFilterBar({
                 range: { kind: "90d", start: null, end: "" },
                 project_types: [],
                 application_products: [],
+                programs: [],
                 project_leads: [],
                 individual_user_id: null,
               })

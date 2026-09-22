@@ -32,6 +32,11 @@ import {
   buildResourceRoster,
   type ResourceScope,
 } from "@/lib/resources/roster";
+import {
+  getAllowedPrograms,
+  filterProjectsByProgram,
+  filterTasksByVisibleProjects,
+} from "@/lib/projects/visibility";
 import { ResourcesWorkspace } from "@/components/resources/workspace";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -71,12 +76,17 @@ export default async function ResourcesPage({
       ? "everyone"
       : "my_team";
 
-  const [projects, tasks, publicUsers, settings] = await Promise.all([
+  const [allProjects, allTasks, publicUsers, settings] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
     UserRepository.getAllPublic(),
     SettingsRepository.get(),
   ]);
+
+  const allowedPrograms = await getAllowedPrograms(session);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visibleProjectIds = new Set(projects.map((p) => p.project_id));
+  const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
   // Build the full roster, then narrow by scope. We deliberately
   // build the full roster every request rather than caching: the

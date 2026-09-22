@@ -13,7 +13,8 @@
  *
  * Filter parameters supported:
  *
- *   status, phase, priority, project_type, project_lead, application_product
+ *   status, phase, priority, project_type, project_lead, application_product,
+ *   program
  *     repeated `?status=A&status=B`-style multi-select
  *   target_from, target_to, search
  *     single values
@@ -42,7 +43,8 @@ import {
   customFieldMatches,
   type CustomFieldFilterValue,
 } from "@/lib/projects/custom-filter";
-import { requireSession, withAuth } from "@/lib/auth/permissions";
+import { requirePermission, withAuth } from "@/lib/auth/permissions";
+import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import {
   ProjectRepository,
   SettingsRepository,
@@ -71,6 +73,7 @@ const BUILTIN_COLUMNS: Column[] = [
   { header: "Project ID", text: (p) => p.project_id },
   { header: "Name", text: (p) => p.name },
   { header: "Application/Product", text: (p) => p.application_product },
+  { header: "Program", text: (p) => p.program },
   { header: "Type", text: (p) => p.project_type },
   { header: "Status", text: (p) => p.status },
   { header: "Phase", text: (p) => p.phase },
@@ -177,6 +180,7 @@ function applyFilters(
   const phase = readMulti(url, "phase");
   const project_lead = readMulti(url, "project_lead");
   const application_product = readMulti(url, "application_product");
+  const program = readMulti(url, "program");
   const search = (url.searchParams.get("search") ?? "").trim().toLowerCase();
   const targetFrom = url.searchParams.get("target_from") ?? "";
   const targetTo = url.searchParams.get("target_to") ?? "";
@@ -192,6 +196,9 @@ function applyFilters(
       application_product.size &&
       !application_product.has(p.application_product)
     ) {
+      return false;
+    }
+    if (program.size && !program.has(p.program)) {
       return false;
     }
     if (targetFrom && (!p.target_date || p.target_date < targetFrom)) {
@@ -286,7 +293,7 @@ async function buildXlsx(
 // ---------------------------------------------------------------------------
 
 export const GET = withAuth(async (request: Request) => {
-  await requireSession();
+  const session = await requirePermission("projects.view");
   const url = new URL(request.url);
   const format = (url.searchParams.get("format") ?? "csv").toLowerCase();
 
@@ -295,7 +302,12 @@ export const GET = withAuth(async (request: Request) => {
     SettingsRepository.get(),
   ]);
   const customFields = settings.custom_field_definitions;
-  const filtered = applyFilters(all, url, customFields);
+  const allowedPrograms = await getAllowedPrograms(session);
+  const filtered = applyFilters(
+    filterProjectsByProgram(all, allowedPrograms),
+    url,
+    customFields,
+  );
 
   // Stable order so re-exports diff cleanly. The Projects page sort
   // is a UI concern and intentionally not mirrored here.

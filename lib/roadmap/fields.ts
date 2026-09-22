@@ -90,6 +90,12 @@ export const KANBAN_FIELDS: KanbanField[] = [
     getValue: (p) => p.application_product,
   },
   {
+    key: "program",
+    label: "Program",
+    values: null,
+    getValue: (p) => p.program,
+  },
+  {
     key: "project_lead",
     label: "Project Lead",
     values: null,

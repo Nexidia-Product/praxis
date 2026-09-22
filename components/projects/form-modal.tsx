@@ -55,6 +55,8 @@ interface ProjectFormModalProps {
   leadOptions: string[];
   /** Distinct application_product values from the dataset, for autocomplete. */
   applicationOptions: string[];
+  /** Distinct program values from the dataset, for autocomplete. */
+  programOptions: string[];
   /**
    * Merged option lists from `lib/projects/enum-options` (built-ins +
    * admin extensions, archived excluded). Optional for backwards
@@ -109,6 +111,7 @@ interface FormState {
   name: string;
   description: string;
   application_product: string;
+  program: string;
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
@@ -167,6 +170,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     name: "",
     description: "",
     application_product: "",
+    program: "Innovation",
     project_type: "New Feature",
     priority: "Medium",
     status: "Not Started",
@@ -243,6 +247,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     name: p.name,
     description: p.description,
     application_product: p.application_product,
+    program: p.program,
     project_type: p.project_type,
     priority: p.priority,
     status: p.status,
@@ -281,6 +286,7 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     name: s.name.trim(),
     description: s.description,
     application_product: s.application_product.trim(),
+    program: s.program.trim(),
     project_type: s.project_type,
     priority: s.priority,
     status: s.status,
@@ -362,6 +368,7 @@ export function ProjectFormModal({
   customFields,
   leadOptions,
   applicationOptions,
+  programOptions,
   statusOptions,
   phaseOptions,
   priorityOptions,
@@ -715,6 +722,32 @@ export function ProjectFormModal({
               <p className="mt-1 text-xs text-gray-500">
                 Curated by an admin in <span className="font-mono">Project values</span>.
                 Values seen in existing projects also appear here.
+              </p>
+            </Field>
+
+            <Field id="proj-program" label="Program" required>
+              <select
+                id="proj-program"
+                required
+                value={state.program}
+                onChange={(e) => update("program", e.target.value)}
+                disabled={saving}
+                className={baseInput}
+              >
+                {programOptions.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+                {/* Same "preserve an unrecognized existing value" escape
+                    hatch as Application/Product above. */}
+                {state.program && !programOptions.includes(state.program) ? (
+                  <option value={state.program}>{state.program}</option>
+                ) : null}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Which workstream this project belongs to — drives Roadmap,
+                Velocity, and Work in Progress scoping.
               </p>
             </Field>
 
