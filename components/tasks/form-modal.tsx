@@ -30,11 +30,15 @@ import type {
   Project,
   Task,
   KeyFindingEntry,
-  TaskCommentEntry,
   TaskDependency,
   TaskDependencyType,
   TaskStatus,
 } from "@/lib/db";
+import {
+  MentionTextarea,
+  type MentionableUser,
+} from "@/components/shared/mention-textarea";
+import { CommentsTab } from "./comments-tab";
 
 interface TaskFormModalProps {
   /** Set on edit; null on create. */
@@ -49,6 +53,12 @@ interface TaskFormModalProps {
   defaultResponsible?: string;
   /** Distinct responsible values for the responsible-select dropdown. */
   responsibleOptions: string[];
+  /**
+   * `{user_id, name}` pairs for every active user, threaded into the
+   * Comments field so its `@`-mention picker can insert a name the
+   * backend can resolve to a real recipient.
+   */
+  mentionableUsers?: MentionableUser[];
   /**
    * Render every field disabled and hide the Save button — used when
    * the user lacks `tasks.edit` (TASK-13). The modal still opens so
@@ -217,6 +227,7 @@ export function TaskFormModal({
   defaultProjectId,
   defaultResponsible,
   responsibleOptions,
+  mentionableUsers = [],
   readOnly = false,
   currentUserId,
   canMove = false,
@@ -822,10 +833,11 @@ export function TaskFormModal({
           </div>
 
           <Field id="task-comments" label="Comments">
-            <textarea
+            <MentionTextarea
               id="task-comments"
               value={state.comments}
-              onChange={(e) => update("comments", e.target.value)}
+              onChange={(v) => update("comments", v)}
+              users={mentionableUsers}
               rows={2}
               disabled={locked}
               className={baseInput}
@@ -1138,114 +1150,6 @@ function ProjectCombobox({
         </ul>
       ) : null}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Comments tab
-// ---------------------------------------------------------------------------
-
-/**
- * Renders the task's comment_history newest-first. Read-only — new
- * comments are still added via the textarea on the Details tab; this
- * tab is the audit-trail view of past edits, mirroring the project
- * panel's Status tab pattern.
- *
- * The current `comments` value is shown as the "current" entry at
- * the top so users can see the latest text without scrolling through
- * history. Synthetic, not stored.
- */
-function CommentsTab({ task }: { task: Task }) {
-  const historyNewestFirst = [...task.comment_history].reverse();
-
-  return (
-    <>
-      <section>
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          Current comment
-        </p>
-        <div className="mt-2 whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-          {task.comments || (
-            <span className="text-gray-400">— no comment —</span>
-          )}
-        </div>
-        <p className="mt-2 text-[11px] text-gray-500">
-          Edit the comment field on the Details tab. Saving appends an
-          entry to the history below.
-        </p>
-      </section>
-
-      <section>
-        <h3 className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          History
-        </h3>
-        {historyNewestFirst.length === 0 ? (
-          <p className="mt-2 text-sm text-gray-500">
-            No comment edits recorded yet. Saving a change to the
-            Comments field will create the first entry.
-          </p>
-        ) : (
-          <ol className="mt-2 divide-y divide-gray-100 border-y border-gray-100">
-            {historyNewestFirst.map((entry, i) => (
-              <CommentHistoryRow key={i} entry={entry} />
-            ))}
-          </ol>
-        )}
-      </section>
-    </>
-  );
-}
-
-function CommentHistoryRow({ entry }: { entry: TaskCommentEntry }) {
-  const when = new Date(entry.changed_at);
-  const display = Number.isNaN(when.getTime())
-    ? entry.changed_at
-    : when.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-  return (
-    <li className="py-2.5 text-sm">
-      <div className="text-xs text-gray-500">
-        {entry.changed_by_name ? (
-          <>
-            by{" "}
-            <span className="font-medium text-gray-700">
-              {entry.changed_by_name}
-            </span>
-            {" · "}
-          </>
-        ) : entry.changed_by ? (
-          <>
-            by{" "}
-            <span className="font-mono text-gray-600">{entry.changed_by}</span>
-            {" · "}
-          </>
-        ) : (
-          <>by system · </>
-        )}
-        <time dateTime={entry.changed_at} title={entry.changed_at}>
-          {display}
-        </time>
-      </div>
-      <p className="mt-1 whitespace-pre-wrap rounded-md border border-gray-100 bg-gray-50 px-2.5 py-1.5 text-sm text-gray-700">
-        {entry.text || (
-          <span className="text-gray-400">— cleared —</span>
-        )}
-      </p>
-      {/* Show "previously" only when it's meaningful — first entry
-          has previous_text === null and a redundant "previously: —"
-          row would just be noise. */}
-      {entry.previous_text !== null && entry.previous_text !== "" ? (
-        <p className="mt-1 whitespace-pre-wrap text-xs text-gray-500">
-          <span className="uppercase tracking-wider">Previously:</span>{" "}
-          <span className="text-gray-600">{entry.previous_text}</span>
-        </p>
-      ) : null}
-    </li>
   );
 }
 

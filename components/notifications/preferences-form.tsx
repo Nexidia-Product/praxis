@@ -68,6 +68,11 @@ const TYPE_LABELS: Record<NotificationType, { title: string; description: string
     description:
       "Internal users rarely need this; it primarily exists for the public-portal email path.",
   },
+  Mentioned: {
+    title: "Someone mentions me",
+    description:
+      "When you're @mentioned in a task comment or a project status update.",
+  },
 };
 
 const DELIVERY_LABELS: Record<NotificationDelivery, string> = {

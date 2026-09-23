@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   OPEN_TASK_STATUSES,
@@ -44,8 +45,10 @@ import type {
   UserRole,
 } from "@/lib/db";
 import { isAdminProject } from "@/lib/projects/display";
+import type { MentionableUser } from "@/components/shared/mention-textarea";
 import { TaskFilterBar, EMPTY_TASK_FILTERS, type TaskFilters } from "./filter-bar";
 import { TaskFormModal } from "./form-modal";
+import { TaskQuickView } from "./quick-view";
 
 // ---------------------------------------------------------------------------
 // Status group toggle
@@ -203,6 +206,13 @@ interface TasksTableProps {
    */
   activeUserNames?: string[];
   /**
+   * `{user_id, name}` pairs for every active user, threaded into the
+   * task form's Comments field so its `@`-mention picker can insert a
+   * name the backend can resolve to a real recipient. Optional; when
+   * omitted the picker simply has nothing to suggest.
+   */
+  mentionableUsers?: MentionableUser[];
+  /**
    * Notifies the parent whenever the internal task list changes (status
    * edits, completes, deletes, creates). Used by the My Tasks page to keep
    * its "Checklist" mode in sync with edits made here. Optional — the
@@ -234,6 +244,7 @@ export function TasksTable({
   defaultProjectId,
   defaultResponsible,
   activeUserNames = [],
+  mentionableUsers = [],
   enableAdminFilter,
   onTasksChange,
   initialGroupBy = "project",
@@ -252,6 +263,22 @@ export function TasksTable({
   const [showCreate, setShowCreate] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Deep-link support: a notification or search hit lands on
+  // `/tasks?id=<id>&tab=<tab>` and the quick view should open directly
+  // to it. Seeded once from the URL on mount; closing the panel strips
+  // both params so re-opening/closing doesn't loop.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [quickViewTaskId, setQuickViewTaskId] = useState<string | null>(() =>
+    searchParams.get("id"),
+  );
+  const [quickViewInitialTab, setQuickViewInitialTab] = useState<
+    "details" | "comments" | undefined
+  >(() => {
+    const t = searchParams.get("tab");
+    return t === "comments" ? "comments" : undefined;
+  });
   // Apply-template modal state. Held here (not in the modal) so the
   // success message can persist briefly on the toolbar after the
   // modal closes.
@@ -802,6 +829,28 @@ export function TasksTable({
         )}
       </div>
 
+      {/* Quick view (deep-link entry point only — row clicks still open
+          the edit modal directly, unchanged from prior behavior). */}
+      {quickViewTaskId ? (
+        <TaskQuickViewFromId
+          taskId={quickViewTaskId}
+          tasks={tasks}
+          projectsById={projectsById}
+          canEdit={canEdit}
+          initialTab={quickViewInitialTab}
+          onEdit={(t) => {
+            setEditTask(t);
+            setQuickViewTaskId(null);
+            setQuickViewInitialTab(undefined);
+          }}
+          onClose={() => {
+            setQuickViewTaskId(null);
+            setQuickViewInitialTab(undefined);
+            if (searchParams.get("id")) router.replace("/tasks");
+          }}
+        />
+      ) : null}
+
       {/* Create / edit modals */}
       {showCreate ? (
         <TaskFormModal
@@ -811,6 +860,7 @@ export function TasksTable({
           defaultProjectId={defaultProjectId}
           defaultResponsible={defaultResponsible}
           responsibleOptions={formResponsibleOptions}
+          mentionableUsers={mentionableUsers}
           currentUserId={currentUserId}
           onClose={() => setShowCreate(false)}
           onSaved={(t) => {
@@ -826,6 +876,7 @@ export function TasksTable({
           projects={projects}
           allTasks={tasks}
           responsibleOptions={formResponsibleOptions}
+          mentionableUsers={mentionableUsers}
           readOnly={!canEdit}
           currentUserId={currentUserId}
           canMove={canMove}
@@ -855,6 +906,43 @@ export function TasksTable({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Resolves `taskId` against the current task list and renders
+ * `TaskQuickView`. Deliberately renders nothing (not an error) when the
+ * task can't be found — e.g. a `Mentioned` notification's deep link for
+ * a task the current user's program access no longer includes.
+ */
+function TaskQuickViewFromId({
+  taskId,
+  tasks,
+  projectsById,
+  canEdit,
+  initialTab,
+  onEdit,
+  onClose,
+}: {
+  taskId: string;
+  tasks: Task[];
+  projectsById: Map<string, Project>;
+  canEdit: boolean;
+  initialTab?: "details" | "comments";
+  onEdit: (task: Task) => void;
+  onClose: () => void;
+}) {
+  const task = tasks.find((t) => t.task_id === taskId);
+  if (!task) return null;
+  return (
+    <TaskQuickView
+      task={task}
+      project={projectsById.get(task.project_id) ?? null}
+      canEdit={canEdit}
+      initialTab={initialTab}
+      onEdit={() => onEdit(task)}
+      onClose={onClose}
+    />
   );
 }
 

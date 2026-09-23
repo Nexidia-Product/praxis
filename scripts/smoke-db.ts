@@ -54,6 +54,7 @@ async function main() {
       DependencyBlocked: "InAppOnly",
       HealthScoreChanged: "InAppOnly",
       IdeaStatusChanged: "Off",
+      Mentioned: "InAppOnly",
     },
     digest_mode: false,
     allowed_programs: null,

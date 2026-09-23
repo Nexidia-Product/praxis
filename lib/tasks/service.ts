@@ -854,6 +854,18 @@ export async function createTask(
     );
   });
 
+  // @Mentions in the initial Comments field (Section 5.2 follow-up).
+  if (task.comments) {
+    await fireMentionHook(task, task.comments, { userId: ctx.createdBy }).catch(
+      (err) => {
+        console.warn(
+          `[notifications] createTask mention hook failed for ${task.task_id}:`,
+          err,
+        );
+      },
+    );
+  }
+
   // Step 8 (Section 5.13): adding a task changes the project's task
   // roster, which is a primary input to the health score. Recalc the
   // parent project. Same fire-and-forget shape as the notification hook.
@@ -909,6 +921,18 @@ export async function updateTask(
   }
 
   const updated = await TaskRepository.update(id, patch);
+
+  // @Mentions (Section 5.12 follow-up): re-fires on every comment change,
+  // not just the first one, so re-editing a comment to add a newly
+  // @mentioned person still notifies them.
+  if (patch.comments !== undefined && patch.comments !== existing.comments) {
+    await fireMentionHook(updated, patch.comments, ctx).catch((err) => {
+      console.warn(
+        `[notifications] updateTask mention hook failed for ${id}:`,
+        err,
+      );
+    });
+  }
 
   // Step 7 (Section 5.12): if the primary assignee changed, fire a
   // TaskAssigned notification to the new owner. Reassignments to
@@ -1557,6 +1581,26 @@ async function fireTaskAssignedHook(task: Task): Promise<void> {
     project = null;
   }
   await notifyTaskAssigned(task, project);
+}
+
+/**
+ * Notify every user @mentioned (by full name) in the task's Comments
+ * field. Dynamic import for the same reasons as `fireTaskAssignedHook`.
+ */
+async function fireMentionHook(
+  task: Task,
+  commentText: string,
+  ctx: { userId: UserId },
+): Promise<void> {
+  const { notifyMentioned } = await import("@/lib/notifications/service");
+  await notifyMentioned({
+    text: commentText,
+    mentionedBy: ctx.userId === "system" ? null : ctx.userId,
+    mentionedByName: await resolveUserDisplayName(ctx.userId),
+    entityType: "Task",
+    entityId: task.task_id,
+    entityLabel: task.task_name,
+  });
 }
 
 // ---------------------------------------------------------------------------

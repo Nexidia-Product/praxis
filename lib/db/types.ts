@@ -173,7 +173,8 @@ export type NotificationType =
   | "ProjectBlocked"
   | "DependencyBlocked"
   | "HealthScoreChanged"
-  | "IdeaStatusChanged";
+  | "IdeaStatusChanged"
+  | "Mentioned";
 
 export type NotificationEntityType = "Project" | "Task" | "Idea";
 

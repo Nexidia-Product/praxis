@@ -63,6 +63,14 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
     .filter((n) => n.length > 0)
     .sort();
 
+  // @Mention picker roster (Section 5.2 follow-up): same active-user set
+  // as activeUserNames, but paired with user_id so the picker can insert
+  // a name the backend can re-resolve to a real recipient at save time.
+  const mentionableUsers = users
+    .filter((u) => u.active && u.name.trim().length > 0)
+    .map((u) => ({ user_id: u.user_id, name: u.name.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <PolarisShell
       user={{ ...session.user, permissions }}
@@ -83,6 +91,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         permissions={permissions}
         defaultProjectId={projectFilter ?? undefined}
         activeUserNames={activeUserNames}
+        mentionableUsers={mentionableUsers}
         enableAdminFilter
       />
     </PolarisShell>

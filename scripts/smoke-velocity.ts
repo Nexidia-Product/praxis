@@ -138,6 +138,7 @@ async function main() {
     DependencyBlocked: "InAppOnly",
     HealthScoreChanged: "InAppOnly",
     IdeaStatusChanged: "InAppOnly",
+    Mentioned: "InAppOnly",
   };
 
   // Synthesize a project record. Defaults align with `ProjectRepository.create`
