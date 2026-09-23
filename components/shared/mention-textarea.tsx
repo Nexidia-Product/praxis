@@ -10,15 +10,22 @@
  * (`lib/notifications/mentions.ts`). No rich text, no HTML.
  *
  * Typing `@` opens a small dropdown of matching active users (filtered
- * as you keep typing), anchored under the textarea — anchoring to the
- * textarea's bounding box rather than to the caret's pixel position,
- * since computing per-character caret coordinates inside a `<textarea>`
- * is nontrivial and not worth it for a short field. Arrow keys move the
- * highlight, Enter/Tab or a click selects, Escape closes just the
- * popup (stops propagation so it doesn't also dismiss a parent modal).
+ * as you keep typing), anchored under the textarea's on-screen position
+ * rather than the caret's pixel position, since computing per-character
+ * caret coordinates inside a `<textarea>` is nontrivial and not worth it
+ * for a short field. Arrow keys move the highlight, Enter/Tab or a click
+ * selects, Escape closes just the popup (stops propagation so it doesn't
+ * also dismiss a parent modal).
+ *
+ * The dropdown is rendered through a portal straight to `document.body`
+ * with `position: fixed`, computed from `getBoundingClientRect()` —
+ * both Task and Project modals wrap their tab content in an
+ * `overflow-y: auto` container, which would otherwise clip a plain
+ * `position: absolute` popup right where it needs to appear.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface MentionableUser {
   user_id: string;
@@ -77,10 +84,21 @@ export function MentionTextarea({
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const popupRef = useRef<HTMLUListElement>(null);
   const pendingCaretRef = useRef<number | null>(null);
 
   const [trigger, setTrigger] = useState<MentionTriggerMatch | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [popupRect, setPopupRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  // Portals to `document.body` must wait for the client — `document`
+  // doesn't exist during SSR, and calling createPortal before mount
+  // would crash the server render.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const suggestions = useMemo(() => {
     if (!trigger) return [];
@@ -92,6 +110,32 @@ export function MentionTextarea({
   }, [trigger, users]);
 
   const open = trigger !== null && suggestions.length > 0;
+
+  // Position the portal-rendered popup against the textarea's current
+  // on-screen box. Recomputed on open and kept in sync with scrolling —
+  // `scroll` doesn't bubble, but a capture-phase window listener still
+  // fires for scroll on any nested scrollable ancestor (e.g. the modal's
+  // own `overflow-y: auto` tab body), which is exactly what needs to
+  // reposition (or the popup) to track the field.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPopupRect(null);
+      return;
+    }
+    function update() {
+      const el = textareaRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPopupRect({ top: r.bottom + 2, left: r.left, width: r.width });
+    }
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
 
   // Restore the caret after a programmatic value change (a selection).
   useEffect(() => {
@@ -109,11 +153,15 @@ export function MentionTextarea({
   }, [trigger?.query]);
 
   // Close the popup on an outside click (mirrors GlobalSearch / bell).
+  // The popup itself lives in a portal outside `wrapperRef` in the DOM,
+  // so a click inside it must also count as "inside".
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) setTrigger(null);
+      const target = e.target as Node;
+      if (wrapperRef.current?.contains(target)) return;
+      if (popupRef.current?.contains(target)) return;
+      setTrigger(null);
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -179,52 +227,61 @@ export function MentionTextarea({
         className={className}
         placeholder={placeholder}
       />
-      {open ? (
-        <ul
-          role="listbox"
-          aria-label="Mention a user"
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            zIndex: 30,
-            marginTop: 2,
-            maxHeight: 200,
-            overflowY: "auto",
-            listStyle: "none",
-            padding: "4px 0",
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--pol-radius)",
-            boxShadow: "0 4px 16px rgba(0,0,0,.12)",
-          }}
-        >
-          {suggestions.map((u, i) => (
-            <li key={u.user_id} role="option" aria-selected={i === activeIndex}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActiveIndex(i)}
-                onClick={() => selectUser(u)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "6px 10px",
-                  border: "none",
-                  background: i === activeIndex ? "var(--hover)" : "transparent",
-                  color: "var(--t1)",
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                {u.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open && popupRect && mounted
+        ? createPortal(
+            <ul
+              ref={popupRef}
+              role="listbox"
+              aria-label="Mention a user"
+              style={{
+                position: "fixed",
+                top: popupRect.top,
+                left: popupRect.left,
+                width: popupRect.width,
+                zIndex: 1000,
+                maxHeight: 200,
+                overflowY: "auto",
+                listStyle: "none",
+                padding: "4px 0",
+                margin: 0,
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--pol-radius)",
+                boxShadow: "0 4px 16px rgba(0,0,0,.12)",
+              }}
+            >
+              {suggestions.map((u, i) => (
+                <li
+                  key={u.user_id}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => selectUser(u)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 10px",
+                      border: "none",
+                      background:
+                        i === activeIndex ? "var(--hover)" : "transparent",
+                      color: "var(--t1)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {u.name}
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
