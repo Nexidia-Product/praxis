@@ -76,6 +76,14 @@ export default async function WorkInProgressPage() {
     .filter((n) => n.length > 0)
     .sort();
 
+  // @Mention picker roster — same active-user set as activeUserNames,
+  // paired with user_id so the picker can insert a name the backend can
+  // re-resolve to a real recipient. Mirrors the Projects/Tasks pages.
+  const mentionableUsers = users
+    .filter((u) => u.active && u.name.trim().length > 0)
+    .map((u) => ({ user_id: u.user_id, name: u.name.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // Merged enum options (built-ins + admin extensions, archived excluded).
   // Same shape the Projects page passes so admin-added status / phase /
   // priority / application values appear in the edit modals.
@@ -118,6 +126,7 @@ export default async function WorkInProgressPage() {
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
+        mentionableUsers={mentionableUsers}
         currentUserRole={session.user.role}
         currentUserId={session.user.user_id}
         permissions={permissions}

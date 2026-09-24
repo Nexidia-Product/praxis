@@ -52,6 +52,14 @@ export default async function RoadmapPage() {
     .filter((n) => n.length > 0)
     .sort();
 
+  // @Mention picker roster — same active-user set as activeUserNames,
+  // paired with user_id so the picker can insert a name the backend can
+  // re-resolve to a real recipient. Mirrors the Projects/Tasks pages.
+  const mentionableUsers = users
+    .filter((u) => u.active && u.name.trim().length > 0)
+    .map((u) => ({ user_id: u.user_id, name: u.name.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // Merged option lists (built-ins + admin extensions, archived
   // values excluded). Threaded into the workspace so the edit modal
   // — now reachable from the roadmap quick view — sees the same
@@ -112,6 +120,7 @@ export default async function RoadmapPage() {
         templates={templates}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
+        mentionableUsers={mentionableUsers}
         defaultProgram={defaultProgram}
       />
     </PolarisShell>

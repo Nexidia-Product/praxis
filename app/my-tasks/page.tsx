@@ -61,6 +61,14 @@ export default async function MyTasksPage() {
     .filter((n) => n.length > 0)
     .sort();
 
+  // @Mention picker roster — same active-user set as activeUserNames,
+  // paired with user_id so the picker can insert a name the backend can
+  // re-resolve to a real recipient. Mirrors the Projects/Tasks pages.
+  const mentionableUsers = users
+    .filter((u) => u.active && u.name.trim().length > 0)
+    .map((u) => ({ user_id: u.user_id, name: u.name.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // Same helper the home KPI uses (HOME-02) so the count and the list
   // can never disagree.
   const myTasks = allTasks.filter((t) =>
@@ -87,6 +95,7 @@ export default async function MyTasksPage() {
         permissions={permissions}
         defaultResponsible={userName || undefined}
         activeUserNames={activeUserNames}
+        mentionableUsers={mentionableUsers}
         savedOrder={savedOrder}
       />
     </PolarisShell>

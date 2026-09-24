@@ -34,6 +34,7 @@ import type {
   TaskTemplate,
   UserRole,
 } from "@/lib/db";
+import type { MentionableUser } from "@/components/shared/mention-textarea";
 import { TasksTable } from "./tasks-table";
 import { MyTasksChecklist } from "./my-tasks-checklist";
 import { TaskFormModal } from "./form-modal";
@@ -50,6 +51,8 @@ interface MyTasksViewProps {
   permissions?: Record<string, boolean>;
   defaultResponsible?: string;
   activeUserNames?: string[];
+  /** `{user_id, name}` pairs for the Comments field's mention picker. */
+  mentionableUsers?: MentionableUser[];
   /** The user's saved checklist order (task IDs). */
   savedOrder: string[];
 }
@@ -63,6 +66,7 @@ export function MyTasksView({
   permissions,
   defaultResponsible,
   activeUserNames = [],
+  mentionableUsers = [],
   savedOrder,
 }: MyTasksViewProps) {
   const [mode, setMode] = useState<Mode>("list");
@@ -206,6 +210,7 @@ export function MyTasksView({
           scopeToUser
           defaultResponsible={defaultResponsible}
           activeUserNames={activeUserNames}
+          mentionableUsers={mentionableUsers}
           onTasksChange={setTasks}
           initialGroupBy="none"
           sortMode="task_id"
@@ -230,6 +235,7 @@ export function MyTasksView({
           allTasks={tasks}
           defaultResponsible={defaultResponsible}
           responsibleOptions={responsibleOptions}
+          mentionableUsers={mentionableUsers}
           currentUserId={currentUserId}
           onClose={() => setShowCreate(false)}
           onSaved={(t) => {
@@ -244,6 +250,7 @@ export function MyTasksView({
           projects={projects}
           allTasks={tasks}
           responsibleOptions={responsibleOptions}
+          mentionableUsers={mentionableUsers}
           readOnly={!canEdit}
           currentUserId={currentUserId}
           canMove={canMove}
