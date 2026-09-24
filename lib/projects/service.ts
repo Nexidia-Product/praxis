@@ -1213,7 +1213,13 @@ export async function updateProject(
   // Step 7 (Section 5.12): fire status-change and dependency notifications
   // based on the transition this update produced. The hook is responsible
   // for filtering out no-op transitions (status stayed the same).
-  await fireProjectNotifications(updated, existing.status).catch((err) => {
+  await fireProjectNotifications(
+    updated,
+    existing.status,
+    (hasStatusChange || hasSummaryOnly) && rawSummary.length > 0
+      ? { text: rawSummary, userId: ctx.userId }
+      : null,
+  ).catch((err) => {
     console.warn(
       `[notifications] updateProject post-hooks failed for ${id}:`,
       err,
@@ -1537,6 +1543,14 @@ function summarizeKeyCapabilityChange(before: Project, after: Project): string {
 async function fireProjectNotifications(
   project: Project,
   priorStatus: ProjectStatus,
+  /**
+   * Raw status-summary text from this update, when one was archived to
+   * `status_history` (see `updateProject`'s `hasStatusChange` /
+   * `hasSummaryOnly` locals). `null` when no summary was recorded this
+   * save (including every call from `createProject`, whose payload has
+   * no `status_summary` field).
+   */
+  mention: { text: string; userId: UserId } | null = null,
 ): Promise<void> {
   // Use dynamic import to avoid pulling notification machinery into the
   // build graph for environments that don't run the server (lint runs,
@@ -1545,6 +1559,7 @@ async function fireProjectNotifications(
   const {
     notifyProjectStatusChange,
     notifyDependencyBlocked,
+    notifyMentioned,
   } = await import("@/lib/notifications/service");
 
   await notifyProjectStatusChange({ project, priorStatus });
@@ -1559,6 +1574,18 @@ async function fireProjectNotifications(
     priorStatus !== project.status;
   if (newlyUnhealthy) {
     await notifyDependencyBlocked({ upstream: project });
+  }
+
+  // @Mentions in the status-update summary (Section 5.12 follow-up).
+  if (mention) {
+    await notifyMentioned({
+      text: mention.text,
+      mentionedBy: mention.userId === "system" ? null : mention.userId,
+      mentionedByName: await resolveUserDisplayName(mention.userId),
+      entityType: "Project",
+      entityId: project.project_id,
+      entityLabel: project.name,
+    });
   }
 }
 

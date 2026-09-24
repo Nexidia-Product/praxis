@@ -575,6 +575,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   DependencyBlocked: "InAppOnly",
   HealthScoreChanged: "InAppOnly",
   IdeaStatusChanged: "InAppOnly",
+  Mentioned: "InAppOnly",
 };
 
 async function buildDefaultAdmin(): Promise<User> {

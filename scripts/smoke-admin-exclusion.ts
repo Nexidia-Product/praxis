@@ -539,6 +539,7 @@ async function main() {
     DependencyBlocked: "InAppOnly",
     HealthScoreChanged: "InAppOnly",
     IdeaStatusChanged: "InAppOnly",
+    Mentioned: "InAppOnly",
   };
   const adminUser = await UserRepository.create({
     email: "admin-test@example.com",

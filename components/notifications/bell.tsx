@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import type { Notification, NotificationEntityType } from "@/lib/db";
+import type { Notification } from "@/lib/db";
 
 interface NotificationApiResponse {
   notifications: Notification[];
@@ -352,7 +352,7 @@ function NotificationRow({
   notification: Notification;
   onActivate: () => void;
 }) {
-  const href = entityHref(notification.entity_type, notification.entity_id);
+  const href = entityHref(notification);
   const baseStyle: React.CSSProperties = {
     display: "block",
     cursor: "pointer",
@@ -448,10 +448,30 @@ function NotificationRow({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function entityHref(type: NotificationEntityType, id: string): string | null {
-  if (type === "Project") return `/projects?id=${encodeURIComponent(id)}`;
-  if (type === "Task") return `/tasks?id=${encodeURIComponent(id)}`;
-  if (type === "Idea") return `/admin/ideas/${encodeURIComponent(id)}`;
+/**
+ * Deep-link for a notification row. `Mentioned` notifications append
+ * `&tab=` so the destination quick view opens directly to the tab where
+ * the mention was made, instead of defaulting to Details.
+ */
+function entityHref(notification: Notification): string | null {
+  const { type, entity_type, entity_id } = notification;
+  const tab =
+    type === "Mentioned"
+      ? entity_type === "Task"
+        ? "&tab=comments"
+        : entity_type === "Project"
+          ? "&tab=status"
+          : ""
+      : "";
+  if (entity_type === "Project") {
+    return `/projects?id=${encodeURIComponent(entity_id)}${tab}`;
+  }
+  if (entity_type === "Task") {
+    return `/tasks?id=${encodeURIComponent(entity_id)}${tab}`;
+  }
+  if (entity_type === "Idea") {
+    return `/admin/ideas/${encodeURIComponent(entity_id)}`;
+  }
   return null;
 }
 

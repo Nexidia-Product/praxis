@@ -51,6 +51,10 @@ import type {
   ProjectStatus,
   StatusHistoryEntry,
 } from "@/lib/db";
+import {
+  MentionTextarea,
+  type MentionableUser,
+} from "@/components/shared/mention-textarea";
 import { DecisionLogTab } from "./decision-log-tab";
 import { DependencyChainPanel } from "./dependency-chain-panel";
 import { DocumentLinksEditor } from "./document-links-editor";
@@ -82,6 +86,18 @@ interface ProjectQuickViewProps {
    * but with an empty state.
    */
   groupsForProject?: ProjectGroup[];
+  /**
+   * `{user_id, name}` pairs for every active user, threaded into the
+   * Status tab's summary field so its `@`-mention picker can insert a
+   * name the backend can resolve to a real recipient.
+   */
+  mentionableUsers?: MentionableUser[];
+  /**
+   * Which tab to open on mount. Used by the deep-link from a Mentioned
+   * notification (`?tab=status`) so the panel lands directly on the tab
+   * where the mention was made. Defaults to "details".
+   */
+  initialTab?: Tab;
   /**
    * Called when a chip in the Related panel is clicked. The Projects
    * page wires this to its own setQuickViewId so clicking a related
@@ -125,7 +141,7 @@ interface ProjectQuickViewProps {
  * want a more deliberate place to change status than the inline
  * dropdown on Details.
  */
-type Tab =
+export type Tab =
   | "details"
   | "outcomes"
   | "status"
@@ -154,6 +170,8 @@ export function ProjectQuickView({
   phaseOptions,
   priorityOptions,
   groupsForProject = [],
+  mentionableUsers = [],
+  initialTab,
   aiEnabled = false,
   isAdmin = false,
   onSelectRelatedProject,
@@ -163,7 +181,7 @@ export function ProjectQuickView({
   onPhaseChange,
   onPriorityChange,
 }: ProjectQuickViewProps) {
-  const [tab, setTab] = useState<Tab>("details");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "details");
 
   // Resolve dropdown sources. Fall back to built-ins when the parent
   // didn't pass merged options. Same pattern as ProjectFormModal.
@@ -643,6 +661,7 @@ export function ProjectQuickView({
                 project={project}
                 canEdit={canEdit}
                 statusList={statusList}
+                mentionableUsers={mentionableUsers}
                 /* Wrap the parent callback to: (a) thread the summary
                    through, and (b) return a Promise so the form's
                    "Saving…" affordance has something to await. The
@@ -904,11 +923,13 @@ function StatusTab({
   project,
   canEdit,
   statusList,
+  mentionableUsers = [],
   onStatusChange,
 }: {
   project: Project;
   canEdit: boolean;
   statusList: EnumOption[];
+  mentionableUsers?: MentionableUser[];
   onStatusChange: (status: ProjectStatus, summary: string) => Promise<void>;
 }) {
   const [pendingStatus, setPendingStatus] = useState<ProjectStatus>(
@@ -1004,13 +1025,14 @@ function StatusTab({
                   (optional — archives with this status change)
                 </span>
               </label>
-              <textarea
+              <MentionTextarea
                 id="status-summary"
                 rows={3}
                 value={pendingSummary}
-                onChange={(e) => setPendingSummary(e.target.value)}
+                onChange={setPendingSummary}
+                users={mentionableUsers}
                 disabled={saving}
-                placeholder="Why is the status changing? Anything the team should know?"
+                placeholder="Why is the status changing? Anything the team should know? Type @ to mention someone."
                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-50"
               />
             </div>

@@ -135,6 +135,8 @@ function subjectForType(type: NotificationType, message: string): string {
       return "[Praxis] Project health changed";
     case "IdeaStatusChanged":
       return "[Praxis] Update on your submitted idea";
+    case "Mentioned":
+      return "[Praxis] You were mentioned";
     default: {
       // Compile-time exhaustiveness; runtime fallback uses the message.
       const _exhaustive: never = type;
@@ -286,6 +288,7 @@ function labelForType(type: NotificationType): string {
     DependencyBlocked: "Dependency blocked",
     HealthScoreChanged: "Health score change",
     IdeaStatusChanged: "Idea update",
+    Mentioned: "Mention",
   };
   return map[type];
 }

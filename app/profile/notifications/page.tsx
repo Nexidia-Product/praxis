@@ -25,6 +25,7 @@ const NOTIFICATION_TYPES: NotificationType[] = [
   "DependencyBlocked",
   "HealthScoreChanged",
   "IdeaStatusChanged",
+  "Mentioned",
 ];
 
 // "Off" is no longer offered — see /api/profile/notifications header.

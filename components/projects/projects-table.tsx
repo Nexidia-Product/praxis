@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   HEALTH_BADGE,
@@ -55,9 +56,10 @@ import type {
   TaskTemplate,
   UserRole,
 } from "@/lib/db";
+import type { MentionableUser } from "@/components/shared/mention-textarea";
 import { AiPriorityReviewModal } from "./ai-priority-review";
 import { ProjectFormModal } from "./form-modal";
-import { ProjectQuickView } from "./quick-view";
+import { ProjectQuickView, type Tab as ProjectQuickViewTab } from "./quick-view";
 import {
   EMPTY_FILTERS,
   ProjectFilterBar,
@@ -241,6 +243,13 @@ interface ProjectsTableProps {
    * project-derived; only the form gets the full roster.
    */
   activeUserNames?: string[];
+  /**
+   * `{user_id, name}` pairs for every active user, threaded into the
+   * Status tab's summary field so its `@`-mention picker can insert a
+   * name the backend can resolve to a real recipient. Optional; when
+   * omitted the picker simply has nothing to suggest.
+   */
+  mentionableUsers?: MentionableUser[];
   /** Admin-managed vocabularies for the project outcomes editor. */
   outcomeProducts?: string[];
   outcomeTypes?: string[];
@@ -257,6 +266,7 @@ export function ProjectsTable({
   aiEnabled,
   groups = [],
   activeUserNames = [],
+  mentionableUsers = [],
   outcomeProducts = [],
   outcomeTypes = [],
 }: ProjectsTableProps) {
@@ -279,7 +289,22 @@ export function ProjectsTable({
   const [statusGroup, setStatusGroup] = useState<StatusGroup>("open");
   const [sortKey, setSortKey] = useState<SortKey>("project_id");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [quickViewId, setQuickViewId] = useState<string | null>(null);
+
+  // Deep-link support: a notification or search hit lands on
+  // `/projects?id=<id>&tab=<tab>` and the quick view should open
+  // directly to it. Seeded once from the URL on mount; closing the
+  // panel strips both params so re-opening/closing doesn't loop.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [quickViewId, setQuickViewId] = useState<string | null>(() =>
+    searchParams.get("id"),
+  );
+  const [quickViewInitialTab, setQuickViewInitialTab] = useState<
+    ProjectQuickViewTab | undefined
+  >(() => {
+    const t = searchParams.get("tab");
+    return t ? (t as ProjectQuickViewTab) : undefined;
+  });
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAiReview, setShowAiReview] = useState(false);
@@ -1211,9 +1236,15 @@ export function ProjectsTable({
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
           }
+          mentionableUsers={mentionableUsers}
+          initialTab={quickViewInitialTab}
           aiEnabled={aiEnabled}
           isAdmin={currentUserRole === "Admin"}
-          onClose={() => setQuickViewId(null)}
+          onClose={() => {
+            setQuickViewId(null);
+            setQuickViewInitialTab(undefined);
+            if (searchParams.get("id")) router.replace("/projects");
+          }}
           onEdit={() => {
             setModalProject(quickViewProject);
             setQuickViewId(null);

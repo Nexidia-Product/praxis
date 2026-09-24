@@ -113,6 +113,7 @@ async function main() {
     DependencyBlocked: "InAppOnly",
     HealthScoreChanged: "InAppOnly",
     IdeaStatusChanged: "InAppOnly",
+    Mentioned: "InAppOnly",
   };
 
   async function makeUser(opts: {

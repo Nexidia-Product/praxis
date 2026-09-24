@@ -29,6 +29,7 @@
 
 import { useMemo, useState } from "react";
 
+import type { MentionableUser } from "@/components/shared/mention-textarea";
 import { ProjectQuickView } from "@/components/projects/quick-view";
 import { ExportModal } from "@/components/roadmap/export-modal";
 import { RoadmapFilterBar } from "@/components/roadmap/filter-bar";
@@ -108,6 +109,8 @@ interface RoadmapWorkspaceProps {
    * dropdown falls back to project-derived names only.
    */
   activeUserNames?: string[];
+  /** `{user_id, name}` pairs for the mention picker on the Status tab. */
+  mentionableUsers?: MentionableUser[];
   /**
    * Program the view opens scoped to — the current user's resolved
    * default (their primary program, or the sole program they're allowed,
@@ -129,6 +132,7 @@ export function RoadmapWorkspace({
   templates,
   aiEnabled = false,
   activeUserNames = [],
+  mentionableUsers = [],
   defaultProgram = "Innovation",
 }: RoadmapWorkspaceProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -435,6 +439,7 @@ export function RoadmapWorkspace({
           // chips can resolve upstream names even when the upstream is
           // hidden by the active filter.
           allProjects={projects}
+          mentionableUsers={mentionableUsers}
           onClose={() => setQuickViewId(null)}
           // Edit pops the standard project form modal (same component
           // the Projects page uses). We close the quick view first so

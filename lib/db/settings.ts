@@ -33,6 +33,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   DependencyBlocked: "InAppOnly",
   HealthScoreChanged: "InAppOnly",
   IdeaStatusChanged: "InAppOnly",
+  Mentioned: "InAppOnly",
 } satisfies Record<NotificationType, "InAppOnly">;
 
 /**

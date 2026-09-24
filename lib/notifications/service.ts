@@ -58,6 +58,7 @@ import {
   type UserId,
 } from "@/lib/db";
 import { dispatchNotificationEmail } from "@/lib/notifications/email";
+import { resolveMentions } from "@/lib/notifications/mentions";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -451,6 +452,45 @@ export async function notifyDependencyBlocked(opts: {
     out.push(...written);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Event helpers — Mentions
+// ---------------------------------------------------------------------------
+
+/**
+ * Notify every user @mentioned (by full name) in a task's Comments field
+ * or a project's status-update summary. Called from `lib/tasks/service.ts`
+ * (createTask/updateTask) and `lib/projects/service.ts` (updateProject)
+ * whenever the mentionable text changes.
+ *
+ * The mentioner is never notified about mentioning themselves.
+ */
+export async function notifyMentioned(opts: {
+  text: string;
+  mentionedBy: UserId | null;
+  mentionedByName?: string | null;
+  entityType: "Task" | "Project";
+  entityId: string;
+  entityLabel: string;
+}): Promise<Notification[]> {
+  const mentioned = await resolveMentions(opts.text);
+  const recipients = mentioned.filter((id) => id !== opts.mentionedBy);
+  if (recipients.length === 0) return [];
+
+  const who = opts.mentionedByName?.trim() || "Someone";
+  const where =
+    opts.entityType === "Task"
+      ? `a comment on "${opts.entityLabel}"`
+      : `a status update on ${opts.entityLabel}`;
+  const message = `${who} mentioned you in ${where}.`;
+
+  return notifyMany(recipients, () => ({
+    type: "Mentioned",
+    message,
+    entityType: opts.entityType,
+    entityId: opts.entityId,
+  }));
 }
 
 // ---------------------------------------------------------------------------

@@ -63,6 +63,7 @@ import type {
   TaskTemplate,
   UserRole,
 } from "@/lib/db";
+import type { MentionableUser } from "@/components/shared/mention-textarea";
 import { TaskRow } from "@/components/tasks/tasks-table";
 import { TaskFormModal } from "@/components/tasks/form-modal";
 import { ProjectQuickView } from "@/components/projects/quick-view";
@@ -105,6 +106,8 @@ interface Props {
   quadrantLabels: PortfolioQuadrantLabels;
   aiEnabled: boolean;
   activeUserNames: string[];
+  /** `{user_id, name}` pairs for the mention picker on Comments / Status. */
+  mentionableUsers?: MentionableUser[];
   currentUserRole: UserRole;
   /** The signed-in user's id — threaded through for author-only finding edits. */
   currentUserId?: string;
@@ -124,6 +127,7 @@ export function WorkInProgressView({
   quadrantLabels,
   aiEnabled,
   activeUserNames,
+  mentionableUsers = [],
   currentUserRole,
   currentUserId,
   permissions,
@@ -677,6 +681,7 @@ export function WorkInProgressView({
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
           }
+          mentionableUsers={mentionableUsers}
           onClose={() => setQuickViewId(null)}
           onEdit={() => {
             setModalProject(quickViewProject);
@@ -724,6 +729,7 @@ export function WorkInProgressView({
           projects={projects}
           allTasks={tasks}
           responsibleOptions={formResponsibleOptions}
+          mentionableUsers={mentionableUsers}
           readOnly={!canEditTask}
           currentUserId={currentUserId}
           canMove={canMoveTask}

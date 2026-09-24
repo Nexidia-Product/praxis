@@ -59,6 +59,14 @@ export default async function ProjectsPage() {
     .filter((n) => n.length > 0)
     .sort();
 
+  // @Mention picker roster (Section 5.1 follow-up): same active-user set
+  // as activeUserNames, but paired with user_id so the picker can insert
+  // a name the backend can re-resolve to a real recipient at save time.
+  const mentionableUsers = users
+    .filter((u) => u.active && u.name.trim().length > 0)
+    .map((u) => ({ user_id: u.user_id, name: u.name.trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // Merge built-in enum values with admin-added extensions (Section 5.19).
   // We exclude archived values from the dropdown lists used in the table
   // and form, since archive is the soft-delete affordance — but we keep
@@ -108,6 +116,7 @@ export default async function ProjectsPage() {
         aiEnabled={isAiEnabled()}
         groups={groups}
         activeUserNames={activeUserNames}
+        mentionableUsers={mentionableUsers}
         outcomeProducts={settings.outcome_products}
         outcomeTypes={settings.outcome_types}
       />
