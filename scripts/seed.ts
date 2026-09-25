@@ -430,6 +430,7 @@ function transformProjects(
       additional_resources: splitList(raw["Additional Resources"]),
       resource_allocations: {},
       target_date: asDateOrNull(raw["Target Date"]),
+      target_executable_deployment_date: null,
       ai_complexity_score: null,
       ai_time_estimate: null,
       roadmap_bucket: null,

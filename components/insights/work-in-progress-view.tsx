@@ -381,6 +381,22 @@ export function WorkInProgressView({
       if (filters.target_to) {
         if (!p.target_date || p.target_date > filters.target_to) return false;
       }
+      if (filters.target_executable_from) {
+        if (
+          !p.target_executable_deployment_date ||
+          p.target_executable_deployment_date < filters.target_executable_from
+        ) {
+          return false;
+        }
+      }
+      if (filters.target_executable_to) {
+        if (
+          !p.target_executable_deployment_date ||
+          p.target_executable_deployment_date > filters.target_executable_to
+        ) {
+          return false;
+        }
+      }
       if (search) {
         const hay =
           `${p.project_id} ${p.name} ${p.description}`.toLowerCase();

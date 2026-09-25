@@ -652,10 +652,10 @@ const PROJECTS_STATUS_COLUMNS: {
   fillFor?: (p: Project) => string | null;
 }[] = [
   { label: "ID", weight: 0.08, text: (p) => p.project_id },
-  { label: "Project", weight: 0.28, text: (p) => p.name },
+  { label: "Project", weight: 0.22, text: (p) => p.name },
   {
     label: "App / Product",
-    weight: 0.14,
+    weight: 0.12,
     text: (p) => p.application_product,
   },
   {
@@ -672,9 +672,17 @@ const PROJECTS_STATUS_COLUMNS: {
   },
   { label: "Lead", weight: 0.12, text: (p) => p.project_lead || "—" },
   {
-    label: "Target",
-    weight: 0.15,
+    // "Target Application Deployment Date" — abbreviated for the slide
+    // table's fixed column width.
+    label: "App Deploy",
+    weight: 0.13,
     text: (p) => p.target_date ?? "—",
+    align: "right",
+  },
+  {
+    label: "Exec Deploy",
+    weight: 0.1,
+    text: (p) => p.target_executable_deployment_date ?? "—",
     align: "right",
   },
 ];

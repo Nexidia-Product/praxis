@@ -201,6 +201,8 @@ async function main() {
       additional_resources: p.additional_resources ?? [],
       resource_allocations: {},
       target_date: p.target_date ?? "2026-06-30",
+      target_executable_deployment_date:
+        p.target_executable_deployment_date ?? null,
       ai_complexity_score: p.ai_complexity_score ?? null,
       ai_time_estimate: p.ai_time_estimate ?? null,
       roadmap_bucket: p.roadmap_bucket ?? null,

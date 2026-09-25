@@ -28,6 +28,10 @@ import {
   PROJECT_TYPES,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
+import {
+  MILESTONE_LABELS,
+  computeProjectMilestones,
+} from "@/lib/projects/milestones";
 import type {
   ComplexityScore,
   CustomFieldDefinition,
@@ -137,6 +141,8 @@ interface FormState {
    */
   start_date: string;
   target_date: string;
+  /** "Target Executable Deployment Date" — independent of `target_date`. */
+  target_executable_deployment_date: string;
   /** Empty string = no template auto-apply. Only meaningful on create. */
   template_id: string;
   custom_fields: CustomFieldValueMap;
@@ -181,6 +187,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     resource_allocations: {},
     start_date: "",
     target_date: "",
+    target_executable_deployment_date: "",
     template_id: "",
     custom_fields: defaultCustomFieldValues(customFields),
     dependencies: [],
@@ -258,6 +265,8 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     resource_allocations: stringifyAllocations(p.resource_allocations),
     start_date: p.roadmap_timeline_start ?? "",
     target_date: p.target_date ?? "",
+    target_executable_deployment_date:
+      p.target_executable_deployment_date ?? "",
     // Templates are a create-only concept; on edit this stays empty and
     // is omitted from the patch payload.
     template_id: "",
@@ -301,6 +310,8 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     resource_allocations: numberifyAllocations(s.resource_allocations),
     roadmap_timeline_start: s.start_date || null,
     target_date: s.target_date || null,
+    target_executable_deployment_date:
+      s.target_executable_deployment_date || null,
     custom_fields: s.custom_fields,
     // Always send these — the server diffs against the current record by
     // URL on document_links to preserve provenance, and rebuilds depends_on
@@ -886,7 +897,10 @@ export function ProjectFormModal({
               />
             </Field>
 
-            <Field id="proj-target" label="Target date">
+            <Field
+              id="proj-target"
+              label="Target Application Deployment Date"
+            >
               <input
                 id="proj-target"
                 type="date"
@@ -899,7 +913,30 @@ export function ProjectFormModal({
                 min={state.start_date || undefined}
               />
             </Field>
+
+            <Field
+              id="proj-target-exec"
+              label="Target Executable Deployment Date"
+            >
+              <input
+                id="proj-target-exec"
+                type="date"
+                value={state.target_executable_deployment_date}
+                onChange={(e) =>
+                  update("target_executable_deployment_date", e.target.value)
+                }
+                disabled={saving}
+                className={baseInput}
+              />
+            </Field>
           </div>
+
+          <ProjectMilestonesPreview
+            targetDate={state.target_date || null}
+            targetExecutableDeploymentDate={
+              state.target_executable_deployment_date || null
+            }
+          />
 
           <Field id="proj-lead" label="Project lead">
             {/* Styled select matching the Application/Product field above.
@@ -1126,6 +1163,46 @@ export function ProjectFormModal({
 
 const baseInput =
   "block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100";
+
+/**
+ * Read-only preview of the four handoff milestones, recomputed on every
+ * render from the two deployment-date inputs — pure function of `state`,
+ * so it's always current with no effect/sync code needed. Never editable:
+ * the values are never part of `FormState` and never sent in the payload.
+ */
+function ProjectMilestonesPreview({
+  targetDate,
+  targetExecutableDeploymentDate,
+}: {
+  targetDate: string | null;
+  targetExecutableDeploymentDate: string | null;
+}) {
+  const milestones = computeProjectMilestones(
+    targetDate,
+    targetExecutableDeploymentDate,
+  );
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+      <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+        Milestones (calculated automatically)
+      </p>
+      <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+        {(Object.keys(MILESTONE_LABELS) as (keyof typeof MILESTONE_LABELS)[]).map(
+          (key) => (
+            <div key={key}>
+              <dt className="text-[11px] text-gray-500">
+                {MILESTONE_LABELS[key]}
+              </dt>
+              <dd className="text-sm text-gray-900">
+                {milestones[key] ?? "—"}
+              </dd>
+            </div>
+          ),
+        )}
+      </dl>
+    </div>
+  );
+}
 
 function Field({
   id,

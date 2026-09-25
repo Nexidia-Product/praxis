@@ -160,6 +160,7 @@ async function main() {
       additional_resources: [],
       resource_allocations: {},
       target_date: null,
+      target_executable_deployment_date: null,
       ai_complexity_score: null,
       ai_time_estimate: null,
       roadmap_bucket: null,

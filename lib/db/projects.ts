@@ -88,6 +88,8 @@ export const ProjectRepository = {
         additional_resources: input.additional_resources,
         resource_allocations: input.resource_allocations,
         target_date: input.target_date,
+        target_executable_deployment_date:
+          input.target_executable_deployment_date,
         ai_complexity_score: input.ai_complexity_score,
         ai_time_estimate: input.ai_time_estimate,
         roadmap_bucket: input.roadmap_bucket,

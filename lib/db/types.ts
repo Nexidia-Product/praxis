@@ -383,7 +383,15 @@ export interface Project {
    * silently; the project form exposes it via a small inline editor.
    */
   resource_allocations: Record<string, number>;
+  /** Surfaced in the UI as "Target Application Deployment Date". */
   target_date: IsoDate | null;
+  /**
+   * Deadline for the separate executable's deployment, distinct from
+   * `target_date` ("Target Application Deployment Date"). Feeds the
+   * `final_logic_process_handoff` milestone (2 business days prior) in
+   * `lib/projects/milestones.ts`.
+   */
+  target_executable_deployment_date: IsoDate | null;
 
   /**
    * Free-form outcomes this project is meant to deliver. Each is a
