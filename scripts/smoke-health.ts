@@ -163,6 +163,8 @@ async function main() {
       additional_resources: overrides.additional_resources ?? [],
       resource_allocations: {},
       target_date: overrides.target_date ?? null,
+      target_executable_deployment_date:
+        overrides.target_executable_deployment_date ?? null,
       ai_complexity_score: null,
       ai_time_estimate: null,
       roadmap_bucket: null,

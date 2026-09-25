@@ -94,9 +94,18 @@ const BUILTIN_COLUMNS: Column[] = [
     numFmt: "yyyy-mm-dd",
   },
   {
-    header: "Target Date",
+    header: "Target Application Deployment Date",
     text: (p) => p.target_date ?? "",
     native: (p) => (p.target_date ? new Date(p.target_date) : null),
+    numFmt: "yyyy-mm-dd",
+  },
+  {
+    header: "Target Executable Deployment Date",
+    text: (p) => p.target_executable_deployment_date ?? "",
+    native: (p) =>
+      p.target_executable_deployment_date
+        ? new Date(p.target_executable_deployment_date)
+        : null,
     numFmt: "yyyy-mm-dd",
   },
   { header: "Health Score", text: (p) => p.health_score ?? "" },
@@ -184,6 +193,10 @@ function applyFilters(
   const search = (url.searchParams.get("search") ?? "").trim().toLowerCase();
   const targetFrom = url.searchParams.get("target_from") ?? "";
   const targetTo = url.searchParams.get("target_to") ?? "";
+  const targetExecutableFrom =
+    url.searchParams.get("target_executable_from") ?? "";
+  const targetExecutableTo =
+    url.searchParams.get("target_executable_to") ?? "";
   const customFilters = readCustomFilters(url, customFields);
 
   return projects.filter((p) => {
@@ -205,6 +218,20 @@ function applyFilters(
       return false;
     }
     if (targetTo && (!p.target_date || p.target_date > targetTo)) {
+      return false;
+    }
+    if (
+      targetExecutableFrom &&
+      (!p.target_executable_deployment_date ||
+        p.target_executable_deployment_date < targetExecutableFrom)
+    ) {
+      return false;
+    }
+    if (
+      targetExecutableTo &&
+      (!p.target_executable_deployment_date ||
+        p.target_executable_deployment_date > targetExecutableTo)
+    ) {
       return false;
     }
     if (search) {

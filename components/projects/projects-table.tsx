@@ -111,6 +111,7 @@ type SortKey =
   | "project_lead"
   | "roadmap_timeline_start"
   | "target_date"
+  | "target_executable_deployment_date"
   | "date_added";
 
 /**
@@ -155,6 +156,15 @@ function compareProjects(
     // unscheduled, so they belong at the bottom of "soonest first".
     const av = a.target_date ?? "";
     const bv = b.target_date ?? "";
+    if (av === bv) return 0;
+    if (av === "") return 1;
+    if (bv === "") return -1;
+    return av < bv ? -1 : 1;
+  }
+  if (key === "target_executable_deployment_date") {
+    // Same null-handling as target_date.
+    const av = a.target_executable_deployment_date ?? "";
+    const bv = b.target_executable_deployment_date ?? "";
     if (av === bv) return 0;
     if (av === "") return 1;
     if (bv === "") return -1;
@@ -497,6 +507,20 @@ export function ProjectsTable({
       if (filters.target_to) {
         if (!p.target_date || p.target_date > filters.target_to) return false;
       }
+      if (filters.target_executable_from) {
+        if (
+          !p.target_executable_deployment_date ||
+          p.target_executable_deployment_date < filters.target_executable_from
+        )
+          return false;
+      }
+      if (filters.target_executable_to) {
+        if (
+          !p.target_executable_deployment_date ||
+          p.target_executable_deployment_date > filters.target_executable_to
+        )
+          return false;
+      }
       if (search) {
         const haystack =
           `${p.project_id} ${p.name} ${p.description}`.toLowerCase();
@@ -712,7 +736,11 @@ export function ProjectsTable({
       // Sensible default direction per column type. Date columns descending
       // ("most recent first"), everything else ascending.
       setSortDir(
-        key === "date_added" || key === "target_date" ? "desc" : "asc",
+        key === "date_added" ||
+          key === "target_date" ||
+          key === "target_executable_deployment_date"
+          ? "desc"
+          : "asc",
       );
     }
   }
@@ -945,8 +973,19 @@ export function ProjectsTable({
                   active={sortKey === "target_date"}
                   dir={sortDir}
                   onClick={() => handleSortClick("target_date")}
+                  title="Target Application Deployment Date"
                 >
-                  Target
+                  App Deploy
+                </Th>
+                <Th
+                  active={sortKey === "target_executable_deployment_date"}
+                  dir={sortDir}
+                  onClick={() =>
+                    handleSortClick("target_executable_deployment_date")
+                  }
+                  title="Target Executable Deployment Date"
+                >
+                  Exec Deploy
                 </Th>
                 <th scope="col" className="px-3 py-2">
                   Health
@@ -1181,6 +1220,9 @@ export function ProjectsTable({
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-gray-700">
                       {p.target_date ?? "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-gray-700">
+                      {p.target_executable_deployment_date ?? "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5">
                       {p.health_score ? (

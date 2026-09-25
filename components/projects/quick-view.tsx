@@ -41,6 +41,10 @@ import {
 } from "@/lib/projects/display";
 import { rollupDependencyHealth } from "@/lib/projects/dependencies";
 import type { EnumOption } from "@/lib/projects/enum-options";
+import {
+  MILESTONE_LABELS,
+  computeProjectMilestones,
+} from "@/lib/projects/milestones";
 import type {
   CustomFieldDefinition,
   Priority,
@@ -462,11 +466,31 @@ export function ProjectQuickView({
                     {project.roadmap_timeline_start ?? "—"}
                   </span>
                 </Field>
-                <Field label="Target Date">
+                <Field label="Target Application Deployment Date">
                   <span className="text-sm text-gray-900">
                     {project.target_date ?? "—"}
                   </span>
                 </Field>
+                <Field label="Target Executable Deployment Date">
+                  <span className="text-sm text-gray-900">
+                    {project.target_executable_deployment_date ?? "—"}
+                  </span>
+                </Field>
+                {(() => {
+                  const milestones = computeProjectMilestones(
+                    project.target_date,
+                    project.target_executable_deployment_date,
+                  );
+                  return (Object.keys(MILESTONE_LABELS) as (keyof typeof MILESTONE_LABELS)[]).map(
+                    (key) => (
+                      <Field key={key} label={MILESTONE_LABELS[key]}>
+                        <span className="text-sm text-gray-900">
+                          {milestones[key] ?? "—"}
+                        </span>
+                      </Field>
+                    ),
+                  );
+                })()}
                 <Field label="Date Added">
                   <span className="text-sm text-gray-900">
                     {project.date_added}

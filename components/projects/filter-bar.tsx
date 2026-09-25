@@ -85,6 +85,9 @@ export interface ProjectFilters {
   portfolio_position: string[];
   target_from: string; // YYYY-MM-DD or ""
   target_to: string;   // YYYY-MM-DD or ""
+  /** Date-range filter on `target_executable_deployment_date`. */
+  target_executable_from: string; // YYYY-MM-DD or ""
+  target_executable_to: string;   // YYYY-MM-DD or ""
   search: string;
   /** Per-custom-field filter values, keyed by `CustomFieldDefinition.key`. */
   custom: Record<string, CustomFieldFilter>;
@@ -101,6 +104,8 @@ export const EMPTY_FILTERS: ProjectFilters = {
   portfolio_position: [],
   target_from: "",
   target_to: "",
+  target_executable_from: "",
+  target_executable_to: "",
   search: "",
   custom: {},
 };
@@ -135,6 +140,12 @@ export function filtersToQueryString(filters: ProjectFilters): string {
     params.append("portfolio_position", pos);
   if (filters.target_from) params.set("target_from", filters.target_from);
   if (filters.target_to) params.set("target_to", filters.target_to);
+  if (filters.target_executable_from) {
+    params.set("target_executable_from", filters.target_executable_from);
+  }
+  if (filters.target_executable_to) {
+    params.set("target_executable_to", filters.target_executable_to);
+  }
   if (filters.search) params.set("search", filters.search);
   // Custom-field filters use a `cf.<key>.<part>` namespace so the server
   // can pick them up without colliding with any built-in name. Lists of
@@ -166,6 +177,8 @@ export function isFilterActive(filters: ProjectFilters): boolean {
     filters.portfolio_position.length > 0 ||
     filters.target_from !== "" ||
     filters.target_to !== "" ||
+    filters.target_executable_from !== "" ||
+    filters.target_executable_to !== "" ||
     filters.search !== "" ||
     Object.values(filters.custom).some(isCustomFilterActive)
   );
@@ -439,13 +452,16 @@ export function ProjectFilterBar({
           onChange={(v) => update("program", v)}
         />
 
-        <div className="flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 shadow-sm">
+        <div
+          className="flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 shadow-sm"
+          title="Target Application Deployment Date"
+        >
           <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-            Target
+            App Deploy
           </span>
           <input
             type="date"
-            aria-label="Target date from"
+            aria-label="Target application deployment date from"
             value={filters.target_from}
             onChange={(e) => update("target_from", e.target.value)}
             className="ml-2 border-none bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
@@ -453,9 +469,33 @@ export function ProjectFilterBar({
           <span className="px-1 text-xs text-gray-400">–</span>
           <input
             type="date"
-            aria-label="Target date to"
+            aria-label="Target application deployment date to"
             value={filters.target_to}
             onChange={(e) => update("target_to", e.target.value)}
+            className="border-none bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
+          />
+        </div>
+
+        <div
+          className="flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 shadow-sm"
+          title="Target Executable Deployment Date"
+        >
+          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+            Exec Deploy
+          </span>
+          <input
+            type="date"
+            aria-label="Target executable deployment date from"
+            value={filters.target_executable_from}
+            onChange={(e) => update("target_executable_from", e.target.value)}
+            className="ml-2 border-none bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
+          />
+          <span className="px-1 text-xs text-gray-400">–</span>
+          <input
+            type="date"
+            aria-label="Target executable deployment date to"
+            value={filters.target_executable_to}
+            onChange={(e) => update("target_executable_to", e.target.value)}
             className="border-none bg-transparent p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
           />
         </div>

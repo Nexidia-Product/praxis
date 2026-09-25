@@ -157,6 +157,7 @@ export interface ProjectCreatePayload {
    */
   resource_allocations?: unknown;
   target_date?: unknown;
+  target_executable_deployment_date?: unknown;
   roadmap_bucket?: unknown;
   roadmap_timeline_start?: unknown;
   custom_fields?: unknown;
@@ -465,6 +466,10 @@ async function validateAndShape(
     "additional_resources",
   );
   const target_date = asNullableDate(payload.target_date, "target_date");
+  const target_executable_deployment_date = asNullableDate(
+    payload.target_executable_deployment_date,
+    "target_executable_deployment_date",
+  );
   // New projects park in the "Unplaced" lane of the Now/Next/Later
   // roadmap by default, so every new project is an explicit triage item
   // an admin drags onto a horizon — rather than being auto-suggested
@@ -552,6 +557,7 @@ async function validateAndShape(
     additional_resources,
     resource_allocations,
     target_date,
+    target_executable_deployment_date,
     ai_complexity_score: null,
     ai_time_estimate: null,
     roadmap_bucket,
@@ -954,6 +960,12 @@ export async function updateProject(
   if (payload.target_date !== undefined) {
     patch.target_date = asNullableDate(payload.target_date, "target_date");
   }
+  if (payload.target_executable_deployment_date !== undefined) {
+    patch.target_executable_deployment_date = asNullableDate(
+      payload.target_executable_deployment_date,
+      "target_executable_deployment_date",
+    );
+  }
   if (payload.roadmap_bucket !== undefined) {
     patch.roadmap_bucket =
       payload.roadmap_bucket === null
@@ -1325,6 +1337,7 @@ export async function updateProject(
             "application_product",
             "project_lead",
             "target_date",
+            "target_executable_deployment_date",
             "roadmap_timeline_start",
             "roadmap_bucket",
             "ai_complexity_score",
