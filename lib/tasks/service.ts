@@ -1518,14 +1518,14 @@ export async function instantiateTemplate(
       detailed_description: item.description,
       status: "Not Started",
       priority: item.default_priority,
-      // Template instantiation has no per-task form to leave stage blank
-      // in, unlike interactive creation — default to the project's
-      // current stage (same snapshot rule as the existing-tasks
-      // migration backfill).
-      stage: project.stage,
-      // Template-created tasks start unassigned — a person is chosen
-      // deliberately afterward, not defaulted to the project lead.
-      responsible: "",
+      // Template items carry their own stage (required at save time);
+      // fall back to the project's current stage defensively for
+      // legacy template rows saved before that field existed.
+      stage: item.stage || project.stage,
+      // A pre-assigned owner on the template item wins; otherwise the
+      // task falls back to the project lead rather than being left
+      // unassigned.
+      responsible: item.default_responsible || project.project_lead || "",
       additional_assignees: [],
       target_date: null,
       blocked: false,

@@ -180,12 +180,12 @@ export function IdeaConversionForm({
     }));
   }
 
-  // Match the form-modal behavior: clear any selected template if the
-  // project type changes to one that doesn't have it.
+  // This form doesn't collect a Track (converted projects always default
+  // to Track A server-side — see CONVERSION_TRACK above), so the
+  // template picker is scoped to that fixed track rather than a form field.
   const matchingTemplates = useMemo(
-    () =>
-      templates.filter((t) => t.project_types.includes(state.project_type)),
-    [templates, state.project_type],
+    () => templates.filter((t) => t.tracks.includes(CONVERSION_TRACK)),
+    [templates],
   );
   useEffect(() => {
     if (
@@ -565,7 +565,7 @@ export function IdeaConversionForm({
             </select>
             <p className="mt-1 text-xs text-gray-500">
               {matchingTemplates.length === 0
-                ? "No templates configured for this project type."
+                ? "No templates configured for Track A (converted projects default to Track A)."
                 : "Auto-creates the template's tasks on the new project."}
             </p>
           </div>

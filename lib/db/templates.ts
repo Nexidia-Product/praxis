@@ -3,12 +3,12 @@
  *
  * Section 4.3 fields. Templates are bundles of standard tasks created by
  * admins (Section 5.19) and offered when a new project of a matching
- * `project_type` is created (Section 9, Step 4). Instantiating a template
+ * `track` is created (Section 9, Step 4). Instantiating a template
  * generates fresh `task_id`s — the templates themselves do not allocate
  * task IDs in advance.
  */
 
-import type { ProjectType, TaskTemplate, TemplateId } from "./types";
+import type { TaskTemplate, TemplateId } from "./types";
 import { getServiceRoleClient } from "@/lib/supabase/server";
 
 const TABLE = "templates" as const;
@@ -36,17 +36,17 @@ export const TemplateRepository = {
     return (data as TaskTemplate | null) ?? null;
   },
 
-  /** All templates that can be applied to a given project type. */
-  async getByProjectType(projectType: ProjectType): Promise<TaskTemplate[]> {
-    // After 0008, project_types is a text[]; PostgREST's `.contains`
-    // maps to Postgres's `@>` operator. A template applies to a
-    // project_type whenever its array contains that value.
+  /** All templates that can be applied to a given track. */
+  async getByTrack(track: string): Promise<TaskTemplate[]> {
+    // `tracks` is a text[]; PostgREST's `.contains` maps to Postgres's
+    // `@>` operator. A template applies to a track whenever its array
+    // contains that value.
     const { data, error } = await getServiceRoleClient()
       .from(TABLE)
       .select("*")
-      .contains("project_types", [projectType]);
+      .contains("tracks", [track]);
     if (error)
-      throw new Error(`templates.getByProjectType failed: ${error.message}`);
+      throw new Error(`templates.getByTrack failed: ${error.message}`);
     return (data ?? []) as TaskTemplate[];
   },
 
@@ -55,7 +55,7 @@ export const TemplateRepository = {
       .from(TABLE)
       .insert({
         template_name: input.template_name,
-        project_types: input.project_types,
+        tracks: input.tracks,
         tasks: input.tasks,
         created_by: input.created_by,
       })

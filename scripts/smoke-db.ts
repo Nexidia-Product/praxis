@@ -191,13 +191,15 @@ async function main() {
   console.log("Templates");
   const tmpl = await TemplateRepository.create({
     template_name: "Standard",
-    project_types: ["New Capability"],
+    tracks: ["Track A - Dashboard/visualization"],
     tasks: [
       {
         local_id: "tpl-smoke-1",
         name: "Kickoff",
         description: "",
         default_priority: "High",
+        stage: "Qualification",
+        default_responsible: null,
         estimate_hours: null,
         dependencies: [],
       },
@@ -206,14 +208,18 @@ async function main() {
         name: "Closeout",
         description: "",
         default_priority: "Medium",
+        stage: "Productization",
+        default_responsible: null,
         estimate_hours: null,
         dependencies: [],
       },
     ],
     created_by: admin.user_id,
   });
-  const byType = await TemplateRepository.getByProjectType("New Capability");
-  check("template retrievable by project type", byType[0]?.template_id === tmpl.template_id);
+  const byTrack = await TemplateRepository.getByTrack(
+    "Track A - Dashboard/visualization",
+  );
+  check("template retrievable by track", byTrack[0]?.template_id === tmpl.template_id);
 
   console.log("Settings");
   const def = await SettingsRepository.get();

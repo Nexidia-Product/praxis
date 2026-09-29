@@ -191,7 +191,7 @@ async function main() {
   const tpl = await createTemplate(
     {
       template_name: "Standard Feature",
-      project_type: "New Feature",
+      tracks: ["Track A - Dashboard/visualization"],
       tasks: [
         { name: "Discovery", description: "kickoff", default_priority: "High" },
         { name: "Build", description: "", default_priority: "Medium" },
@@ -210,7 +210,7 @@ async function main() {
     await createTemplate(
       {
         template_name: "Empty",
-        project_type: "New Feature",
+        tracks: ["Track A - Dashboard/visualization"],
         tasks: [],
       },
       { createdBy: "admin-id" },
@@ -224,7 +224,7 @@ async function main() {
   // ---- 9. updateTemplate replaces contents but preserves created_by ----
   const tpl2 = await updateTemplate(tpl.template_id, {
     template_name: "Standard Feature v2",
-    project_type: "New Feature",
+    tracks: ["Track A - Dashboard/visualization"],
     tasks: [{ name: "OnlyOne", description: "", default_priority: "Low" }],
   });
   assert(tpl2.template_name === "Standard Feature v2", "template renamed");
@@ -236,7 +236,10 @@ async function main() {
   const created = await instantiateTemplate(tpl2.template_id, "2026-001");
   assert(created.length === 1, "instantiated 1 task");
   assert(created[0].template_id === tpl2.template_id, "template_id stamped");
-  assert(created[0].responsible === "", "responsible left unassigned");
+  assert(
+    created[0].responsible === "lead-user-id",
+    "responsible falls back to project_lead when the template item has none",
+  );
   assert(created[0].priority === "Low", "priority carried from template item");
   console.log("OK: instantiateTemplate fans out");
 
@@ -244,7 +247,7 @@ async function main() {
   const tplBig = await createTemplate(
     {
       template_name: "Big",
-      project_type: "New Feature",
+      tracks: ["Track A - Dashboard/visualization"],
       tasks: [
         { name: "A", description: "", default_priority: "Medium" },
         { name: "B", description: "", default_priority: "Medium" },

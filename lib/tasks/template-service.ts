@@ -14,7 +14,6 @@
 import {
   TemplateRepository,
   type Priority,
-  type ProjectType,
   type TaskDependencyType,
   type TaskTemplate,
   type TaskTemplateItem,
@@ -22,7 +21,8 @@ import {
   type TemplateId,
   type UserId,
 } from "@/lib/db";
-import { PROJECT_TYPES } from "@/lib/projects/display";
+import { stagesForTrack } from "@/lib/projects/display";
+import { getEnumOptions } from "@/lib/projects/enum-options";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 const TASK_DEPENDENCY_TYPES: TaskDependencyType[] = ["FS", "SS", "FF", "SF"];
@@ -46,25 +46,21 @@ export class NotFoundError extends Error {
 
 export interface TemplatePayload {
   template_name?: unknown;
-  /**
-   * Multi-type form (preferred). Replaces the original
-   * `project_type` (single) — see migration 0008. Kept the legacy
-   * field as optional so a payload from a stale client still
-   * round-trips as a single-element array.
-   */
-  project_types?: unknown;
-  /** Legacy single-value form. Coerced to [project_type] when present. */
-  project_type?: unknown;
+  /** Multi-select — replaces the original `project_types`. Must be non-empty. */
+  tracks?: unknown;
   tasks?: unknown;
 }
 
 interface ValidatedTemplate {
   template_name: string;
-  project_types: ProjectType[];
+  tracks: string[];
   tasks: TaskTemplateItem[];
 }
 
-function validate(payload: TemplatePayload): ValidatedTemplate {
+function validate(
+  payload: TemplatePayload,
+  validTrackIds: readonly string[],
+): ValidatedTemplate {
   if (typeof payload.template_name !== "string") {
     throw new ValidationError("template_name must be a string.");
   }
@@ -73,34 +69,33 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
     throw new ValidationError("template_name is required.");
   }
 
-  // Accept either `project_types` (multi) or the legacy `project_type`
-  // (single). The legacy field is silently lifted into a one-element
-  // array so old clients/scripts keep working.
-  let rawTypes: unknown = payload.project_types;
-  if (rawTypes === undefined && typeof payload.project_type === "string") {
-    rawTypes = [payload.project_type];
-  }
-  if (!Array.isArray(rawTypes) || rawTypes.length === 0) {
+  if (!Array.isArray(payload.tracks) || payload.tracks.length === 0) {
     throw new ValidationError(
-      "project_types must be a non-empty array of project type strings.",
+      "tracks must be a non-empty array of track ids.",
     );
   }
-  const project_types: ProjectType[] = [];
-  const seen = new Set<string>();
-  for (let i = 0; i < rawTypes.length; i++) {
-    const v = rawTypes[i];
+  const tracks: string[] = [];
+  const seenTracks = new Set<string>();
+  for (let i = 0; i < payload.tracks.length; i++) {
+    const v = payload.tracks[i];
     if (typeof v !== "string") {
-      throw new ValidationError(`project_types[${i}] must be a string.`);
+      throw new ValidationError(`tracks[${i}] must be a string.`);
     }
-    if (!(PROJECT_TYPES as readonly string[]).includes(v)) {
+    if (!validTrackIds.includes(v)) {
       throw new ValidationError(
-        `project_types[${i}] must be one of: ${PROJECT_TYPES.join(", ")}.`,
+        `tracks[${i}] must be one of: ${validTrackIds.join(", ")}.`,
       );
     }
-    if (seen.has(v)) continue;
-    seen.add(v);
-    project_types.push(v as ProjectType);
+    if (seenTracks.has(v)) continue;
+    seenTracks.add(v);
+    tracks.push(v);
   }
+
+  // Every task's `stage` is validated against the union of stages
+  // across this template's own tracks — the only validation boundary
+  // available at authoring time (the destination project isn't known
+  // until instantiation).
+  const validStages = new Set(tracks.flatMap((t) => stagesForTrack(t)));
 
   if (!Array.isArray(payload.tasks)) {
     throw new ValidationError("tasks must be an array.");
@@ -135,6 +130,16 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
         `tasks[${i}].default_priority must be one of: ${PRIORITIES.join(", ")}.`,
       );
     }
+    if (typeof item.stage !== "string" || !validStages.has(item.stage)) {
+      throw new ValidationError(
+        `tasks[${i}].stage must be one of: ${Array.from(validStages).join(", ")} (the union of stages across this template's tracks).`,
+      );
+    }
+    const default_responsible =
+      typeof item.default_responsible === "string" &&
+      item.default_responsible.trim()
+        ? item.default_responsible.trim()
+        : null;
 
     // Backfill local_id for rows saved before this field existed.
     // We use crypto.randomUUID() (Node 19+, available in every runtime
@@ -160,6 +165,8 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
       name: item.name.trim(),
       description,
       default_priority: item.default_priority as Priority,
+      stage: item.stage,
+      default_responsible,
       estimate_hours,
       // Filled in by the second pass once every local_id is known.
       dependencies: [],
@@ -183,7 +190,7 @@ function validate(payload: TemplatePayload): ValidatedTemplate {
   // node, refuse if we can reach the start again.
   detectCycles(tasks);
 
-  return { template_name, project_types, tasks };
+  return { template_name, tracks, tasks };
 }
 
 /**
@@ -340,10 +347,11 @@ export async function createTemplate(
   payload: TemplatePayload,
   ctx: { createdBy: UserId },
 ): Promise<TaskTemplate> {
-  const v = validate(payload);
+  const validTrackIds = (await getEnumOptions("track")).map((o) => o.id);
+  const v = validate(payload, validTrackIds);
   return TemplateRepository.create({
     template_name: v.template_name,
-    project_types: v.project_types,
+    tracks: v.tracks,
     tasks: v.tasks,
     created_by: ctx.createdBy,
   });
@@ -355,12 +363,13 @@ export async function updateTemplate(
 ): Promise<TaskTemplate> {
   const existing = await TemplateRepository.getById(id);
   if (!existing) throw new NotFoundError(`Template ${id} not found.`);
-  const v = validate(payload);
+  const validTrackIds = (await getEnumOptions("track")).map((o) => o.id);
+  const v = validate(payload, validTrackIds);
   // Preserve `created_by` — original author is part of the audit trail and
   // is not a field the editor surfaces.
   return TemplateRepository.update(id, {
     template_name: v.template_name,
-    project_types: v.project_types,
+    tracks: v.tracks,
     tasks: v.tasks,
   });
 }

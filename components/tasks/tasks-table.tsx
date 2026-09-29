@@ -1271,9 +1271,9 @@ void OPEN_TASK_STATUSES;
 
 /**
  * Two-pick modal: choose a project, choose a template. The template
- * picker filters by project type so we don't offer mismatched
- * options. If the user selects a project whose type has no matching
- * templates we surface an empty state with a link to manage them.
+ * picker filters by track so we don't offer mismatched options. If
+ * the user selects a project whose track has no matching templates
+ * we surface an empty state with a link to manage them.
  *
  * Centered modal (not a drawer) since it's a one-off operation,
  * not a long-form edit. Submit fires the parent's `onSubmit` —
@@ -1320,15 +1320,13 @@ function ApplyTemplateModal({
     [projects],
   );
 
-  // Templates that match the selected project's type. When no
+  // Templates that match the selected project's track. When no
   // project is picked yet, we show all templates so the user can
   // see what's available — they'll get filtered down once they
   // pick. Reset templateId if the selection no longer matches.
   const selectedProject = projects.find((p) => p.project_id === projectId);
   const matchingTemplates = selectedProject
-    ? templates.filter((t) =>
-        t.project_types.includes(selectedProject.project_type),
-      )
+    ? templates.filter((t) => t.tracks.includes(selectedProject.track))
     : templates;
   useEffect(() => {
     if (
@@ -1476,16 +1474,16 @@ function ApplyTemplateModal({
               >
                 No templates exist
                 {selectedProject
-                  ? ` for project type "${selectedProject.project_type}"`
+                  ? ` for track "${selectedProject.track}"`
                   : ""}
                 .
               </div>
             )}
             {selectedProject && matchingTemplates.length > 0 ? (
               <p className="mt-1 text-[11px] text-gray-500">
-                Filtered to templates matching project type{" "}
+                Filtered to templates matching track{" "}
                 <span className="font-medium text-gray-700">
-                  {selectedProject.project_type}
+                  {selectedProject.track}
                 </span>
                 .
               </p>
