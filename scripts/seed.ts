@@ -461,6 +461,7 @@ function transformProjects(
 function transformTasks(
   rows: TasksSheetRow[],
   nameToId: Map<string, ProjectId>,
+  projectsById: Map<ProjectId, Project>,
   errors: string[],
   warnings: string[],
 ): Task[] {
@@ -502,6 +503,9 @@ function transformTasks(
       detailed_description: asString(raw["Detailed Description"]),
       status,
       priority,
+      // Seeded tasks snapshot their parent project's current stage, same
+      // backfill rule as migration 0028 applied to pre-existing tasks.
+      stage: projectsById.get(projectId)?.stage ?? "Qualification",
       // Name stays as string; Step 2 resolves to user ID.
       responsible: asString(raw["Responsible"]),
       additional_assignees: [],
@@ -820,9 +824,13 @@ async function main(): Promise<void> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const transformed = transformProjects(projectRows, errors);
+    const projectsById = new Map(
+      transformed.projects.map((p) => [p.project_id, p]),
+    );
     const builtTasks = transformTasks(
       taskRows,
       transformed.nameToId,
+      projectsById,
       errors,
       warnings,
     );

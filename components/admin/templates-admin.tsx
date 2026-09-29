@@ -4,7 +4,7 @@
  * Admin Task Templates editor (Section 5.19).
  *
  * Two-pane layout:
- *   - Left: list of existing templates, grouped under their project type.
+ *   - Left: list of existing templates, grouped under their track.
  *   - Right: editor for the currently selected template (or a fresh draft).
  *
  * Save semantics:
@@ -14,19 +14,24 @@
  * Reordering tasks within a template uses up/down buttons rather than
  * drag-and-drop. Templates rarely have more than ~10 tasks; the keyboard-
  * accessible up/down pattern is good enough and saves a dependency.
+ *
+ * Per-task Stage options are the union of `stagesForTrack(t)` across
+ * whichever tracks are currently checked on the draft — the template
+ * doesn't commit to one track, so this is the widest sensible choice set
+ * at authoring time (the service layer re-validates the same way on save).
  */
 
 import { useState } from "react";
 
 import type {
   Priority,
-  ProjectType,
   TaskDependencyType,
   TaskTemplate,
   TaskTemplateItem,
   TemplateDependency,
 } from "@/lib/db";
-import { PROJECT_TYPES } from "@/lib/projects/display";
+import { stagesForTrack } from "@/lib/projects/display";
+import type { EnumOption } from "@/lib/projects/enum-options";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
@@ -50,13 +55,15 @@ function newLocalId(): string {
 
 interface TemplatesAdminProps {
   initialTemplates: TaskTemplate[];
+  /** Merged track options (system + admin-added, archived excluded). */
+  trackOptions: EnumOption[];
 }
 
 interface DraftTemplate {
   /** null = unsaved draft, will POST on save. */
   template_id: string | null;
   template_name: string;
-  project_types: ProjectType[];
+  tracks: string[];
   tasks: TaskTemplateItem[];
 }
 
@@ -64,31 +71,36 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
   return {
     template_id: t.template_id,
     template_name: t.template_name,
-    project_types: [...t.project_types],
-    // Backfill local_id, estimate_hours, dependencies for rows that
-    // predate those fields, so the editor never sees `undefined`.
+    tracks: [...t.tracks],
+    // Backfill local_id, estimate_hours, dependencies, stage,
+    // default_responsible for rows that predate those fields, so the
+    // editor never sees `undefined`.
     tasks: t.tasks.map((i) => ({
       local_id: i.local_id?.trim() ? i.local_id : newLocalId(),
       name: i.name,
       description: i.description,
       default_priority: i.default_priority,
+      stage: i.stage ?? "",
+      default_responsible: i.default_responsible ?? null,
       estimate_hours: i.estimate_hours ?? null,
       dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
     })),
   };
 }
 
-function newDraft(): DraftTemplate {
+function newDraft(trackOptions: EnumOption[]): DraftTemplate {
   return {
     template_id: null,
     template_name: "",
-    project_types: ["New Feature"],
+    tracks: trackOptions[0] ? [trackOptions[0].id] : [],
     tasks: [
       {
         local_id: newLocalId(),
         name: "",
         description: "",
         default_priority: "Medium",
+        stage: "",
+        default_responsible: null,
         estimate_hours: null,
         dependencies: [],
       },
@@ -96,9 +108,12 @@ function newDraft(): DraftTemplate {
   };
 }
 
-export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
+export function TemplatesAdmin({
+  initialTemplates,
+  trackOptions,
+}: TemplatesAdminProps) {
   const [templates, setTemplates] = useState<TaskTemplate[]>(() =>
-    sortTemplates(initialTemplates),
+    sortTemplates(initialTemplates, trackOptions),
   );
   const [draft, setDraft] = useState<DraftTemplate | null>(null);
   const [saving, setSaving] = useState(false);
@@ -111,7 +126,7 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
   }
 
   function startCreate() {
-    setDraft(newDraft());
+    setDraft(newDraft(trackOptions));
     setError(null);
   }
 
@@ -125,6 +140,28 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     value: DraftTemplate[K],
   ) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  /**
+   * Toggling a track can shrink the valid-stage union — clear any task's
+   * stage that's no longer covered by the remaining checked tracks,
+   * rather than letting it silently fail validation on save.
+   */
+  function updateTracks(trackId: string, checked: boolean) {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const nextTracks = checked
+        ? [...prev.tracks, trackId]
+        : prev.tracks.filter((t) => t !== trackId);
+      const validStages = new Set(nextTracks.flatMap((t) => stagesForTrack(t)));
+      return {
+        ...prev,
+        tracks: nextTracks,
+        tasks: prev.tasks.map((t) =>
+          t.stage && !validStages.has(t.stage) ? { ...t, stage: "" } : t,
+        ),
+      };
+    });
   }
 
   function updateTaskItem(
@@ -152,6 +189,8 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                 name: "",
                 description: "",
                 default_priority: "Medium",
+                stage: "",
+                default_responsible: null,
                 estimate_hours: null,
                 dependencies: [],
               },
@@ -251,6 +290,10 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
       setError("Name is required.");
       return;
     }
+    if (draft.tracks.length === 0) {
+      setError("Pick at least one track.");
+      return;
+    }
     if (draft.tasks.length === 0) {
       setError("Template must have at least one task.");
       return;
@@ -258,6 +301,10 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     for (const [i, t] of draft.tasks.entries()) {
       if (!t.name.trim()) {
         setError(`Task ${i + 1}: name is required.`);
+        return;
+      }
+      if (!t.stage) {
+        setError(`Task ${i + 1}: stage is required.`);
         return;
       }
     }
@@ -268,11 +315,13 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     const method = isNew ? "POST" : "PUT";
     const body = {
       template_name: draft.template_name.trim(),
-      project_types: draft.project_types,
+      tracks: draft.tracks,
       tasks: draft.tasks.map((t) => ({
         local_id: t.local_id,
         name: t.name.trim(),
         description: t.description,
+        stage: t.stage,
+        default_responsible: t.default_responsible,
         default_priority: t.default_priority,
         estimate_hours: t.estimate_hours,
         dependencies: t.dependencies,
@@ -302,6 +351,7 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
           : prev.map((t) =>
               t.template_id === data.template!.template_id ? data.template! : t,
             ),
+        trackOptions,
       ),
     );
     setDraft(templateToDraft(data.template));
@@ -325,8 +375,14 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
     setDraft(null);
   }
 
-  // Group templates by project type for the sidebar.
-  const grouped = groupByProjectType(templates);
+  // Group templates by track for the sidebar.
+  const grouped = groupByTrack(templates);
+
+  // Union of stages across the draft's currently-checked tracks — the
+  // per-task Stage select's option list.
+  const stageChoices = draft
+    ? Array.from(new Set(draft.tracks.flatMap((t) => stagesForTrack(t))))
+    : [];
 
   return (
     <div className="space-y-4">
@@ -360,13 +416,13 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                 No templates yet.
               </p>
             ) : (
-              PROJECT_TYPES.map((pt) => {
-                const items = grouped.get(pt) ?? [];
+              trackOptions.map((track) => {
+                const items = grouped.get(track.id) ?? [];
                 if (items.length === 0) return null;
                 return (
-                  <div key={pt} className="mb-2">
+                  <div key={track.id} className="mb-2">
                     <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                      {pt}
+                      {track.label}
                     </p>
                     {items.map((t) => {
                       const active = draft?.template_id === t.template_id;
@@ -429,26 +485,26 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                 </Field>
 
                 <Field
-                  id="tpl-types"
-                  label="Project types"
+                  id="tpl-tracks"
+                  label="Tracks"
                   required
                 >
                   {/* Multi-select checkbox group. A template can apply
-                      to N project types — closeout / handover templates
-                      typically span every type while highly type-specific
+                      to N tracks — closeout / handover templates
+                      typically span every track while highly track-specific
                       ones stay narrow. Validation in the service layer
                       requires at least one to be picked. */}
                   <div
-                    id="tpl-types"
+                    id="tpl-tracks"
                     role="group"
-                    aria-label="Project types"
+                    aria-label="Tracks"
                     className="flex flex-wrap gap-2 rounded-md border border-gray-300 bg-white p-2"
                   >
-                    {PROJECT_TYPES.map((pt) => {
-                      const checked = draft.project_types.includes(pt);
+                    {trackOptions.map((track) => {
+                      const checked = draft.tracks.includes(track.id);
                       return (
                         <label
-                          key={pt}
+                          key={track.id}
                           className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
                             checked
                               ? "border-[var(--brand)] bg-blue-50 text-blue-900"
@@ -458,27 +514,20 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={(e) => {
-                              const next = new Set(draft.project_types);
-                              if (e.target.checked) next.add(pt);
-                              else next.delete(pt);
-                              updateDraft(
-                                "project_types",
-                                Array.from(next) as ProjectType[],
-                              );
-                            }}
+                            onChange={(e) => updateTracks(track.id, e.target.checked)}
                             disabled={saving}
                             className="h-3 w-3"
                           />
-                          {pt}
+                          {track.label}
                         </label>
                       );
                     })}
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Pick every project type this template should appear
-                    for. Most "closeout" or "handover" templates apply
-                    across all types.
+                    Pick every track this template should appear for. Most
+                    "closeout" or "handover" templates apply across all
+                    tracks. Each task's Stage options below are the
+                    combined stage list across the tracks picked here.
                   </p>
                 </Field>
               </div>
@@ -585,6 +634,54 @@ export function TemplatesAdmin({ initialTemplates }: TemplatesAdminProps) {
                               estimate_hours: v === "" ? null : Number(v),
                             });
                           }}
+                          disabled={saving}
+                          className={baseInput}
+                        />
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div>
+                          <select
+                            aria-label={`Task ${i + 1} stage`}
+                            value={item.stage}
+                            onChange={(e) =>
+                              updateTaskItem(i, { stage: e.target.value })
+                            }
+                            disabled={saving || stageChoices.length === 0}
+                            className={baseInput}
+                          >
+                            <option value="" disabled>
+                              — Select a stage —
+                            </option>
+                            {stageChoices.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                            {/* Defensive: preserve a stage that's no longer
+                                covered by the checked tracks rather than
+                                silently dropping it from the select. */}
+                            {item.stage && !stageChoices.includes(item.stage) ? (
+                              <option value={item.stage}>{item.stage}</option>
+                            ) : null}
+                          </select>
+                          {stageChoices.length === 0 ? (
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Pick a track above first.
+                            </p>
+                          ) : null}
+                        </div>
+                        <input
+                          type="text"
+                          aria-label={`Task ${i + 1} default responsible`}
+                          placeholder="Default responsible (optional)"
+                          value={item.default_responsible ?? ""}
+                          onChange={(e) =>
+                            updateTaskItem(i, {
+                              default_responsible: e.target.value.trim()
+                                ? e.target.value
+                                : null,
+                            })
+                          }
                           disabled={saving}
                           className={baseInput}
                         />
@@ -777,16 +874,20 @@ function Field({
   );
 }
 
-function sortTemplates(templates: TaskTemplate[]): TaskTemplate[] {
+function sortTemplates(
+  templates: TaskTemplate[],
+  trackOptions: EnumOption[],
+): TaskTemplate[] {
+  const order = trackOptions.map((o) => o.id);
   return [...templates].sort((a, b) => {
-    // Sort by the first listed project type (matches the order an
-    // admin chose in the editor) then by template name. Templates
-    // that span multiple types just sort by the leftmost.
-    const aType = a.project_types[0] ?? "";
-    const bType = b.project_types[0] ?? "";
-    if (aType !== bType) {
-      const ai = PROJECT_TYPES.indexOf(aType as ProjectType);
-      const bi = PROJECT_TYPES.indexOf(bType as ProjectType);
+    // Sort by the first listed track (matches the order an admin
+    // chose in the editor) then by template name. Templates that
+    // span multiple tracks just sort by the leftmost.
+    const aTrack = a.tracks[0] ?? "";
+    const bTrack = b.tracks[0] ?? "";
+    if (aTrack !== bTrack) {
+      const ai = order.indexOf(aTrack);
+      const bi = order.indexOf(bTrack);
       return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) -
         (bi === -1 ? Number.MAX_SAFE_INTEGER : bi);
     }
@@ -794,19 +895,17 @@ function sortTemplates(templates: TaskTemplate[]): TaskTemplate[] {
   });
 }
 
-function groupByProjectType(
-  templates: TaskTemplate[],
-): Map<ProjectType, TaskTemplate[]> {
-  // A multi-type template appears under each of its types. The
-  // group view is for "show me everything relevant to type X" so
+function groupByTrack(templates: TaskTemplate[]): Map<string, TaskTemplate[]> {
+  // A multi-track template appears under each of its tracks. The
+  // group view is for "show me everything relevant to track X" so
   // duplication across groups is the right shape; sortTemplates
   // upstream handles the canonical order inside each bucket.
-  const map = new Map<ProjectType, TaskTemplate[]>();
+  const map = new Map<string, TaskTemplate[]>();
   for (const t of templates) {
-    for (const type of t.project_types) {
-      const arr = map.get(type) ?? [];
+    for (const track of t.tracks) {
+      const arr = map.get(track) ?? [];
       arr.push(t);
-      map.set(type, arr);
+      map.set(track, arr);
     }
   }
   return map;

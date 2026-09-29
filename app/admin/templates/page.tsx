@@ -13,6 +13,7 @@ import {
   requirePagePermission,
 } from "@/lib/auth/permissions";
 import { TemplateRepository } from "@/lib/db";
+import { getEnumOptions } from "@/lib/projects/enum-options";
 import { TemplatesAdmin } from "@/components/admin/templates-admin";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 
@@ -25,6 +26,7 @@ export default async function TemplatesAdminPage() {
   const { permissions } = await getCurrentUserPermissions();
   const templates = await TemplateRepository.getAll();
   templates.sort((a, b) => a.template_name.localeCompare(b.template_name));
+  const trackOptions = await getEnumOptions("track");
 
   return (
     <PolarisShell
@@ -38,9 +40,9 @@ export default async function TemplatesAdminPage() {
       <PolarisPageHeader
         eyebrow="Administration"
         title="Task templates"
-        subtitle="Pre-built task lists offered when creating a project of the matching type."
+        subtitle="Pre-built task lists offered when creating a project of the matching track."
       />
-      <TemplatesAdmin initialTemplates={templates} />
+      <TemplatesAdmin initialTemplates={templates} trackOptions={trackOptions} />
     </PolarisShell>
   );
 }

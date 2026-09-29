@@ -516,12 +516,12 @@ export function ProjectFormModal({
     }));
   }
 
-  // Templates available for the currently-selected project type. If the
-  // user changes the type after selecting a template, the previously-chosen
+  // Templates available for the currently-selected track. If the user
+  // changes the track after selecting a template, the previously-chosen
   // template might no longer match — clear the selection in that case so
-  // we never submit a template_id from a different type.
+  // we never submit a template_id from a different track.
   const matchingTemplates = (templates ?? []).filter((t) =>
-    t.project_types.includes(state.project_type),
+    t.tracks.includes(state.track),
   );
   useEffect(() => {
     if (
@@ -530,7 +530,7 @@ export function ProjectFormModal({
     ) {
       setState((prev) => ({ ...prev, template_id: "" }));
     }
-  }, [state.project_type, matchingTemplates, state.template_id]);
+  }, [state.track, matchingTemplates, state.template_id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1104,9 +1104,9 @@ export function ProjectFormModal({
                   className="rounded-md border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600"
                   id="proj-template"
                 >
-                  No task templates exist for project type{" "}
+                  No task templates exist for track{" "}
                   <span className="font-medium text-gray-900">
-                    {state.project_type}
+                    {state.track}
                   </span>
                   .{" "}
                   <Link

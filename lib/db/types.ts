@@ -540,6 +540,15 @@ export interface Task {
   detailed_description: string;
   status: TaskStatus;
   priority: Priority;
+  /**
+   * Which stage of the parent project's delivery track this task belongs
+   * to — one of `stagesForTrack(project.track)` in
+   * `lib/projects/display.ts`. Required on every task; the create form
+   * starts it blank (no default) so it's a deliberate choice rather than
+   * an easy-to-miss pre-fill. Existing tasks were backfilled to their
+   * project's stage at the time the field was introduced.
+   */
+  stage: string;
   responsible: UserId;
   /** Mix of UserIds and free-form names is permitted (Section 4.2). */
   additional_assignees: string[];
@@ -688,6 +697,20 @@ export interface TaskTemplateItem {
   name: string;
   description: string;
   default_priority: Priority;
+  /**
+   * Which stage this task starts in once instantiated — one of
+   * `stagesForTrack(t)` for some `t` in the parent `TaskTemplate.tracks`.
+   * Required; there is no fallback at the template-authoring level
+   * (mirrors `Task.stage` being required on the runtime record).
+   */
+  stage: string;
+  /**
+   * Optional pre-assigned owner (UserId or free-form name, same
+   * convention as `Task.responsible`). When null/empty at instantiation
+   * time, the created task falls back to the project's `project_lead`
+   * rather than being left unassigned.
+   */
+  default_responsible: string | null;
   /** Optional time estimate in hours, mirrors `Task.estimate_hours`. */
   estimate_hours: number | null;
   /** Predecessor relationships against other tasks in the SAME template. */
@@ -709,13 +732,16 @@ export interface TaskTemplate {
   template_id: TemplateId;
   template_name: string;
   /**
-   * Project types this template is offered for during project
-   * creation and via "+ From template" on the Tasks pages. A template
-   * applies to N types — many real-world templates (closeout
-   * checklists, PM handover, etc.) get reused across project types
-   * with no per-type variation. Must contain at least one entry.
+   * Delivery tracks this template is offered for during project
+   * creation and via "+ From template" on the Tasks pages. Replaces
+   * the original `project_types` field — a template applies to N
+   * tracks; many real-world templates (closeout checklists, PM
+   * handover, etc.) get reused across tracks with no per-track
+   * variation. Must contain at least one entry. Values are track ids
+   * (`Track.id` — system or admin-added, see `lib/projects/display.ts`
+   * and `settings.enum_extensions.track`).
    */
-  project_types: ProjectType[];
+  tracks: string[];
   /** Ordered list of task definitions. Order is preserved on instantiation. */
   tasks: TaskTemplateItem[];
   created_by: UserId;

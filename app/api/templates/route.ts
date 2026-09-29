@@ -4,7 +4,7 @@
  *   GET  /api/templates                List all templates. Any user — the
  *                                      project form needs them at create
  *                                      time to offer template selection.
- *        ?project_type=<type>          Filter to templates for one type.
+ *        ?track=<track_id>             Filter to templates for one track.
  *   POST /api/templates                Create a template. Admin only.
  *
  * Editing existing templates is handled via PUT on `/api/templates/[id]`
@@ -14,8 +14,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePermission, requireSession, withAuth } from "@/lib/auth/permissions";
-import { TemplateRepository, type ProjectType } from "@/lib/db";
-import { PROJECT_TYPES } from "@/lib/projects/display";
+import { TemplateRepository } from "@/lib/db";
 import {
   ValidationError,
   createTemplate,
@@ -25,29 +24,22 @@ import {
 export const GET = withAuth(async (request: Request) => {
   await requireSession();
   const url = new URL(request.url);
-  const projectType = url.searchParams.get("project_type");
+  const track = url.searchParams.get("track");
 
   let templates = await TemplateRepository.getAll();
-  if (projectType) {
-    if (!(PROJECT_TYPES as readonly string[]).includes(projectType)) {
-      return NextResponse.json(
-        { error: `Invalid project_type: ${projectType}` },
-        { status: 400 },
-      );
-    }
-    templates = templates.filter((t) =>
-      t.project_types.includes(projectType as ProjectType),
-    );
+  if (track) {
+    templates = templates.filter((t) => t.tracks.includes(track));
   }
 
-  // Stable sort: first listed project type, then template_name. The
-  // pre-array sort used the only project_type a template carried;
-  // the multi-type version sorts by the leftmost entry which is
-  // stable enough for the editor's table and the dropdown order.
+  // Stable sort: first listed track, then template_name. The
+  // single-project-type era sort used the only value a template
+  // carried; the multi-value version sorts by the leftmost entry
+  // which is stable enough for the editor's table and the dropdown
+  // order.
   templates.sort((a, b) => {
-    const aType = a.project_types[0] ?? "";
-    const bType = b.project_types[0] ?? "";
-    if (aType !== bType) return aType < bType ? -1 : 1;
+    const aTrack = a.tracks[0] ?? "";
+    const bTrack = b.tracks[0] ?? "";
+    if (aTrack !== bTrack) return aTrack < bTrack ? -1 : 1;
     return a.template_name < b.template_name ? -1 : 1;
   });
 

@@ -197,6 +197,7 @@ function DetailsTab({ task }: { task: Task }) {
       </section>
 
       <section className="grid grid-cols-2 gap-3 text-sm">
+        <Field label="Stage" value={task.stage} />
         <Field label="Responsible" value={task.responsible || "—"} />
         <Field
           label="Additional assignees"

@@ -75,6 +75,7 @@ export const TaskRepository = {
         detailed_description: input.detailed_description,
         status: input.status,
         priority: input.priority,
+        stage: input.stage,
         responsible: input.responsible,
         additional_assignees: input.additional_assignees,
         target_date: input.target_date,
