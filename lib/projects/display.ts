@@ -92,9 +92,8 @@ export function priorityBadgeClass(value: string | null | undefined): string {
 // ---------------------------------------------------------------------------
 
 export const PROJECT_TYPES: ProjectType[] = [
-  "New Application",
+  "New Capability",
   "New Feature",
-  "New Prototype",
   "Enhancement",
   "Validation",
   "Admin",

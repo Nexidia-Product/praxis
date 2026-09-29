@@ -57,28 +57,30 @@ export type IsoDate = string;
 /**
  * Project Type (Section 4.1).
  *
- * The values listed below are the system-defined defaults — every IIM
- * deployment ships with these. An Admin can add additional values from
- * Admin Console → Project values, which are stored separately in
- * `settings.enum_extensions` and merged into dropdowns at render time.
+ * The values listed below are the fixed set every IIM deployment ships
+ * with — unlike `application_product`/`program`/`track`, this enum is
+ * not currently wired into the admin enum-extension mechanism
+ * (`settings.enum_extensions`); the runtime list is just
+ * `PROJECT_TYPES` in `lib/projects/display.ts`.
+ *
+ * "New Application" and "New Prototype" were retired and consolidated
+ * into "New Capability"; existing projects were backfilled by
+ * `supabase/migrations/0026_project_type_new_capability.sql`.
  *
  * Type-level note: we declare this as `"<literal>" | (string & {})` so
  * TypeScript still surfaces the built-in values in autocomplete and
- * narrowing, but the type also accepts arbitrary strings — the admin
- * extensions. The `(string & {})` indirection is the standard trick to
- * avoid the compiler collapsing the union back into bare `string`.
+ * narrowing, but the type also accepts arbitrary strings (e.g. legacy
+ * data, or values entered before a future code change). The
+ * `(string & {})` indirection is the standard trick to avoid the
+ * compiler collapsing the union back into bare `string`.
  *
  * Code that branches on a specific built-in literal (e.g. health.ts
  * comparing status to "Blocked") continues to work unchanged because
- * those literals are still members of the union. New code that needs
- * to enumerate the runtime list should call `getEnumOptions(...)` from
- * `lib/projects/enum-options.ts` instead of iterating the constant
- * arrays in `lib/projects/display.ts`.
+ * those literals are still members of the union.
  */
 export type ProjectType =
-  | "New Application"
+  | "New Capability"
   | "New Feature"
-  | "New Prototype"
   | "Enhancement"
   | "Validation"
   | "Admin"

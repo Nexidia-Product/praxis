@@ -112,7 +112,7 @@ async function main() {
       application_product: "Automated Insights",
       program: "Innovation",
       track: "Track A - Dashboard/visualization",
-      project_type: "New Application",
+      project_type: "New Capability",
       date_added: "2026-01-01",
       priority: "Medium",
       status: "In Progress",
@@ -335,7 +335,7 @@ async function main() {
   const allProjects: Project[] = [
     mkProject({
       project_id: "A1",
-      project_type: "New Application",
+      project_type: "New Capability",
       application_product: "Automated Insights",
       status: "Completed",
       date_added: "2026-01-01",

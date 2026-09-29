@@ -151,7 +151,7 @@ async function main() {
       application_product: "Automated Insights",
       program: "Innovation",
       track: "Track A - Dashboard/visualization",
-      project_type: "New Application",
+      project_type: "New Capability",
       date_added: "2026-01-01",
       priority: "Medium",
       status: "In Progress",
@@ -350,8 +350,8 @@ async function main() {
     avgMetric.overall_avg_days,
     (14 + 50 + 90) / 3,
   );
-  const newAppByType = avgMetric.by_type.find((t) => t.project_type === "New Application");
-  eq("avg_time_to_completion: New Application sample size", newAppByType?.sample_size, 3);
+  const newAppByType = avgMetric.by_type.find((t) => t.project_type === "New Capability");
+  eq("avg_time_to_completion: New Capability sample size", newAppByType?.sample_size, 3);
 
   section("Metric: Estimated vs Actual");
 
@@ -500,7 +500,7 @@ async function main() {
   const mixedProjects: Project[] = [
     mkProject({
       project_id: "F1",
-      project_type: "New Application",
+      project_type: "New Capability",
       application_product: "Automated Insights",
       project_lead: "user-A",
     }),
@@ -512,7 +512,7 @@ async function main() {
     }),
     mkProject({
       project_id: "F3",
-      project_type: "New Application",
+      project_type: "New Capability",
       application_product: "Topic AI",
       project_lead: "user-C",
       additional_resources: ["user-A"],
@@ -522,7 +522,7 @@ async function main() {
 
   const byType = applyProjectFilters(
     mixedProjects,
-    defaultFilters({ project_types: ["New Application"] }),
+    defaultFilters({ project_types: ["New Capability"] }),
   );
   eq("filter by type: count", byType.length, 2);
 
@@ -560,7 +560,7 @@ async function main() {
       mkTask({ task_id: "FT3", project_id: "F3", responsible: "user-A" }),
     ],
     filteredIds,
-    defaultFilters({ project_types: ["New Application"] }),
+    defaultFilters({ project_types: ["New Capability"] }),
   );
   eq("task filter: only kept tasks for filtered projects", filteredTasks.length, 2);
 
@@ -580,7 +580,7 @@ async function main() {
   invalidateVelocityCache();
   eq("cache: starts empty after invalidate", _cacheSize(), 0);
 
-  const f1 = defaultFilters({ project_types: ["New Application"] });
+  const f1 = defaultFilters({ project_types: ["New Capability"] });
   const f2 = defaultFilters({ project_types: ["New Feature"] });
 
   // Round trip
@@ -636,7 +636,7 @@ async function main() {
       name: "Hook test project",
       description: "x",
       application_product: "Automated Insights",
-      project_type: "New Application",
+      project_type: "New Capability",
       priority: "Medium",
       status: "Not Started",
       phase: "Qualification",
@@ -724,7 +724,7 @@ async function main() {
       date_added: "2026-01-01",
       updated_at: "2026-02-15T00:00:00Z",
       ai_time_estimate: "6 weeks",
-      project_type: "New Application",
+      project_type: "New Capability",
     }),
     mkProject({
       project_id: "2026-101",
@@ -786,7 +786,7 @@ async function main() {
       status: "Completed",
       date_added: "2026-01-15",
       updated_at: "2026-03-15T00:00:00Z",
-      project_type: "New Application",
+      project_type: "New Capability",
     }),
   ];
   const widerMetrics = computeVelocityMetrics(
