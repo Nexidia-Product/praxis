@@ -131,6 +131,7 @@ async function main() {
     detailed_description: "",
     status: "Not Started",
     priority: "Medium",
+    stage: "Qualification",
     responsible: admin.user_id,
     additional_assignees: [],
     target_date: null,

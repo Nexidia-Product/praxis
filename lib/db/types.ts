@@ -540,6 +540,15 @@ export interface Task {
   detailed_description: string;
   status: TaskStatus;
   priority: Priority;
+  /**
+   * Which stage of the parent project's delivery track this task belongs
+   * to — one of `stagesForTrack(project.track)` in
+   * `lib/projects/display.ts`. Required on every task; the create form
+   * starts it blank (no default) so it's a deliberate choice rather than
+   * an easy-to-miss pre-fill. Existing tasks were backfilled to their
+   * project's stage at the time the field was introduced.
+   */
+  stage: string;
   responsible: UserId;
   /** Mix of UserIds and free-form names is permitted (Section 4.2). */
   additional_assignees: string[];

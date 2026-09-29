@@ -25,6 +25,7 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
 } from "@/lib/tasks/display";
+import { stagesForTrack } from "@/lib/projects/display";
 import type {
   Priority,
   Project,
@@ -98,6 +99,12 @@ interface FormState {
   detailed_description: string;
   status: TaskStatus;
   priority: Priority;
+  /**
+   * Required, no default on create — the user must actively pick one
+   * (scoped to the parent project's track; see `stagesForTrack`). Starts
+   * blank rather than pre-filled so it's a deliberate choice.
+   */
+  stage: string;
   responsible: string;
   additional_assignees: string;
   target_date: string;
@@ -136,6 +143,7 @@ function emptyState(
     detailed_description: "",
     status: "Not Started",
     priority: "Medium",
+    stage: "",
     responsible: defaultResponsible ?? "",
     additional_assignees: "",
     target_date: "",
@@ -157,6 +165,7 @@ function fromTask(t: Task): FormState {
     detailed_description: t.detailed_description,
     status: t.status,
     priority: t.priority,
+    stage: t.stage,
     responsible: t.responsible,
     additional_assignees: t.additional_assignees.join(", "),
     target_date: t.target_date ?? "",
@@ -192,6 +201,7 @@ function toCreatePayload(s: FormState) {
     detailed_description: s.detailed_description,
     status: s.status,
     priority: s.priority,
+    stage: s.stage,
     responsible: s.responsible.trim(),
     additional_assignees: splitList(s.additional_assignees),
     target_date: s.target_date || null,
@@ -270,6 +280,24 @@ export function TaskFormModal({
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((prev) => ({ ...prev, [key]: value }));
+  }
+
+  /**
+   * Changing the project on create can change which track (and so which
+   * stages) are valid — clear a stage that doesn't belong to the newly
+   * picked project's track rather than silently carrying over an invalid
+   * value.
+   */
+  function updateProjectId(id: string) {
+    const proj = projects.find((p) => p.project_id === id);
+    setState((prev) => ({
+      ...prev,
+      project_id: id,
+      stage:
+        proj && stagesForTrack(proj.track).includes(prev.stage)
+          ? prev.stage
+          : "",
+    }));
   }
 
   function handleStatusChange(next: TaskStatus) {
@@ -570,7 +598,7 @@ export function TaskFormModal({
               <ProjectCombobox
                 projects={projects}
                 value={state.project_id}
-                onChange={(id) => update("project_id", id)}
+                onChange={updateProjectId}
                 disabled={locked}
               />
             )}
@@ -630,6 +658,43 @@ export function TaskFormModal({
                   </option>
                 ))}
               </select>
+            </Field>
+
+            <Field id="task-stage" label="Stage" required>
+              <select
+                id="task-stage"
+                required
+                value={state.stage}
+                onChange={(e) => update("stage", e.target.value)}
+                disabled={locked || !projectForDisplay}
+                className={baseInput}
+              >
+                <option value="" disabled>
+                  — Select a stage —
+                </option>
+                {(projectForDisplay
+                  ? stagesForTrack(projectForDisplay.track)
+                  : []
+                ).map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+                {/* Defensive: preserve a stage that isn't part of the
+                    current project's track (e.g. set before the parent
+                    project's track changed). Same pattern as the
+                    application_product select on the project form. */}
+                {state.stage &&
+                projectForDisplay &&
+                !stagesForTrack(projectForDisplay.track).includes(state.stage) ? (
+                  <option value={state.stage}>{state.stage}</option>
+                ) : null}
+              </select>
+              {!projectForDisplay ? (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Pick a project first.
+                </p>
+              ) : null}
             </Field>
 
             <Field id="task-responsible" label="Responsible">
@@ -914,7 +979,9 @@ export function TaskFormModal({
           {readOnly ? null : (
             <button
               type="submit"
-              disabled={saving || !state.task_name || !state.project_id}
+              disabled={
+                saving || !state.task_name || !state.project_id || !state.stage
+              }
               className="pol-btn pol-btn-primary"
             >
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create task"}

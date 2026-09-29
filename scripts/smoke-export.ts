@@ -234,6 +234,7 @@ async function main() {
       detailed_description: t.detailed_description ?? "",
       status: t.status ?? "Not Started",
       priority: t.priority ?? "Medium",
+      stage: t.stage ?? "Qualification",
       responsible: t.responsible ?? "Min",
       additional_assignees: t.additional_assignees ?? [],
       target_date: t.target_date ?? null,

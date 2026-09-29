@@ -45,6 +45,7 @@ import {
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
 import { ForbiddenError } from "@/lib/auth/permissions";
+import { stagesForTrack } from "@/lib/projects/display";
 import { sanitizeKeyFindingHtml } from "./key-findings";
 import { randomUUID } from "node:crypto";
 
@@ -96,6 +97,8 @@ export interface TaskCreatePayload {
   detailed_description?: unknown;
   status?: unknown;
   priority?: unknown;
+  /** Required — one of `stagesForTrack(parentProject.track)`. */
+  stage?: unknown;
   responsible?: unknown;
   additional_assignees?: unknown;
   target_date?: unknown;
@@ -124,6 +127,7 @@ export interface TaskUpdatePayload {
   detailed_description?: unknown;
   status?: unknown;
   priority?: unknown;
+  stage?: unknown;
   responsible?: unknown;
   additional_assignees?: unknown;
   target_date?: unknown;
@@ -548,6 +552,9 @@ async function shapeCreate(
   );
   const status = asEnum(payload.status, TASK_STATUSES, "status");
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
+  // Required, no default — validated against the PARENT PROJECT's track
+  // (stages are track-scoped; see lib/projects/display.ts).
+  const stage = asEnum(payload.stage, stagesForTrack(parent.track), "stage");
   const responsible = asOptionalString(payload.responsible, "responsible");
   const additional_assignees = asStringArray(
     payload.additional_assignees,
@@ -644,6 +651,7 @@ async function shapeCreate(
     detailed_description,
     status: effectiveStatus,
     priority,
+    stage,
     responsible,
     additional_assignees,
     target_date,
@@ -683,6 +691,15 @@ async function shapeUpdate(
   }
   if (payload.priority !== undefined) {
     patch.priority = asEnum(payload.priority, PRIORITIES, "priority");
+  }
+  if (payload.stage !== undefined) {
+    // Stages are track-scoped to the task's (immutable) parent project —
+    // fetch it to validate against, same as create.
+    const parent = await ProjectRepository.getById(existing.project_id);
+    if (!parent) {
+      throw new ValidationError(`Project ${existing.project_id} does not exist.`);
+    }
+    patch.stage = asEnum(payload.stage, stagesForTrack(parent.track), "stage");
   }
   if (payload.responsible !== undefined) {
     patch.responsible = asOptionalString(payload.responsible, "responsible");
@@ -1000,6 +1017,7 @@ export async function updateTask(
             "task_name",
             "status",
             "priority",
+            "stage",
             "responsible",
             "target_date",
             "blocked",
@@ -1500,6 +1518,11 @@ export async function instantiateTemplate(
       detailed_description: item.description,
       status: "Not Started",
       priority: item.default_priority,
+      // Template instantiation has no per-task form to leave stage blank
+      // in, unlike interactive creation — default to the project's
+      // current stage (same snapshot rule as the existing-tasks
+      // migration backfill).
+      stage: project.stage,
       // Template-created tasks start unassigned — a person is chosen
       // deliberately afterward, not defaulted to the project lead.
       responsible: "",

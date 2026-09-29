@@ -195,6 +195,7 @@ async function main() {
       detailed_description: overrides.detailed_description ?? "",
       status: overrides.status ?? "Not Started",
       priority: overrides.priority ?? "Medium",
+      stage: overrides.stage ?? "Qualification",
       responsible: overrides.responsible ?? "",
       additional_assignees: overrides.additional_assignees ?? [],
       target_date: overrides.target_date ?? null,
