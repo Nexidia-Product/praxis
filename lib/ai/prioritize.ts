@@ -105,7 +105,7 @@ function projectToBlock(p: Project): string {
     `name: ${p.name}`,
     `priority: ${p.priority}`,
     `status: ${p.status}`,
-    `phase: ${p.phase}`,
+    `stage: ${p.stage}`,
     `application_product: ${p.application_product || "—"}`,
     `project_lead: ${p.project_lead || "—"}`,
     `target_date: ${p.target_date ?? "—"}`,

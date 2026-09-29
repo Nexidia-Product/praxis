@@ -3,7 +3,7 @@
 /**
  * Filter bar for the Projects page.
  *
- * Five enum filters (Status, Phase, Priority, Type, Lead, App/Product), a
+ * Five enum filters (Status, Stage, Priority, Type, Lead, App/Product), a
  * target-date range, and a free-text search over Project ID + name +
  * description (Section 5.1). All filters are multi-select except the
  * date range and search.
@@ -24,7 +24,6 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
 } from "@/lib/projects/display";
@@ -34,7 +33,6 @@ import type {
   CustomFieldDefinition,
   PortfolioQuadrantLabels,
   Priority,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
 } from "@/lib/db";
@@ -70,7 +68,7 @@ export interface CustomFieldFilter {
 
 export interface ProjectFilters {
   status: ProjectStatus[];
-  phase: ProjectPhase[];
+  stage: string[];
   priority: Priority[];
   project_type: ProjectType[];
   project_lead: string[];
@@ -95,7 +93,7 @@ export interface ProjectFilters {
 
 export const EMPTY_FILTERS: ProjectFilters = {
   status: [],
-  phase: [],
+  stage: [],
   priority: [],
   project_type: [],
   project_lead: [],
@@ -129,7 +127,7 @@ export function isCustomFilterActive(f: CustomFieldFilter | undefined): boolean 
 export function filtersToQueryString(filters: ProjectFilters): string {
   const params = new URLSearchParams();
   for (const s of filters.status) params.append("status", s);
-  for (const p of filters.phase) params.append("phase", p);
+  for (const s of filters.stage) params.append("stage", s);
   for (const p of filters.priority) params.append("priority", p);
   for (const t of filters.project_type) params.append("project_type", t);
   for (const l of filters.project_lead) params.append("project_lead", l);
@@ -168,7 +166,7 @@ export function filtersToQueryString(filters: ProjectFilters): string {
 export function isFilterActive(filters: ProjectFilters): boolean {
   return (
     filters.status.length > 0 ||
-    filters.phase.length > 0 ||
+    filters.stage.length > 0 ||
     filters.priority.length > 0 ||
     filters.project_type.length > 0 ||
     filters.project_lead.length > 0 ||
@@ -326,13 +324,19 @@ interface ProjectFilterBarProps {
   /** Distinct program values in the current dataset. */
   programOptions: string[];
   /**
+   * Distinct stage values in the current dataset. Stages are track-scoped
+   * (see `stagesForTrack` in `lib/projects/display.ts`), so — like
+   * application/program — this filter is dataset-derived rather than
+   * pulled from the admin enum-extension mechanism.
+   */
+  stageOptions: string[];
+  /**
    * Merged option lists from `lib/projects/enum-options`. Optional —
    * when omitted we fall back to the static built-in arrays so admin
    * extensions won't appear, but the bar still works. The Projects
    * page passes them in.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /** Admin-defined custom field definitions, rendered as their own filters. */
   customFields: CustomFieldDefinition[];
@@ -350,8 +354,8 @@ export function ProjectFilterBar({
   leadOptions,
   applicationOptions,
   programOptions,
+  stageOptions,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   customFields,
   quadrantLabels,
@@ -365,9 +369,6 @@ export function ProjectFilterBar({
   const statusList = statusOptions
     ? statusOptions.map((o) => o.id)
     : (PROJECT_STATUSES as string[]);
-  const phaseList = phaseOptions
-    ? phaseOptions.map((o) => o.id)
-    : (PROJECT_PHASES as string[]);
   const priorityList = priorityOptions
     ? priorityOptions.map((o) => o.id)
     : (PRIORITIES as string[]);
@@ -398,10 +399,10 @@ export function ProjectFilterBar({
           onChange={(v) => update("status", v)}
         />
         <MultiSelect
-          label="Phase"
-          options={phaseList}
-          selected={filters.phase}
-          onChange={(v) => update("phase", v)}
+          label="Stage"
+          options={stageOptions}
+          selected={filters.stage}
+          onChange={(v) => update("stage", v)}
         />
         <MultiSelect
           label="Priority"

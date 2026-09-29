@@ -18,7 +18,6 @@
 import type {
   HealthScore,
   Priority,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
 } from "@/lib/db";
@@ -198,20 +197,49 @@ export const SYSTEM_TRACKS: string[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Phase (Appendix C)
+// Stage (formerly "Phase"; track-scoped)
 // ---------------------------------------------------------------------------
 
-export const PROJECT_PHASES: ProjectPhase[] = [
-  "Qualification",
-  "Prioritization",
-  "Planning",
-  "Data Modeling",
-  "Application Development",
-  "Customer Validation",
-  "Deployment Readiness",
-  "Handover",
-  "Closeout",
-];
+/**
+ * Anchor stages every track's list starts and ends with, regardless of
+ * track-specific middle stages.
+ */
+export const STAGE_FIRST = "Qualification";
+export const STAGE_SECOND = "Prioritization";
+export const STAGE_LAST = "Productization";
+
+/**
+ * Track-specific stages between Prioritization and Productization.
+ * Track A's full list was given explicitly; Track B/C (and any future
+ * track not listed here) have none yet — `stagesForTrack` falls back to
+ * just the three anchors for them.
+ */
+const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
+  "Track A - Dashboard/visualization": [
+    "Kickoff",
+    "Analysis and EDA",
+    "Approach Review",
+    "Initial Revisions",
+    "Initiate Visualization",
+    "Deck Review",
+    "Manager Review",
+    "Signoff",
+    "Handoff",
+    "Integration",
+    "Final Visualization",
+    "Release",
+  ],
+};
+
+/** Full ordered stage list for a track: anchors + its middle stages. */
+export function stagesForTrack(track: string): string[] {
+  return [
+    STAGE_FIRST,
+    STAGE_SECOND,
+    ...(TRACK_MIDDLE_STAGES[track] ?? []),
+    STAGE_LAST,
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Health score (Section 5.13). Step 8 will populate values; today they

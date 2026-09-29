@@ -76,8 +76,8 @@ export function buildProjectMarkdown(
         ? `${upstream.name} (${upstream.project_id})`
         : dep.upstream_id;
       const detail =
-        dep.type === "Blocks Phase" && dep.required_phase
-          ? `${dep.type} — ${dep.required_phase}`
+        dep.type === "Blocks Stage" && dep.required_stage
+          ? `${dep.type} — ${dep.required_stage}`
           : dep.type;
       lines.push(`- ${upstreamLabel} — ${detail}`);
     }

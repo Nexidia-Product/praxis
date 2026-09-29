@@ -85,7 +85,7 @@ export const ProjectRepository = {
         project_type: input.project_type,
         priority: input.priority,
         status: input.status,
-        phase: input.phase,
+        stage: input.stage,
         primary_stakeholders: input.primary_stakeholders,
         project_lead: input.project_lead,
         additional_resources: input.additional_resources,

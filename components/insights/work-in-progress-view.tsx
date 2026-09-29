@@ -56,7 +56,6 @@ import type {
   Priority,
   Project,
   ProjectGroup,
-  ProjectPhase,
   ProjectStatus,
   Task,
   TaskStatus,
@@ -88,7 +87,6 @@ const TASK_PRIORITY_RANK: Record<Priority, number> = {
 
 interface EnumOptionSet {
   status: EnumOption[];
-  phase: EnumOption[];
   priority: EnumOption[];
   application_product: EnumOption[];
   program: EnumOption[];
@@ -302,6 +300,20 @@ export function WorkInProgressView({
     return [...out.slice(0, curated), ...out.slice(curated).sort()];
   }, [projects, enumOptions.track]);
 
+  // Stage filter/dataset options: distinct stage values actually present.
+  // Stages are track-scoped (`stagesForTrack`), so unlike track/program
+  // there's no admin-curated list to seed from here.
+  const stageOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of projects) {
+      if (!p.stage || seen.has(p.stage)) continue;
+      seen.add(p.stage);
+      out.push(p.stage);
+    }
+    return out.sort();
+  }, [projects]);
+
   // Task-responsible dropdown source for the task form modal.
   const formResponsibleOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -367,7 +379,7 @@ export function WorkInProgressView({
       if (filters.status.length && !filters.status.includes(p.status)) {
         return false;
       }
-      if (filters.phase.length && !filters.phase.includes(p.phase)) {
+      if (filters.stage.length && !filters.stage.includes(p.stage)) {
         return false;
       }
       if (filters.priority.length && !filters.priority.includes(p.priority)) {
@@ -514,10 +526,10 @@ export function WorkInProgressView({
     applyUpdatedProject(data.project);
   }
 
-  async function patchProjectField<K extends "phase" | "priority">(
+  async function patchProjectField<K extends "stage" | "priority">(
     project: Project,
     field: K,
-    value: K extends "phase" ? ProjectPhase : Priority,
+    value: K extends "stage" ? string : Priority,
   ) {
     if (project[field] === value) return;
     setGlobalError(null);
@@ -620,8 +632,8 @@ export function WorkInProgressView({
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
         programOptions={programOptions}
+        stageOptions={stageOptions}
         statusOptions={enumOptions.status}
-        phaseOptions={enumOptions.phase}
         priorityOptions={enumOptions.priority}
         customFields={customFields}
         quadrantLabels={quadrantLabels}
@@ -717,7 +729,6 @@ export function WorkInProgressView({
           canEdit={canEditProject}
           allProjects={projects}
           statusOptions={enumOptions.status}
-          phaseOptions={enumOptions.phase}
           priorityOptions={enumOptions.priority}
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
@@ -732,8 +743,8 @@ export function WorkInProgressView({
           onStatusChange={(status, summary) =>
             changeProjectStatus(quickViewProject, status, summary)
           }
-          onPhaseChange={(phase) =>
-            patchProjectField(quickViewProject, "phase", phase)
+          onStageChange={(stage) =>
+            patchProjectField(quickViewProject, "stage", stage)
           }
           onPriorityChange={(priority) =>
             patchProjectField(quickViewProject, "priority", priority)
@@ -751,7 +762,6 @@ export function WorkInProgressView({
           programOptions={programOptions}
           trackOptions={trackOptions}
           statusOptions={enumOptions.status}
-          phaseOptions={enumOptions.phase}
           priorityOptions={enumOptions.priority}
           templates={templates}
           allProjects={projects}

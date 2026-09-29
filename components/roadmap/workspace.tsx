@@ -78,13 +78,12 @@ interface RoadmapWorkspaceProps {
   /**
    * Merged enum option lists (built-ins + admin extensions, archived
    * excluded). Passed through to the project form modal opened from
-   * the roadmap quick view so admin-added status / phase / priority
-   * values appear in its dropdowns. Optional — when omitted the form
-   * falls back to the built-in arrays.
+   * the roadmap quick view so admin-added status / priority values
+   * appear in its dropdowns. Optional — when omitted the form falls
+   * back to the built-in arrays.
    */
   enumOptions?: {
     status: EnumOption[];
-    phase: EnumOption[];
     priority: EnumOption[];
     application_product: EnumOption[];
   };
@@ -177,22 +176,25 @@ export function RoadmapWorkspace({
   // Lead and application/product option lists for the filter bar.
   // Derived from the projects we actually have, deduplicated and sorted.
   // Recomputed only when the project list changes.
-  const { leadOptions, applicationOptions, programOptions, trackOptions } = useMemo(() => {
+  const { leadOptions, applicationOptions, programOptions, trackOptions, stageOptions } = useMemo(() => {
     const leads = new Set<string>();
     const apps = new Set<string>();
     const programs = new Set<string>();
     const tracks = new Set<string>();
+    const stages = new Set<string>();
     for (const p of projects) {
       if (p.project_lead) leads.add(p.project_lead);
       if (p.application_product) apps.add(p.application_product);
       if (p.program) programs.add(p.program);
       if (p.track) tracks.add(p.track);
+      if (p.stage) stages.add(p.stage);
     }
     return {
       leadOptions: Array.from(leads).sort(),
       applicationOptions: Array.from(apps).sort(),
       programOptions: Array.from(programs).sort(),
       trackOptions: Array.from(tracks).sort(),
+      stageOptions: Array.from(stages).sort(),
     };
   }, [projects]);
 
@@ -372,6 +374,7 @@ export function RoadmapWorkspace({
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
         programOptions={programOptions}
+        stageOptions={stageOptions}
         includeClosed={showIncludeClosed ? includeClosed : undefined}
         onIncludeClosedChange={
           showIncludeClosed ? setIncludeClosed : undefined
@@ -462,15 +465,15 @@ export function RoadmapWorkspace({
               /* error already surfaced via globalError */
             })
           }
-          // Phase / priority inline edits use the same generic field
+          // Stage / priority inline edits use the same generic field
           // patcher; reuse `handleUpdateField` rather than introducing
           // dedicated wrappers since the only thing that varies is the
           // field name.
-          onPhaseChange={(phase) =>
+          onStageChange={(stage) =>
             handleUpdateField(
               quickViewProject.project_id,
-              "phase",
-              phase,
+              "stage",
+              stage,
             ).catch(() => {
               /* surfaced via globalError */
             })
@@ -518,7 +521,6 @@ export function RoadmapWorkspace({
           programOptions={programOptions}
           trackOptions={trackOptions}
           statusOptions={enumOptions?.status}
-          phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}

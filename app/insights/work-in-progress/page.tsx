@@ -85,11 +85,10 @@ export default async function WorkInProgressPage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Merged enum options (built-ins + admin extensions, archived excluded).
-  // Same shape the Projects page passes so admin-added status / phase /
+  // Same shape the Projects page passes so admin-added status /
   // priority / application values appear in the edit modals.
   const enumOptions = {
     status: mergeEnumOptions("status", settings.enum_extensions.status),
-    phase: mergeEnumOptions("phase", settings.enum_extensions.phase),
     priority: mergeEnumOptions("priority", settings.enum_extensions.priority),
     application_product: mergeEnumOptions(
       "application_product",

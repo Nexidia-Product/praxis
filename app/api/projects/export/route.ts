@@ -13,7 +13,7 @@
  *
  * Filter parameters supported:
  *
- *   status, phase, priority, project_type, project_lead, application_product,
+ *   status, stage, priority, project_type, project_lead, application_product,
  *   program
  *     repeated `?status=A&status=B`-style multi-select
  *   target_from, target_to, search
@@ -76,7 +76,7 @@ const BUILTIN_COLUMNS: Column[] = [
   { header: "Program", text: (p) => p.program },
   { header: "Type", text: (p) => p.project_type },
   { header: "Status", text: (p) => p.status },
-  { header: "Phase", text: (p) => p.phase },
+  { header: "Stage", text: (p) => p.stage },
   { header: "Priority", text: (p) => p.priority },
   { header: "Project Lead", text: (p) => p.project_lead },
   {
@@ -186,7 +186,7 @@ function applyFilters(
   const status = readMulti(url, "status");
   const priority = readMulti(url, "priority");
   const project_type = readMulti(url, "project_type");
-  const phase = readMulti(url, "phase");
+  const stage = readMulti(url, "stage");
   const project_lead = readMulti(url, "project_lead");
   const application_product = readMulti(url, "application_product");
   const program = readMulti(url, "program");
@@ -203,7 +203,7 @@ function applyFilters(
     if (status.size && !status.has(p.status)) return false;
     if (priority.size && !priority.has(p.priority)) return false;
     if (project_type.size && !project_type.has(p.project_type)) return false;
-    if (phase.size && !phase.has(p.phase)) return false;
+    if (stage.size && !stage.has(p.stage)) return false;
     if (project_lead.size && !project_lead.has(p.project_lead)) return false;
     if (
       application_product.size &&

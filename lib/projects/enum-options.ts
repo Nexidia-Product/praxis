@@ -1,13 +1,17 @@
 /**
  * Merged option lists for the extensible project enums.
  *
- * Each enum (status, phase, priority, application_product, program, track) ships
+ * Each enum (status, priority, application_product, program, track) ships
  * with a built-in set of values (defined as code constants in this
  * file or imported from `lib/projects/display.ts`) and accept admin-
  * added extensions stored in `settings.enum_extensions`. UI dropdowns,
  * filter chips, and write-side validators should consume the merged
  * list returned from `getEnumOptions(...)` rather than iterating the
  * raw constants — otherwise admin-added values won't appear.
+ *
+ * Stage isn't one of these — its valid set depends on `track`, so it's
+ * governed by `stagesForTrack` in `lib/projects/display.ts` instead of
+ * this admin-curated-list mechanism (see that file for details).
  *
  * Each option carries a `source` flag so the admin UI can render
  * built-ins as locked, and so consumers that care about the difference
@@ -23,22 +27,17 @@
  *     ordering used by the projects table sort and by the AI
  *     prioritization input. Admin-added priorities pick a rank
  *     (typically a fractional value to insert between built-ins).
- *   - For `phase`, the built-in `order` follows Appendix C and is
- *     used to compute dependency phase satisfaction. Admin-added
- *     phases pick an order to slot into the lifecycle.
  */
 
 import type {
   EnumExtension,
   ExtensibleEnumKey,
   Priority,
-  ProjectPhase,
   ProjectStatus,
 } from "@/lib/db";
 import { SettingsRepository } from "@/lib/db";
 import {
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   SYSTEM_APPLICATION_PRODUCTS,
   SYSTEM_PROGRAMS,
@@ -63,7 +62,6 @@ export interface EnumOption {
   is_open?: boolean;
   is_terminal?: boolean;
   rank?: number;
-  order?: number;
   description?: string;
 }
 
@@ -99,10 +97,6 @@ const SYSTEM_PRIORITY_RANK: Record<string, number> = {
   Low: 3,
 };
 
-const SYSTEM_PHASE_ORDER: Record<string, number> = Object.fromEntries(
-  PROJECT_PHASES.map((p, i) => [p, i]),
-);
-
 // ---------------------------------------------------------------------------
 // Built-in option lists (computed at module load)
 // ---------------------------------------------------------------------------
@@ -114,14 +108,6 @@ const SYSTEM_STATUS_OPTIONS: EnumOption[] = PROJECT_STATUSES.map((s) => ({
   archived: false,
   is_open: SYSTEM_OPEN_STATUSES.has(s),
   is_terminal: SYSTEM_TERMINAL_STATUSES.has(s),
-}));
-
-const SYSTEM_PHASE_OPTIONS: EnumOption[] = PROJECT_PHASES.map((p, i) => ({
-  id: p,
-  label: p,
-  source: "system",
-  archived: false,
-  order: i,
 }));
 
 const SYSTEM_PRIORITY_OPTIONS: EnumOption[] = (PRIORITIES as Priority[]).map(
@@ -195,9 +181,6 @@ function extensionToOption(
   if (enumKey === "priority") {
     opt.rank = typeof e.rank === "number" ? e.rank : 99;
   }
-  if (enumKey === "phase") {
-    opt.order = typeof e.order === "number" ? e.order : 999;
-  }
   return opt;
 }
 
@@ -205,8 +188,6 @@ function systemOptionsFor(enumKey: ExtensibleEnumKey): EnumOption[] {
   switch (enumKey) {
     case "status":
       return SYSTEM_STATUS_OPTIONS;
-    case "phase":
-      return SYSTEM_PHASE_OPTIONS;
     case "priority":
       return SYSTEM_PRIORITY_OPTIONS;
     case "application_product":
@@ -224,8 +205,6 @@ function systemOptionsFor(enumKey: ExtensibleEnumKey): EnumOption[] {
  *
  *   - status: built-in display order, then extensions appended in
  *     the order they were added (most-recent last);
- *   - phase: by `order` ascending so admin-inserted phases slot in
- *     correctly;
  *   - priority: by `rank` ascending so an admin-added "Urgent" with
  *     rank 0.5 lands between Critical and High;
  *   - application_product, program, track: alphabetical (no inherent
@@ -238,9 +217,6 @@ function sortOptions(
 ): EnumOption[] {
   const out = [...options];
   switch (enumKey) {
-    case "phase":
-      out.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-      return out;
     case "priority":
       out.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
       return out;
@@ -313,11 +289,6 @@ export async function getAllEnumOptions(
     status: mergeEnumOptions(
       "status",
       settings.enum_extensions.status ?? [],
-      includeArchived,
-    ),
-    phase: mergeEnumOptions(
-      "phase",
-      settings.enum_extensions.phase ?? [],
       includeArchived,
     ),
     priority: mergeEnumOptions(

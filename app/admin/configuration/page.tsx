@@ -69,7 +69,6 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
   // Values tab — same shape as the prior `/admin/project-values` page.
   const projectValuesOptions = {
     status: mergeEnumOptions("status", settings.enum_extensions.status, true),
-    phase: mergeEnumOptions("phase", settings.enum_extensions.phase, true),
     priority: mergeEnumOptions(
       "priority",
       settings.enum_extensions.priority,

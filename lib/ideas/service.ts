@@ -35,7 +35,7 @@ import {
   type Project,
   type ProjectId,
   type ProjectIdea,
-  type ProjectPhase,
+  type ProjectStage,
   type ProjectStatus,
   type ProjectType,
   type Task,
@@ -725,7 +725,7 @@ export async function updateIdeaByToken(
 /**
  * Defaults applied to fields the project schema requires but the idea
  * doesn't carry. Picked to match the typical "fresh idea" shape — Not
- * Started, Qualification phase, Medium priority, New Feature type — so
+ * Started, Qualification stage, Medium priority, New Feature type — so
  * the admin can save immediately, or override the defaults in the form
  * before saving.
  *
@@ -735,7 +735,7 @@ export async function updateIdeaByToken(
  */
 const PROJECT_DEFAULTS = {
   status: "Not Started" as ProjectStatus,
-  phase: "Qualification" as ProjectPhase,
+  stage: "Qualification" as ProjectStage,
   priority: "Medium" as Priority,
   project_type: "New Feature" as ProjectType,
   application_product: "",
@@ -767,7 +767,7 @@ export interface IdeaConversionPreview {
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
-  phase: ProjectPhase;
+  stage: ProjectStage;
   primary_stakeholders: string[];
   target_date: string | null;
   /** The original idea, kept for the UI to show as context. */
@@ -804,7 +804,7 @@ export async function buildConversionPreview(
     project_type: PROJECT_DEFAULTS.project_type,
     priority: urgencyToPriority(idea.urgency),
     status: PROJECT_DEFAULTS.status,
-    phase: PROJECT_DEFAULTS.phase,
+    stage: PROJECT_DEFAULTS.stage,
     primary_stakeholders: stakeholders,
     target_date: idea.requested_target_date,
     idea,

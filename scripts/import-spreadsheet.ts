@@ -89,7 +89,7 @@ const PROJECT_SHEET_FIELDS: ReadonlyArray<keyof Project> = [
   "date_added",
   "priority",
   "status",
-  "phase",
+  "stage",
   "primary_stakeholders",
   "project_lead",
   "additional_resources",

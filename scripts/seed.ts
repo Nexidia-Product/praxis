@@ -73,14 +73,19 @@ import type {
   Project,
   ProjectId,
   ProjectIdea,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
   Task,
   TaskStatus,
   User,
 } from "../lib/db/types";
-import { PROJECT_TYPES as CANONICAL_PROJECT_TYPES } from "../lib/projects/display";
+import {
+  PROJECT_TYPES as CANONICAL_PROJECT_TYPES,
+  stagesForTrack,
+} from "../lib/projects/display";
+
+/** Every seeded project defaults to Track A (see `track:` below). */
+const SEED_TRACK = "Track A - Dashboard/visualization";
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -236,17 +241,9 @@ const PROJECT_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Completed",
   "Canceled",
 ]);
-const PROJECT_PHASES: ReadonlySet<ProjectPhase> = new Set([
-  "Qualification",
-  "Prioritization",
-  "Planning",
-  "Data Modeling",
-  "Application Development",
-  "Customer Validation",
-  "Deployment Readiness",
-  "Handover",
-  "Closeout",
-]);
+// Stages are track-scoped; every seeded project defaults to Track A
+// (see SEED_TRACK), so validation is scoped to that track's stage list.
+const PROJECT_STAGES: ReadonlySet<string> = new Set(stagesForTrack(SEED_TRACK));
 const TASK_STATUSES: ReadonlySet<TaskStatus> = new Set([
   "Not Started",
   "Awaiting Dependency",
@@ -395,14 +392,14 @@ function transformProjects(
       errors,
       `${ctx} status`,
     );
-    const phase = checkEnum(
-      PROJECT_PHASES,
+    const stage = checkEnum(
+      PROJECT_STAGES,
       asString(raw["Phase"]),
       errors,
-      `${ctx} phase`,
+      `${ctx} stage`,
     );
 
-    if (!projectType || !priority || !status || !phase) continue;
+    if (!projectType || !priority || !status || !stage) continue;
 
     const dateAdded =
       asDateOrNull(raw["Date Added"]) ?? SEED_TIMESTAMP.slice(0, 10);
@@ -422,12 +419,12 @@ function transformProjects(
       // Track is a new categorization with no source column in the legacy
       // spreadsheet; every seeded project starts on Track A and gets
       // reclassified by hand later.
-      track: "Track A - Dashboard/visualization",
+      track: SEED_TRACK,
       project_type: projectType,
       date_added: dateAdded,
       priority,
       status,
-      phase,
+      stage,
       primary_stakeholders: splitList(raw["Primary Stakeholders"]),
       // Names stay as strings; Step 2 will resolve them to user IDs.
       project_lead: asString(raw["Project Lead"]),

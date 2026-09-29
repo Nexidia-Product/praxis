@@ -30,7 +30,7 @@ import {
   CompletedByQuarterChart,
   EstimatedVsActualChart,
   IdeaConversionChart,
-  PhaseCycleTimeChart,
+  StageCycleTimeChart,
   TaskThroughputChart,
 } from "@/components/velocity/charts";
 import { VelocityFilterBar } from "@/components/velocity/filter-bar";
@@ -226,7 +226,7 @@ export function VelocityDashboard({
           <AvgTimeToCompletionChart metric={metrics.avg_time_to_completion} />
           <EstimatedVsActualChart metric={metrics.estimated_vs_actual} />
           <TaskThroughputChart metric={metrics.task_throughput} />
-          <PhaseCycleTimeChart metric={metrics.phase_cycle_time} />
+          <StageCycleTimeChart metric={metrics.stage_cycle_time} />
           <BlockedTimeChart metric={metrics.blocked_time} />
           <div className="lg:col-span-2">
             <IdeaConversionChart metric={metrics.idea_conversion} />

@@ -34,9 +34,9 @@ import {
   HEALTH_DOT,
   HEALTH_TOOLTIP,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   priorityBadgeClass,
+  stagesForTrack,
   statusBadgeClass,
 } from "@/lib/projects/display";
 import { rollupDependencyHealth } from "@/lib/projects/dependencies";
@@ -52,7 +52,6 @@ import type {
   Project,
   ProjectGroup,
   ProjectId,
-  ProjectPhase,
   ProjectStatus,
   StatusHistoryEntry,
 } from "@/lib/db";
@@ -82,7 +81,6 @@ interface ProjectQuickViewProps {
    * values appear in the inline-edit dropdowns.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /**
    * Every project group this project belongs to. Pre-computed by the
@@ -135,7 +133,7 @@ interface ProjectQuickViewProps {
    * as `null` server-side.
    */
   onStatusChange: (status: ProjectStatus, summary?: string) => void;
-  onPhaseChange: (phase: ProjectPhase) => void;
+  onStageChange: (stage: string) => void;
   onPriorityChange: (priority: Priority) => void;
 }
 
@@ -172,7 +170,6 @@ export function ProjectQuickView({
   canEdit,
   allProjects,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   groupsForProject = [],
   mentionableUsers = [],
@@ -183,7 +180,7 @@ export function ProjectQuickView({
   onClose,
   onEdit,
   onStatusChange,
-  onPhaseChange,
+  onStageChange,
   onPriorityChange,
 }: ProjectQuickViewProps) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "details");
@@ -193,9 +190,10 @@ export function ProjectQuickView({
   const statusList =
     statusOptions ??
     PROJECT_STATUSES.map((s) => ({ id: s, label: s } as EnumOption));
-  const phaseList =
-    phaseOptions ??
-    PROJECT_PHASES.map((p) => ({ id: p, label: p } as EnumOption));
+  // Stage options are a pure function of the project's track (stages are
+  // track-scoped — see `stagesForTrack`), not an admin-merged list, so no
+  // prop is needed here.
+  const stageList = stagesForTrack(project.track);
   const priorityList =
     priorityOptions ??
     PRIORITIES.map((p) => ({ id: p, label: p } as EnumOption));
@@ -399,32 +397,30 @@ export function ProjectQuickView({
                     </span>
                   )}
                 </Field>
-                <Field label="Phase">
+                <Field label="Stage">
                   {canEdit ? (
                     <select
-                      value={project.phase}
-                      onChange={(e) =>
-                        onPhaseChange(e.target.value as ProjectPhase)
-                      }
+                      value={project.stage}
+                      onChange={(e) => onStageChange(e.target.value)}
                       className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
                     >
-                      {phaseList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label}
+                      {stageList.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
                         </option>
                       ))}
-                      {/* Preserve the project's current phase as a
-                          selectable option even if it's been archived
-                          out of the merged list — same defensive
+                      {/* Preserve the project's current stage as a
+                          selectable option even if it's not part of its
+                          track's list (e.g. a retired phase from before
+                          the Phase → Stage change) — same defensive
                           pattern as the application_product select. */}
-                      {project.phase &&
-                      !phaseList.some((p) => p.id === project.phase) ? (
-                        <option value={project.phase}>{project.phase}</option>
+                      {project.stage && !stageList.includes(project.stage) ? (
+                        <option value={project.stage}>{project.stage}</option>
                       ) : null}
                     </select>
                   ) : (
                     <span className="text-sm text-gray-900">
-                      {project.phase}
+                      {project.stage}
                     </span>
                   )}
                 </Field>

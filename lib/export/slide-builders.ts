@@ -24,7 +24,6 @@ import type PptxGenJS from "pptxgenjs";
 
 import {
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
 } from "@/lib/projects/display";
 import { resolveBucket } from "@/lib/roadmap/placement";
@@ -1459,5 +1458,4 @@ export const __test__ = {
   PRIORITY_FILL,
   PROJECT_STATUSES,
   PRIORITIES,
-  PROJECT_PHASES,
 };

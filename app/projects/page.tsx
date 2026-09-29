@@ -76,7 +76,6 @@ export default async function ProjectsPage() {
   // archived (see `lib/projects/display.ts` lookups).
   const enumOptions = {
     status: mergeEnumOptions("status", settings.enum_extensions.status),
-    phase: mergeEnumOptions("phase", settings.enum_extensions.phase),
     priority: mergeEnumOptions("priority", settings.enum_extensions.priority),
     application_product: mergeEnumOptions(
       "application_product",

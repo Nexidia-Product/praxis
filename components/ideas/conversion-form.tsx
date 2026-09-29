@@ -24,9 +24,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  stagesForTrack,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
@@ -34,11 +34,17 @@ import type {
   Priority,
   Project,
   ProjectIdea,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
   TaskTemplate,
 } from "@/lib/db";
+
+/**
+ * This form doesn't collect a Track — converted projects always default
+ * to Track A server-side (`ProjectRepository.create`). Its stage dropdown
+ * is scoped to Track A's stage list accordingly.
+ */
+const CONVERSION_TRACK = "Track A - Dashboard/visualization";
 
 /**
  * Sentinel value the Application/Product and Project Lead selects use to
@@ -61,7 +67,6 @@ interface IdeaConversionFormProps {
    * values appear when an idea is converted into a project.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   onCancel: () => void;
   onConverted: (result: { project: Project; idea: ProjectIdea }) => void;
@@ -74,7 +79,7 @@ interface FormState {
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
-  phase: ProjectPhase;
+  stage: string;
   primary_stakeholders: string;
   project_lead: string;
   additional_resources: string;
@@ -123,7 +128,7 @@ function initialState(
     project_type: "New Feature",
     priority: urgencyToPriority(idea),
     status: "Not Started",
-    phase: "Qualification",
+    stage: "Qualification",
     primary_stakeholders: idea.key_stakeholders, // free-form, split server-side
     project_lead: "",
     additional_resources: "",
@@ -140,7 +145,6 @@ export function IdeaConversionForm({
   leadOptions,
   applicationOptions,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   onCancel,
   onConverted,
@@ -159,10 +163,7 @@ export function IdeaConversionForm({
     id: s,
     label: s,
   } as EnumOption));
-  const phaseList = phaseOptions ?? PROJECT_PHASES.map((p) => ({
-    id: p,
-    label: p,
-  } as EnumOption));
+  const stageList = stagesForTrack(CONVERSION_TRACK);
   const priorityList = priorityOptions ?? PRIORITIES.map((p) => ({
     id: p,
     label: p,
@@ -219,7 +220,7 @@ export function IdeaConversionForm({
       project_type: state.project_type,
       priority: state.priority,
       status: state.status,
-      phase: state.phase,
+      stage: state.stage,
       primary_stakeholders: splitList(state.primary_stakeholders),
       project_lead:
         state.project_lead === FREEFORM_SENTINEL
@@ -498,23 +499,21 @@ export function IdeaConversionForm({
           </div>
           <div>
             <label
-              htmlFor="conv_phase"
+              htmlFor="conv_stage"
               className="block text-sm font-medium text-gray-900"
             >
-              Phase
+              Stage
             </label>
             <select
-              id="conv_phase"
-              value={state.phase}
-              onChange={(e) =>
-                update("phase", e.target.value as ProjectPhase)
-              }
+              id="conv_stage"
+              value={state.stage}
+              onChange={(e) => update("stage", e.target.value)}
               disabled={saving}
               className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
             >
-              {phaseList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+              {stageList.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </select>

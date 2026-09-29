@@ -14,7 +14,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   PORTFOLIO_PROJECT_TYPES,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
 } from "@/lib/projects/display";
 import type { RoadmapFilters } from "@/lib/roadmap/filters";
@@ -25,6 +24,13 @@ interface RoadmapFilterBarProps {
   leadOptions: string[];
   applicationOptions: string[];
   programOptions: string[];
+  /**
+   * Distinct stage values in the current dataset. Stages are track-scoped
+   * (see `stagesForTrack` in `lib/projects/display.ts`), so — like lead
+   * and application/product — this is dataset-derived rather than a
+   * fixed global list.
+   */
+  stageOptions: string[];
   /** Optional: render a checkbox to include closed projects. Default off. */
   includeClosed?: boolean;
   onIncludeClosedChange?: (next: boolean) => void;
@@ -36,6 +42,7 @@ export function RoadmapFilterBar({
   leadOptions,
   applicationOptions,
   programOptions,
+  stageOptions,
   includeClosed,
   onIncludeClosedChange,
 }: RoadmapFilterBarProps) {
@@ -46,7 +53,7 @@ export function RoadmapFilterBar({
 
   const activeCount =
     filters.status.length +
-    filters.phase.length +
+    filters.stage.length +
     filters.priority.length +
     filters.project_type.length +
     filters.project_lead.length +
@@ -70,10 +77,10 @@ export function RoadmapFilterBar({
         onChange={(v) => set("status", v as RoadmapFilters["status"])}
       />
       <MultiPicker
-        label="Phase"
-        options={PROJECT_PHASES}
-        selected={filters.phase}
-        onChange={(v) => set("phase", v as RoadmapFilters["phase"])}
+        label="Stage"
+        options={stageOptions}
+        selected={filters.stage}
+        onChange={(v) => set("stage", v as RoadmapFilters["stage"])}
       />
       <MultiPicker
         label="Priority"
@@ -128,7 +135,7 @@ export function RoadmapFilterBar({
           onClick={() =>
             onChange({
               status: [],
-              phase: [],
+              stage: [],
               priority: [],
               project_type: [],
               project_lead: [],

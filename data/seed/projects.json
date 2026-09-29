@@ -8,7 +8,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "Completed",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -50,7 +50,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Planning",
+    "stage": "Planning",
     "primary_stakeholders": [
       "Katie"
     ],
@@ -90,7 +90,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Josh",
     "additional_resources": [
@@ -131,7 +131,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "Not Started",
-    "phase": "Prioritization",
+    "stage": "Prioritization",
     "primary_stakeholders": [
       "Mark",
       "Vanessa",
@@ -174,7 +174,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Trish",
     "additional_resources": [
@@ -213,7 +213,7 @@
     "date_added": "2026-04-10",
     "priority": "Medium",
     "status": "Not Started",
-    "phase": "Prioritization",
+    "stage": "Prioritization",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -255,7 +255,7 @@
     "date_added": "2026-04-10",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Giles Bryan",
       "Glen Foster",
@@ -299,7 +299,7 @@
     "date_added": "2026-04-14",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Customer Validation",
+    "stage": "Customer Validation",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -341,7 +341,7 @@
     "date_added": "2026-04-21",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Mark",
       "Vanessa",
@@ -381,7 +381,7 @@
     "date_added": "2026-04-22",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Trish",
     "additional_resources": [
@@ -420,7 +420,7 @@
     "date_added": "2026-04-27",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Brett"
     ],

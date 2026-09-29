@@ -3,12 +3,18 @@
 /**
  * Project values editor.
  *
- * Four tabs (one per extensible enum). Each tab shows:
+ * One tab per extensible enum (status, priority, application/product,
+ * program, track). Each tab shows:
  *
  *   - System rows: read-only chip listing the built-in values.
  *   - Extension rows: editable label + per-enum metadata + archive
  *     toggle + delete button. New extensions are added through an
  *     inline form at the bottom.
+ *
+ * Stage isn't one of these tabs — its valid set is track-scoped
+ * (`stagesForTrack` in `lib/projects/display.ts`), a code-defined list
+ * per track rather than a single admin-curated list, so it doesn't fit
+ * this editor's shape.
  *
  * State is held locally and committed to the API on Save (single PUT
  * with the full enum_extensions object). "Discard" reverts to the
@@ -18,8 +24,7 @@
  *
  *   - status:    is_open + is_terminal toggles
  *   - priority:  rank input (numeric; placed between Critical=0 and Low=3)
- *   - phase:     order input (numeric; lifecycle position)
- *   - application_product: no extra metadata
+ *   - application_product / program / track: no extra metadata
  *
  * IDs vs labels: when an admin types a new label we auto-derive the id
  * (slug-style) and let them override it. Once an id has been used in
@@ -50,12 +55,6 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     label: "Status",
     description:
       "Project workflow states. The eight built-in values are locked because the application's filtering, health scoring, and reporting branch on them.",
-  },
-  {
-    key: "phase",
-    label: "Phase",
-    description:
-      "Lifecycle phases. Built-in phases follow Appendix C; admin-added phases pick an Order value to slot in.",
   },
   {
     key: "priority",
@@ -100,7 +99,6 @@ export function ProjectValuesEditor({
   const [unsavedIds, setUnsavedIds] = useState<Record<TabKey, Set<string>>>(
     () => ({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
@@ -117,7 +115,6 @@ export function ProjectValuesEditor({
   const systemRows = useMemo(() => {
     const out: Record<TabKey, EnumOption[]> = {
       status: [],
-      phase: [],
       priority: [],
       application_product: [],
       program: [],
@@ -166,9 +163,6 @@ export function ProjectValuesEditor({
     if (enumKey === "priority" && draft.rank !== undefined) {
       ext.rank = draft.rank;
     }
-    if (enumKey === "phase" && draft.order !== undefined) {
-      ext.order = draft.order;
-    }
     if (draft.description) ext.description = draft.description;
 
     setExtensions((prev) => ({
@@ -216,7 +210,6 @@ export function ProjectValuesEditor({
     setExtensions(clone(savedExtensions));
     setUnsavedIds({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
@@ -252,7 +245,6 @@ export function ProjectValuesEditor({
     setSavedExtensions(clone(data.extensions));
     setUnsavedIds({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
@@ -357,9 +349,6 @@ export function ProjectValuesEditor({
                 {activeTab === "status" && o.is_terminal ? " · terminal" : null}
                 {activeTab === "status" && o.is_open === false && !o.is_terminal
                   ? " · closed"
-                  : null}
-                {activeTab === "phase" && typeof o.order === "number"
-                  ? ` · #${o.order + 1}`
                   : null}
                 {activeTab === "priority" && typeof o.rank === "number"
                   ? ` · rank ${o.rank}`
@@ -485,7 +474,6 @@ function ExtensionsTable({
           </>
         ) : null}
         {enumKey === "priority" ? <div>Rank</div> : null}
-        {enumKey === "phase" ? <div>Order</div> : null}
         <div style={{ textAlign: "center" }}>Status</div>
         <div style={{ textAlign: "right" }}>Actions</div>
       </div>
@@ -566,23 +554,6 @@ function ExtensionsTable({
                 placeholder="e.g. 0.5"
               />
             ) : null}
-            {enumKey === "phase" ? (
-              <input
-                type="number"
-                step="0.5"
-                value={e.order ?? ""}
-                onChange={(ev) =>
-                  onPatch(e.id, {
-                    order:
-                      ev.target.value === ""
-                        ? undefined
-                        : Number(ev.target.value),
-                  })
-                }
-                className="pol-input"
-                placeholder="e.g. 4.5"
-              />
-            ) : null}
 
             <div style={{ textAlign: "center" }}>
               {e.archived ? (
@@ -647,8 +618,6 @@ function columnTemplate(enumKey: TabKey): string {
       return "1.4fr 1fr 80px 90px 90px 170px";
     case "priority":
       return "1.4fr 1fr 100px 90px 170px";
-    case "phase":
-      return "1.4fr 1fr 100px 90px 170px";
     case "application_product":
     case "program":
     case "track":
@@ -667,7 +636,6 @@ interface NewExtensionDraft {
   is_open?: boolean;
   is_terminal?: boolean;
   rank?: number;
-  order?: number;
 }
 
 interface AddExtensionFormProps {
@@ -687,7 +655,6 @@ function AddExtensionForm({
   const [isOpen, setIsOpen] = useState(true);
   const [isTerminal, setIsTerminal] = useState(false);
   const [rank, setRank] = useState<string>("");
-  const [order, setOrder] = useState<string>("");
 
   // Auto-derive id from label until the user types in the id field.
   const derivedId = idTouched ? id : slugify(label);
@@ -699,7 +666,6 @@ function AddExtensionForm({
     setIsOpen(true);
     setIsTerminal(false);
     setRank("");
-    setOrder("");
   }
 
   function submit(e: React.FormEvent) {
@@ -715,10 +681,6 @@ function AddExtensionForm({
     if (enumKey === "priority" && rank !== "") {
       const n = Number(rank);
       if (Number.isFinite(n)) draft.rank = n;
-    }
-    if (enumKey === "phase" && order !== "") {
-      const n = Number(order);
-      if (Number.isFinite(n)) draft.order = n;
     }
     onAdd(draft);
     reset();
@@ -823,22 +785,6 @@ function AddExtensionForm({
             />
           </div>
         ) : null}
-        {enumKey === "phase" ? (
-          <div className="form-field">
-            <label className="form-label" htmlFor="ext-order">
-              Order
-            </label>
-            <input
-              id="ext-order"
-              type="number"
-              step="0.5"
-              value={order}
-              onChange={(e) => setOrder(e.target.value)}
-              placeholder="4.5"
-              className="pol-input"
-            />
-          </div>
-        ) : null}
 
         <button
           type="submit"
@@ -868,8 +814,6 @@ function addFormColumns(enumKey: TabKey): string {
     case "status":
       return "1fr 1fr 80px 90px auto";
     case "priority":
-      return "1fr 1fr 100px auto";
-    case "phase":
       return "1fr 1fr 100px auto";
     case "application_product":
     case "program":
@@ -908,9 +852,9 @@ function deepEqualExtensions(
 ): boolean {
   return (
     deepEqualOne(a.status, b.status) &&
-    deepEqualOne(a.phase, b.phase) &&
     deepEqualOne(a.priority, b.priority) &&
     deepEqualOne(a.application_product, b.application_product) &&
-    deepEqualOne(a.program, b.program)
+    deepEqualOne(a.program, b.program) &&
+    deepEqualOne(a.track, b.track)
   );
 }

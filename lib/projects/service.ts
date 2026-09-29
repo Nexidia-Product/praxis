@@ -37,7 +37,6 @@ import {
   type ProjectOutcome,
   type AppSettings,
   type ProjectId,
-  type ProjectPhase,
   type ProjectStatus,
   type ProjectType,
   type StatusHistoryEntry,
@@ -54,6 +53,7 @@ import {
 } from "@/lib/projects/dependencies";
 import {
   PROJECT_TYPES,
+  stagesForTrack,
 } from "@/lib/projects/display";
 import { randomUUID } from "node:crypto";
 import {
@@ -71,11 +71,13 @@ import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { estimateComplexity as runAiEstimate } from "@/lib/ai/estimate";
 
 // ---------------------------------------------------------------------------
-// Constants — Status / Priority / Phase remain local because the service
-// still gates payloads against the system-defined values (extensions are
+// Constants — Status / Priority remain local because the service still
+// gates payloads against the system-defined values (extensions are
 // validated separately via the enum_extensions check). Project type now
 // reads from the canonical list in lib/projects/display.ts so additions
-// like the "Admin" type don't need to be repeated here.
+// like the "Admin" type don't need to be repeated here. Stage is validated
+// via `stagesForTrack(track)` since its valid set depends on the project's
+// track rather than being a single fixed list.
 // ---------------------------------------------------------------------------
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
@@ -96,18 +98,6 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   "Delayed",
   "Completed",
   "Canceled",
-];
-
-const PROJECT_PHASES: ProjectPhase[] = [
-  "Qualification",
-  "Prioritization",
-  "Planning",
-  "Data Modeling",
-  "Application Development",
-  "Customer Validation",
-  "Deployment Readiness",
-  "Handover",
-  "Closeout",
 ];
 
 /** Status values that count as "open" in the default Projects-page view. */
@@ -146,7 +136,7 @@ export interface ProjectCreatePayload {
   project_type?: unknown;
   priority?: unknown;
   status?: unknown;
-  phase?: unknown;
+  stage?: unknown;
   primary_stakeholders?: unknown;
   project_lead?: unknown;
   additional_resources?: unknown;
@@ -170,7 +160,7 @@ export interface ProjectCreatePayload {
   template_id?: unknown;
   /**
    * Step 6 (Section 5.10): two equivalent shapes are accepted.
-   * - `dependencies`: full ProjectDependency[] (type + required_phase per row)
+   * - `dependencies`: full ProjectDependency[] (type + required_stage per row)
    * - `depends_on`:   string[] of upstream IDs; types default to "Blocks Start"
    * If both are present, `dependencies` wins.
    */
@@ -458,11 +448,11 @@ async function validateAndShape(
   const project_type = asEnum(payload.project_type, PROJECT_TYPES, "project_type");
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
-  const phase = asEnum(payload.phase, PROJECT_PHASES, "phase");
+  const stage = asEnum(payload.stage, stagesForTrack(track), "stage");
   // Mirror updateProject's terminal-status rule: a project created
   // directly as Completed or Canceled is already closed out.
-  const effectivePhase: ProjectPhase =
-    status === "Completed" || status === "Canceled" ? "Closeout" : phase;
+  const effectiveStage =
+    status === "Completed" || status === "Canceled" ? "Productization" : stage;
   const primary_stakeholders = asStringArray(
     payload.primary_stakeholders,
     "primary_stakeholders",
@@ -559,7 +549,7 @@ async function validateAndShape(
     project_type,
     priority,
     status,
-    phase: effectivePhase,
+    stage: effectiveStage,
     primary_stakeholders,
     project_lead,
     additional_resources,
@@ -629,7 +619,7 @@ function resolveDependencyShape(
   payload: ProjectCreatePayload | ProjectUpdatePayload,
   existing: ProjectDependency[],
   selfId: ProjectId | null,
-  allProjects: Pick<Project, "project_id">[],
+  allProjects: Pick<Project, "project_id" | "track">[],
 ): { dependencies: ProjectDependency[]; depends_on: ProjectId[] } {
   try {
     if (payload.dependencies !== undefined) {
@@ -947,8 +937,13 @@ export async function updateProject(
   if (payload.status !== undefined) {
     patch.status = asEnum(payload.status, PROJECT_STATUSES, "status");
   }
-  if (payload.phase !== undefined) {
-    patch.phase = asEnum(payload.phase, PROJECT_PHASES, "phase");
+  if (payload.stage !== undefined) {
+    // Validated against the project's track further down, once `existing`
+    // (needed to resolve the track when this payload doesn't also change
+    // it) has been fetched.
+    const stg = asString(payload.stage, "stage");
+    if (!stg) throw new ValidationError("stage cannot be empty.");
+    patch.stage = stg;
   }
   if (payload.primary_stakeholders !== undefined) {
     patch.primary_stakeholders = asStringArray(
@@ -1040,6 +1035,21 @@ export async function updateProject(
   // read per update; the file is small and JSON parsing is fast.
   const existing = await ProjectRepository.getById(id);
   if (!existing) throw new ValidationError(`Project ${id} not found.`);
+
+  // Stage is validated here rather than up above, alongside the other
+  // simple field coercions — resolving "the track this stage must belong
+  // to" requires `existing.track` when this payload doesn't also change
+  // track, and `existing` isn't available until this point.
+  if (patch.stage !== undefined) {
+    const finalTrack =
+      patch.track !== undefined ? patch.track : existing.track;
+    const validStages = stagesForTrack(finalTrack);
+    if (!validStages.includes(patch.stage)) {
+      throw new ValidationError(
+        `stage must be one of: ${validStages.join(", ")} (for track "${finalTrack}").`,
+      );
+    }
+  }
 
   // Project-status gate: "Completed" is only valid when every task
   // on the project has reached a terminal state (task "Complete" or
@@ -1150,19 +1160,20 @@ export async function updateProject(
 
   // Business rule: a project reaching a terminal status is closed out.
   // When this update transitions the project *into* "Completed" or
-  // "Canceled", force the phase to "Closeout". The terminal transition
-  // governs, so it overrides any phase value the same patch happened to
-  // carry (the edit form always sends the phase field, so keying off
-  // "phase absent from patch" would skip that path). We fire only on the
-  // transition — not on every save of an already-terminal project — so an
-  // admin can still hand-adjust the phase afterwards if they need to.
+  // "Canceled", force the stage to "Productization" (the fixed final
+  // stage for every track). The terminal transition governs, so it
+  // overrides any stage value the same patch happened to carry (the edit
+  // form always sends the stage field, so keying off "stage absent from
+  // patch" would skip that path). We fire only on the transition — not on
+  // every save of an already-terminal project — so an admin can still
+  // hand-adjust the stage afterwards if they need to.
   const isTerminalStatusTransition =
     hasStatusChange &&
     (patch.status === "Completed" || patch.status === "Canceled");
-  const phaseAutoClosedOut =
-    isTerminalStatusTransition && existing.phase !== "Closeout";
+  const stageAutoClosedOut =
+    isTerminalStatusTransition && existing.stage !== "Productization";
   if (isTerminalStatusTransition) {
-    patch.phase = "Closeout";
+    patch.stage = "Productization";
   }
 
   // Auto-set the planned start date when a project transitions from
@@ -1302,7 +1313,7 @@ export async function updateProject(
   // on transitions without scanning summary text. Anything else
   // (including mixed status + other fields) lands as a generic
   // `update` with a one-line diff.
-  // An auto-Closeout phase change rides along with a terminal-status
+  // An auto-Productization stage change rides along with a terminal-status
   // transition, so don't let it demote the audit entry from the
   // dedicated `status_change` action to a generic `update`.
   const isStatusOnly =
@@ -1311,7 +1322,7 @@ export async function updateProject(
       (k) =>
         k === "status" ||
         k === "status_history" ||
-        (isTerminalStatusTransition && k === "phase"),
+        (isTerminalStatusTransition && k === "stage"),
     );
   if (isStatusOnly) {
     await audit({
@@ -1323,7 +1334,7 @@ export async function updateProject(
       action: "status_change",
       summary: `Status: ${existing.status} → ${updated.status}${
         rawSummary.length > 0 ? ` — ${rawSummary}` : ""
-      }${phaseAutoClosedOut ? " (phase → Closeout)" : ""}${
+      }${stageAutoClosedOut ? " (stage → Productization)" : ""}${
         cascadedTasks > 0
           ? ` (${cascadedTasks} open task${cascadedTasks === 1 ? "" : "s"} auto-canceled)`
           : ""
@@ -1344,7 +1355,7 @@ export async function updateProject(
           fields: [
             "name",
             "status",
-            "phase",
+            "stage",
             "priority",
             "project_type",
             "application_product",

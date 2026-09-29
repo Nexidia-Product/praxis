@@ -66,7 +66,6 @@ interface IdeaReviewPanelProps {
    * appear when an idea is converted into a project.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /**
    * Whether the current user holds `ideas.review`. When false the user
@@ -107,7 +106,6 @@ export function IdeaReviewPanel({
   applicationOptions,
   projects,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   canReview,
   canConvert,
@@ -547,7 +545,6 @@ export function IdeaReviewPanel({
           leadOptions={leadOptions}
           applicationOptions={applicationOptions}
           statusOptions={statusOptions}
-          phaseOptions={phaseOptions}
           priorityOptions={priorityOptions}
           onCancel={() => setShowConvert(false)}
           onConverted={onConverted}

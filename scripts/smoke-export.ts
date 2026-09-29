@@ -196,7 +196,7 @@ async function main() {
       date_added: p.date_added ?? "2026-01-01",
       priority: p.priority ?? "High",
       status: p.status ?? "In Progress",
-      phase: p.phase ?? "Application Development",
+      stage: p.stage ?? "Application Development",
       primary_stakeholders: p.primary_stakeholders ?? ["Brett"],
       project_lead: p.project_lead ?? "Min",
       additional_resources: p.additional_resources ?? [],

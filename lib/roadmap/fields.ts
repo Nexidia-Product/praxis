@@ -19,7 +19,6 @@
 import {
   PORTFOLIO_PROJECT_TYPES,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
 } from "@/lib/projects/display";
 import type { Project } from "@/lib/db";
@@ -57,10 +56,13 @@ export const KANBAN_FIELDS: KanbanField[] = [
     getValue: (p) => p.status,
   },
   {
-    key: "phase",
-    label: "Phase",
-    values: PROJECT_PHASES,
-    getValue: (p) => p.phase,
+    key: "stage",
+    label: "Stage",
+    // Stages are track-scoped (each track has its own list), so there's
+    // no single fixed order to show here — derived from the data, same
+    // as roadmap_bucket.
+    values: null,
+    getValue: (p) => p.stage,
   },
   {
     key: "priority",

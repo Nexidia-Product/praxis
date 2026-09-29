@@ -74,7 +74,7 @@ async function main() {
     project_type: "New Capability" as const,
     priority: "High" as const,
     status: "Not Started" as const,
-    phase: "Qualification" as const,
+    stage: "Qualification" as const,
     primary_stakeholders: [],
     project_lead: admin.user_id,
     additional_resources: [],
@@ -100,7 +100,7 @@ async function main() {
     ...baseProject,
     depends_on: [p1.project_id],
     dependencies: [
-      { upstream_id: p1.project_id, type: "Blocks Start", required_phase: null },
+      { upstream_id: p1.project_id, type: "Blocks Start", required_stage: null },
     ],
   });
   const year = new Date().getUTCFullYear();

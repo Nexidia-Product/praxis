@@ -23,7 +23,6 @@
 import type {
   IsoDate,
   IsoTimestamp,
-  ProjectPhase,
   ProjectType,
   UserId,
 } from "@/lib/db";
@@ -211,20 +210,20 @@ export interface TaskThroughputMetric {
   data_quality: DataQuality;
 }
 
-/** Per-phase average duration. */
-export interface PhaseCycleTimeBar {
-  phase: ProjectPhase;
+/** Per-stage average duration. */
+export interface StageCycleTimeBar {
+  stage: string;
   avg_days: number;
   sample_size: number;
 }
 
-export interface PhaseCycleTimeMetric {
-  bars: PhaseCycleTimeBar[];
+export interface StageCycleTimeMetric {
+  bars: StageCycleTimeBar[];
   data_quality: DataQuality;
   /**
    * Free-form note explaining how the metric was computed. Surfaced in
    * the chart's footer so the reader knows what they're looking at.
-   * Currently always set because we have no phase-history table yet.
+   * Currently always set because we have no stage-history table yet.
    */
   note: string;
 }
@@ -270,7 +269,7 @@ export interface VelocityMetrics {
   avg_time_to_completion: AvgTimeToCompletionMetric;
   estimated_vs_actual: EstVsActualMetric;
   task_throughput: TaskThroughputMetric;
-  phase_cycle_time: PhaseCycleTimeMetric;
+  stage_cycle_time: StageCycleTimeMetric;
   blocked_time: BlockedTimeMetric;
   idea_conversion: IdeaConversionMetric;
 

@@ -18,7 +18,7 @@
  * Slack URL for all blocked Complaints projects"), this is the obvious
  * place to add `nuqs` or `useSearchParams` wiring.
  *
- * Inline edits — status, phase, priority — fire one optimistic PATCH per
+ * Inline edits — status, stage, priority — fire one optimistic PATCH per
  * change. The bulk-action bar that previously lived here was removed
  * when the row checkbox was dropped; multi-row edits would need a new
  * affordance (a multiselect-via-shift-click pattern, or batch edit
@@ -33,9 +33,9 @@ import {
   HEALTH_DOT,
   HEALTH_TOOLTIP,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   priorityBadgeClass,
+  stagesForTrack,
   statusBadgeClass,
 } from "@/lib/projects/display";
 import { customFieldMatches } from "@/lib/projects/custom-filter";
@@ -51,7 +51,6 @@ import type {
   Priority,
   Project,
   ProjectGroup,
-  ProjectPhase,
   ProjectStatus,
   TaskTemplate,
   UserRole,
@@ -105,7 +104,7 @@ type SortKey =
   | "program"
   | "project_type"
   | "status"
-  | "phase"
+  | "stage"
   | "priority"
   | "portfolio_position"
   | "project_lead"
@@ -213,7 +212,6 @@ interface ProjectsTableProps {
    */
   enumOptions?: {
     status: EnumOption[];
-    phase: EnumOption[];
     priority: EnumOption[];
     application_product: EnumOption[];
     program: EnumOption[];
@@ -483,6 +481,21 @@ export function ProjectsTable({
     return [...head, ...tail];
   }, [projects, enumOptions]);
 
+  // Stage filter options: distinct stage values actually present in the
+  // dataset. Unlike the other enum filters, stage has no admin-curated
+  // list to seed from — it's track-scoped (`stagesForTrack`), so a flat
+  // cross-track list only makes sense as "whatever's out there."
+  const stageOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of projects) {
+      if (!p.stage || seen.has(p.stage)) continue;
+      seen.add(p.stage);
+      out.push(p.stage);
+    }
+    return out.sort();
+  }, [projects]);
+
   // Per-row dependency-health rollup (Section 5.10). Computed once per
   // project-list render so each row reads its value with O(1) Map lookup
   // rather than re-walking dependencies on every render. Entries with
@@ -506,7 +519,7 @@ export function ProjectsTable({
     const filtered = projects.filter((p) => {
       if (!groupTest(p.status)) return false;
       if (filters.status.length && !filters.status.includes(p.status)) return false;
-      if (filters.phase.length && !filters.phase.includes(p.phase)) return false;
+      if (filters.stage.length && !filters.stage.includes(p.stage)) return false;
       if (filters.priority.length && !filters.priority.includes(p.priority))
         return false;
       if (
@@ -651,16 +664,16 @@ export function ProjectsTable({
   }
 
   /**
-   * Patch a single field optimistically. Used for inline phase/priority
+   * Patch a single field optimistically. Used for inline stage/priority
    * edits on the quick-view panel — same pattern as `changeStatus` but
    * generalized over the field name so we don't duplicate the
    * fetch/revert plumbing twice. Returns nothing; surfaces errors via
    * `setGlobalError`.
    */
-  async function patchField<K extends "phase" | "priority">(
+  async function patchField<K extends "stage" | "priority">(
     project: Project,
     field: K,
-    value: K extends "phase" ? ProjectPhase : Priority,
+    value: K extends "stage" ? string : Priority,
   ) {
     if (project[field] === value) return;
     setGlobalError(null);
@@ -683,8 +696,8 @@ export function ProjectsTable({
     applyUpdated(data.project);
   }
 
-  async function changePhase(project: Project, phase: ProjectPhase) {
-    return patchField(project, "phase", phase);
+  async function changeStage(project: Project, stage: string) {
+    return patchField(project, "stage", stage);
   }
   async function changePriority(project: Project, priority: Priority) {
     return patchField(project, "priority", priority);
@@ -896,7 +909,7 @@ export function ProjectsTable({
         applicationOptions={applicationOptions}
         programOptions={programOptions}
         statusOptions={enumOptions?.status}
-        phaseOptions={enumOptions?.phase}
+        stageOptions={stageOptions}
         priorityOptions={enumOptions?.priority}
         customFields={customFields}
         quadrantLabels={quadrantLabels}
@@ -963,11 +976,11 @@ export function ProjectsTable({
                   Status
                 </Th>
                 <Th
-                  active={sortKey === "phase"}
+                  active={sortKey === "stage"}
                   dir={sortDir}
-                  onClick={() => handleSortClick("phase")}
+                  onClick={() => handleSortClick("stage")}
                 >
-                  Phase
+                  Stage
                 </Th>
                 <Th
                   active={sortKey === "priority"}
@@ -1130,46 +1143,37 @@ export function ProjectsTable({
                         </span>
                       )}
                     </td>
-                    {/* Phase: inline-editable, same pattern as
+                    {/* Stage: inline-editable, same pattern as
                         Status. stopPropagation prevents the row's
                         onClick (which opens the panel) from firing
-                        when the user opens the dropdown. */}
+                        when the user opens the dropdown. Options are
+                        scoped to this row's own track — stages are
+                        track-scoped (`stagesForTrack`). */}
                     <td
                       className="whitespace-nowrap px-3 py-2.5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {canEdit ? (
                         <select
-                          value={p.phase}
-                          onChange={(e) =>
-                            changePhase(p, e.target.value as ProjectPhase)
-                          }
+                          value={p.stage}
+                          onChange={(e) => changeStage(p, e.target.value)}
                           className="rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
                         >
-                          {(enumOptions?.phase ?? []).length > 0
-                            ? enumOptions!.phase.map((ph) => (
-                                <option key={ph.id} value={ph.id}>
-                                  {ph.label}
-                                </option>
-                              ))
-                            : PROJECT_PHASES.map((ph) => (
-                                <option key={ph} value={ph}>
-                                  {ph}
-                                </option>
-                              ))}
-                          {/* Defensive: preserve archived value if the
-                              project still uses it. */}
-                          {p.phase &&
-                          !(enumOptions?.phase ?? []).some(
-                            (ph) => ph.id === p.phase,
-                          ) &&
-                          !(PROJECT_PHASES as string[]).includes(p.phase) ? (
-                            <option value={p.phase}>{p.phase}</option>
+                          {stagesForTrack(p.track).map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                          {/* Defensive: preserve a stage the project still
+                              uses even if it's not part of its track's
+                              list (e.g. a retired phase). */}
+                          {p.stage && !stagesForTrack(p.track).includes(p.stage) ? (
+                            <option value={p.stage}>{p.stage}</option>
                           ) : null}
                         </select>
                       ) : (
                         <span className="text-xs text-gray-700">
-                          {p.phase}
+                          {p.stage}
                         </span>
                       )}
                     </td>
@@ -1302,7 +1306,6 @@ export function ProjectsTable({
           canEdit={canEdit}
           allProjects={projects}
           statusOptions={enumOptions?.status}
-          phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
@@ -1324,7 +1327,7 @@ export function ProjectsTable({
           onStatusChange={(status, summary) =>
             changeStatus(quickViewProject, status, summary)
           }
-          onPhaseChange={(phase) => changePhase(quickViewProject, phase)}
+          onStageChange={(stage) => changeStage(quickViewProject, stage)}
           onPriorityChange={(priority) =>
             changePriority(quickViewProject, priority)
           }
@@ -1351,7 +1354,6 @@ export function ProjectsTable({
           programOptions={programOptions}
           trackOptions={trackOptions}
           statusOptions={enumOptions?.status}
-          phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}
@@ -1375,7 +1377,6 @@ export function ProjectsTable({
           programOptions={programOptions}
           trackOptions={trackOptions}
           statusOptions={enumOptions?.status}
-          phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}

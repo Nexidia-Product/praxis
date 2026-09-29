@@ -9,8 +9,9 @@
  * thresholds that drive project health scoring.
  *
  *   - Custom fields — admin-defined fields rendered on every project.
- *   - Project values — Status / Phase / Priority / Application enum
- *     extensions.
+ *   - Project values — Status / Priority / Application / Program / Track
+ *     enum extensions. Stage isn't included — it's track-scoped, defined
+ *     in code (`stagesForTrack`) rather than admin-curated.
  *   - Portfolio quadrants — the four bubble-chart quadrant labels.
  *   - Health thresholds — Red / Yellow / Green scoring rules.
  *

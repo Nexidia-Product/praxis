@@ -47,7 +47,7 @@ import type {
 // drag for the four core enum fields and roadmap_bucket only.
 const DRAGGABLE_FIELDS = new Set([
   "status",
-  "phase",
+  "stage",
   "priority",
   "project_type",
   "roadmap_bucket",
@@ -666,7 +666,7 @@ function SaveConfigDialog({
           onChange={(e) => setName(e.target.value)}
           autoFocus
           className="mt-3 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-          placeholder="e.g. By Phase / Sprint board"
+          placeholder="e.g. By Stage / Sprint board"
         />
         {error && (
           <p className="mt-2 text-xs text-red-700">{error}</p>

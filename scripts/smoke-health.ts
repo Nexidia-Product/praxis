@@ -157,7 +157,7 @@ async function main() {
       project_type: overrides.project_type ?? "New Capability",
       priority: overrides.priority ?? "Medium",
       status: overrides.status ?? "In Progress",
-      phase: overrides.phase ?? "Application Development",
+      stage: overrides.stage ?? "Application Development",
       primary_stakeholders: overrides.primary_stakeholders ?? [],
       project_lead: overrides.project_lead ?? "",
       additional_resources: overrides.additional_resources ?? [],
@@ -501,7 +501,7 @@ async function main() {
       project_type: "New Feature",
       priority: "Medium",
       status: "In Progress",
-      phase: "Planning",
+      stage: "Planning",
       primary_stakeholders: [],
       project_lead: hookLead.user_id,
       additional_resources: [],
@@ -573,7 +573,7 @@ async function main() {
     status: "In Progress",
     depends_on: [upstream.project_id],
     dependencies: [
-      { upstream_id: upstream.project_id, type: "Blocks Start", required_phase: null },
+      { upstream_id: upstream.project_id, type: "Blocks Start", required_stage: null },
     ],
   });
   // Initialize both projects' scores.
