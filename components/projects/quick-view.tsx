@@ -45,6 +45,7 @@ import {
   MILESTONE_LABELS,
   computeProjectMilestones,
 } from "@/lib/projects/milestones";
+import { buildProjectMarkdown } from "@/lib/projects/markdown";
 import type {
   CustomFieldDefinition,
   Priority,
@@ -235,6 +236,21 @@ export function ProjectQuickView({
     const byId = new Map(allProjects.map((p) => [p.project_id, p]));
     return rollupDependencyHealth(project, byId);
   }, [project, allProjects]);
+
+  // Client-side only — same Blob/anchor download trick as
+  // `downloadMarkdown` in components/insights/key-findings-view.tsx.
+  function downloadMarkdown() {
+    const md = buildProjectMarkdown(project, allProjects);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project.project_id}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div
@@ -793,6 +809,13 @@ export function ProjectQuickView({
               View tasks for this project →
             </Link>
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={downloadMarkdown}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              >
+                Export to Markdown
+              </button>
               <button
                 type="button"
                 onClick={onClose}
