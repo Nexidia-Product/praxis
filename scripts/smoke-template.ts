@@ -64,7 +64,7 @@ async function main() {
     project_type: "Enhancement",
     priority: "High",
     status: "In Progress",
-    phase: "Planning",
+    stage: "Planning",
     project_lead: "user-1",
     primary_stakeholders: [],
     additional_resources: [],

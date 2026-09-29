@@ -3,7 +3,7 @@
  *
  *   GET  /api/admin/project-values
  *     Returns merged option lists (system + extensions, including
- *     archived) for all four extensible enums, plus the raw extension
+ *     archived) for every extensible enum, plus the raw extension
  *     entries so the UI can present "edit" controls only for the
  *     ones that came from extensions.
  *
@@ -24,7 +24,7 @@
  *   - System IDs cannot be redefined as extensions; the system list
  *     is the source of truth for those.
  *   - Per-enum metadata is type-checked: `is_open`/`is_terminal` must
- *     be boolean if present; `rank`/`order` must be a finite number.
+ *     be boolean if present; `rank` must be a finite number.
  *
  * On any validation failure the entire payload is rejected (400) and
  * the existing settings are unchanged — no partial writes.
@@ -46,10 +46,10 @@ import {
 
 const ENUM_KEYS: ExtensibleEnumKey[] = [
   "status",
-  "phase",
   "priority",
   "application_product",
   "program",
+  "track",
 ];
 
 export const GET = withAuth(async () => {
@@ -62,7 +62,6 @@ export const GET = withAuth(async () => {
       settings.enum_extensions.status,
       true,
     ),
-    phase: mergeEnumOptions("phase", settings.enum_extensions.phase, true),
     priority: mergeEnumOptions(
       "priority",
       settings.enum_extensions.priority,
@@ -74,6 +73,7 @@ export const GET = withAuth(async () => {
       true,
     ),
     program: mergeEnumOptions("program", settings.enum_extensions.program, true),
+    track: mergeEnumOptions("track", settings.enum_extensions.track, true),
   };
 
   return NextResponse.json({
@@ -117,10 +117,10 @@ export const PUT = withAuth(async (request: Request) => {
   // editor are confusing and rarely useful.
   const validated: EnumExtensionsMap = {
     status: [],
-    phase: [],
     priority: [],
     application_product: [],
     program: [],
+    track: [],
   };
 
   for (const enumKey of ENUM_KEYS) {
@@ -214,15 +214,6 @@ export const PUT = withAuth(async (request: Request) => {
           ext.rank = entry.rank;
         }
       }
-      if (enumKey === "phase") {
-        if (entry.order !== undefined) {
-          if (typeof entry.order !== "number" || !Number.isFinite(entry.order)) {
-            return invalid(`${enumKey}[${i}].order must be a finite number.`);
-          }
-          ext.order = entry.order;
-        }
-      }
-
       out.push(ext);
     }
 
@@ -237,7 +228,6 @@ export const PUT = withAuth(async (request: Request) => {
   return NextResponse.json({
     options: {
       status: mergeEnumOptions("status", validated.status, true),
-      phase: mergeEnumOptions("phase", validated.phase, true),
       priority: mergeEnumOptions("priority", validated.priority, true),
       application_product: mergeEnumOptions(
         "application_product",
@@ -245,6 +235,7 @@ export const PUT = withAuth(async (request: Request) => {
         true,
       ),
       program: mergeEnumOptions("program", validated.program, true),
+      track: mergeEnumOptions("track", validated.track, true),
     },
     extensions: validated,
   });

@@ -531,7 +531,7 @@ function summarizeFilters(filters: RoadmapFilters): string {
   if (filters.project_lead.length) {
     parts.push(`Lead: ${filters.project_lead.join(", ")}`);
   }
-  if (filters.phase.length) parts.push(`Phase: ${filters.phase.join(", ")}`);
+  if (filters.stage.length) parts.push(`Stage: ${filters.stage.join(", ")}`);
   if (filters.search) parts.push(`Search: "${filters.search}"`);
   return parts.join("  ·  ");
 }

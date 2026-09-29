@@ -19,7 +19,6 @@
 import {
   PORTFOLIO_PROJECT_TYPES,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
 } from "@/lib/projects/display";
 import type { Project } from "@/lib/db";
@@ -57,10 +56,13 @@ export const KANBAN_FIELDS: KanbanField[] = [
     getValue: (p) => p.status,
   },
   {
-    key: "phase",
-    label: "Phase",
-    values: PROJECT_PHASES,
-    getValue: (p) => p.phase,
+    key: "stage",
+    label: "Stage",
+    // Stages are track-scoped (each track has its own list), so there's
+    // no single fixed order to show here — derived from the data, same
+    // as roadmap_bucket.
+    values: null,
+    getValue: (p) => p.stage,
   },
   {
     key: "priority",
@@ -145,9 +147,8 @@ const PRIORITY_ORDER: Record<string, number> = {
 const PROJECT_TYPE_ORDER: Record<string, number> = {
   Enhancement: 1,
   "New Feature": 2,
-  "New Prototype": 3,
-  "New Application": 4,
-  Validation: 5,
+  "New Capability": 3,
+  Validation: 4,
 };
 
 /**
@@ -207,9 +208,8 @@ export const BUBBLE_AXES: BubbleAxis[] = [
       { value: 0, label: "—" },
       { value: 1, label: "Enhancement" },
       { value: 2, label: "New Feature" },
-      { value: 3, label: "New Prototype" },
-      { value: 4, label: "New Application" },
-      { value: 5, label: "Validation" },
+      { value: 3, label: "New Capability" },
+      { value: 4, label: "Validation" },
     ],
   },
   {

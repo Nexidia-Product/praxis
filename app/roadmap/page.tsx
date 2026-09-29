@@ -66,7 +66,6 @@ export default async function RoadmapPage() {
   // dropdown options as the Projects page form.
   const enumOptions = {
     status: mergeEnumOptions("status", settings.enum_extensions.status),
-    phase: mergeEnumOptions("phase", settings.enum_extensions.phase),
     priority: mergeEnumOptions("priority", settings.enum_extensions.priority),
     application_product: mergeEnumOptions(
       "application_product",

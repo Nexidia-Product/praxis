@@ -57,7 +57,7 @@ async function main() {
     computeCompletedByQuarter,
     computeEstimatedVsActual,
     computeIdeaConversion,
-    computePhaseCycleTime,
+    computeStageCycleTime,
     computeTaskThroughput,
     computeVelocityMetrics,
     daysBetween,
@@ -150,11 +150,12 @@ async function main() {
       definition_of_done: "",
       application_product: "Automated Insights",
       program: "Innovation",
-      project_type: "New Application",
+      track: "Track A - Dashboard/visualization",
+      project_type: "New Capability",
       date_added: "2026-01-01",
       priority: "Medium",
       status: "In Progress",
-      phase: "Application Development",
+      stage: "Application Development",
       primary_stakeholders: [],
       project_lead: "user-A",
       additional_resources: [],
@@ -349,8 +350,8 @@ async function main() {
     avgMetric.overall_avg_days,
     (14 + 50 + 90) / 3,
   );
-  const newAppByType = avgMetric.by_type.find((t) => t.project_type === "New Application");
-  eq("avg_time_to_completion: New Application sample size", newAppByType?.sample_size, 3);
+  const newAppByType = avgMetric.by_type.find((t) => t.project_type === "New Capability");
+  eq("avg_time_to_completion: New Capability sample size", newAppByType?.sample_size, 3);
 
   section("Metric: Estimated vs Actual");
 
@@ -415,47 +416,47 @@ async function main() {
   eq("task_throughput: 2026-04-13 week count", wk413?.count, 2);
   eq("task_throughput: 2026-04-06 week count", wk406?.count, 1);
 
-  section("Metric: Phase Cycle Time");
+  section("Metric: Stage Cycle Time");
 
-  const phaseProjects: Project[] = [
+  const stageProjects: Project[] = [
     mkProject({
       project_id: "PH1",
-      phase: "Planning",
+      stage: "Planning",
       date_added: "2026-04-01",
       updated_at: "2026-04-15T00:00:00Z",
     }),
     mkProject({
       project_id: "PH2",
-      phase: "Planning",
+      stage: "Planning",
       date_added: "2026-04-08",
       updated_at: "2026-04-15T00:00:00Z",
     }),
     mkProject({
       project_id: "PH3",
-      phase: "Closeout",
+      stage: "Closeout",
       date_added: "2026-01-01",
       updated_at: "2026-04-15T00:00:00Z",
     }),
   ];
-  const phaseMetric = computePhaseCycleTime(phaseProjects, range90);
-  const planning = phaseMetric.bars.find((b) => b.phase === "Planning");
-  const closeout = phaseMetric.bars.find((b) => b.phase === "Closeout");
-  eq("phase_cycle_time: Planning sample_size", planning?.sample_size, 2);
+  const stageMetric = computeStageCycleTime(stageProjects, range90);
+  const planning = stageMetric.bars.find((b) => b.stage === "Planning");
+  const closeout = stageMetric.bars.find((b) => b.stage === "Closeout");
+  eq("stage_cycle_time: Planning sample_size", planning?.sample_size, 2);
   approxEq(
-    "phase_cycle_time: Planning avg",
+    "stage_cycle_time: Planning avg",
     planning?.avg_days ?? -1,
     (14 + 7) / 2,
   );
-  eq("phase_cycle_time: Closeout sample_size", closeout?.sample_size, 1);
+  eq("stage_cycle_time: Closeout sample_size", closeout?.sample_size, 1);
   approxEq(
-    "phase_cycle_time: Closeout avg",
+    "stage_cycle_time: Closeout avg",
     closeout?.avg_days ?? -1,
     daysBetween("2026-01-01", "2026-04-15"),
   );
-  eq("phase_cycle_time: data_quality is proxy", phaseMetric.data_quality, "proxy");
+  eq("stage_cycle_time: data_quality is proxy", stageMetric.data_quality, "proxy");
   check(
-    "phase_cycle_time: note explains the limitation",
-    phaseMetric.note.includes("status-transition history"),
+    "stage_cycle_time: note explains the limitation",
+    stageMetric.note.includes("status-transition history"),
   );
 
   section("Metric: Blocked Time");
@@ -499,7 +500,7 @@ async function main() {
   const mixedProjects: Project[] = [
     mkProject({
       project_id: "F1",
-      project_type: "New Application",
+      project_type: "New Capability",
       application_product: "Automated Insights",
       project_lead: "user-A",
     }),
@@ -511,7 +512,7 @@ async function main() {
     }),
     mkProject({
       project_id: "F3",
-      project_type: "New Application",
+      project_type: "New Capability",
       application_product: "Topic AI",
       project_lead: "user-C",
       additional_resources: ["user-A"],
@@ -521,7 +522,7 @@ async function main() {
 
   const byType = applyProjectFilters(
     mixedProjects,
-    defaultFilters({ project_types: ["New Application"] }),
+    defaultFilters({ project_types: ["New Capability"] }),
   );
   eq("filter by type: count", byType.length, 2);
 
@@ -559,7 +560,7 @@ async function main() {
       mkTask({ task_id: "FT3", project_id: "F3", responsible: "user-A" }),
     ],
     filteredIds,
-    defaultFilters({ project_types: ["New Application"] }),
+    defaultFilters({ project_types: ["New Capability"] }),
   );
   eq("task filter: only kept tasks for filtered projects", filteredTasks.length, 2);
 
@@ -579,7 +580,7 @@ async function main() {
   invalidateVelocityCache();
   eq("cache: starts empty after invalidate", _cacheSize(), 0);
 
-  const f1 = defaultFilters({ project_types: ["New Application"] });
+  const f1 = defaultFilters({ project_types: ["New Capability"] });
   const f2 = defaultFilters({ project_types: ["New Feature"] });
 
   // Round trip
@@ -635,10 +636,10 @@ async function main() {
       name: "Hook test project",
       description: "x",
       application_product: "Automated Insights",
-      project_type: "New Application",
+      project_type: "New Capability",
       priority: "Medium",
       status: "Not Started",
-      phase: "Qualification",
+      stage: "Qualification",
       primary_stakeholders: [],
       project_lead: admin.user_id,
       additional_resources: [],
@@ -723,7 +724,7 @@ async function main() {
       date_added: "2026-01-01",
       updated_at: "2026-02-15T00:00:00Z",
       ai_time_estimate: "6 weeks",
-      project_type: "New Application",
+      project_type: "New Capability",
     }),
     mkProject({
       project_id: "2026-101",
@@ -785,7 +786,7 @@ async function main() {
       status: "Completed",
       date_added: "2026-01-15",
       updated_at: "2026-03-15T00:00:00Z",
-      project_type: "New Application",
+      project_type: "New Capability",
     }),
   ];
   const widerMetrics = computeVelocityMetrics(

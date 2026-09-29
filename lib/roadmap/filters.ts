@@ -11,14 +11,13 @@
 import type {
   Priority,
   Project,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
 } from "@/lib/db";
 
 export interface RoadmapFilters {
   status: ProjectStatus[];
-  phase: ProjectPhase[];
+  stage: string[];
   priority: Priority[];
   project_type: ProjectType[];
   project_lead: string[];
@@ -29,7 +28,7 @@ export interface RoadmapFilters {
 
 export const EMPTY_ROADMAP_FILTERS: RoadmapFilters = {
   status: [],
-  phase: [],
+  stage: [],
   priority: [],
   project_type: [],
   project_lead: [],
@@ -64,7 +63,7 @@ export function applyRoadmapFilters(
     if (filters.status.length && !filters.status.includes(p.status)) {
       return false;
     }
-    if (filters.phase.length && !filters.phase.includes(p.phase)) {
+    if (filters.stage.length && !filters.stage.includes(p.stage)) {
       return false;
     }
     if (filters.priority.length && !filters.priority.includes(p.priority)) {

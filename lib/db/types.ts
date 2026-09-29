@@ -57,28 +57,30 @@ export type IsoDate = string;
 /**
  * Project Type (Section 4.1).
  *
- * The values listed below are the system-defined defaults — every IIM
- * deployment ships with these. An Admin can add additional values from
- * Admin Console → Project values, which are stored separately in
- * `settings.enum_extensions` and merged into dropdowns at render time.
+ * The values listed below are the fixed set every IIM deployment ships
+ * with — unlike `application_product`/`program`/`track`, this enum is
+ * not currently wired into the admin enum-extension mechanism
+ * (`settings.enum_extensions`); the runtime list is just
+ * `PROJECT_TYPES` in `lib/projects/display.ts`.
+ *
+ * "New Application" and "New Prototype" were retired and consolidated
+ * into "New Capability"; existing projects were backfilled by
+ * `supabase/migrations/0026_project_type_new_capability.sql`.
  *
  * Type-level note: we declare this as `"<literal>" | (string & {})` so
  * TypeScript still surfaces the built-in values in autocomplete and
- * narrowing, but the type also accepts arbitrary strings — the admin
- * extensions. The `(string & {})` indirection is the standard trick to
- * avoid the compiler collapsing the union back into bare `string`.
+ * narrowing, but the type also accepts arbitrary strings (e.g. legacy
+ * data, or values entered before a future code change). The
+ * `(string & {})` indirection is the standard trick to avoid the
+ * compiler collapsing the union back into bare `string`.
  *
  * Code that branches on a specific built-in literal (e.g. health.ts
  * comparing status to "Blocked") continues to work unchanged because
- * those literals are still members of the union. New code that needs
- * to enumerate the runtime list should call `getEnumOptions(...)` from
- * `lib/projects/enum-options.ts` instead of iterating the constant
- * arrays in `lib/projects/display.ts`.
+ * those literals are still members of the union.
  */
 export type ProjectType =
-  | "New Application"
+  | "New Capability"
   | "New Feature"
-  | "New Prototype"
   | "Enhancement"
   | "Validation"
   | "Admin"
@@ -102,17 +104,21 @@ export type ProjectStatus =
   | "Canceled"
   | (string & {});
 
-export type ProjectPhase =
-  | "Qualification"
-  | "Prioritization"
-  | "Planning"
-  | "Data Modeling"
-  | "Application Development"
-  | "Customer Validation"
-  | "Deployment Readiness"
-  | "Handover"
-  | "Closeout"
-  | (string & {});
+/**
+ * Project Stage — formerly "Phase". Track-scoped: every track's stage list
+ * starts with "Qualification", then "Prioritization", and ends with
+ * "Productization" (see `stagesForTrack` in `lib/projects/display.ts`),
+ * with track-specific stages in between. Because the valid set depends on
+ * another field (`Project.track`), this isn't modeled as a fixed literal
+ * union — just `string`, like `track`/`program`/`application_product`.
+ *
+ * The seven old fixed-lifecycle values (Planning, Data Modeling,
+ * Application Development, Customer Validation, Deployment Readiness,
+ * Handover, Closeout) were retired in favor of per-track stages. Existing
+ * projects on a retired value were left as-is (not backfilled) — they
+ * just aren't offered as a choice going forward.
+ */
+export type ProjectStage = string;
 
 export type TaskStatus =
   | "Not Started"
@@ -156,7 +162,7 @@ export type DocumentLinkType =
   | "External"
   | "Other";
 
-export type DependencyType = "Blocks Start" | "Blocks Phase";
+export type DependencyType = "Blocks Start" | "Blocks Stage";
 
 export type DecisionType =
   | "Scope Change"
@@ -215,8 +221,8 @@ export interface DocumentLink {
 export interface ProjectDependency {
   upstream_id: ProjectId;
   type: DependencyType;
-  /** Required only when `type` is `"Blocks Phase"`; null otherwise. */
-  required_phase: ProjectPhase | null;
+  /** Required only when `type` is `"Blocks Stage"`; null otherwise. */
+  required_stage: ProjectStage | null;
 }
 
 /**
@@ -360,11 +366,20 @@ export interface Project {
    * with "Innovation" as the default for existing/new projects.
    */
   program: string;
+  /**
+   * Which delivery track this project belongs to (e.g. "Track A -
+   * Dashboard/visualization"). Orthogonal to `program`/`application_product`
+   * — a separate categorization axis. Admin-curatable via the same
+   * enum-extension mechanism (see `SYSTEM_TRACKS` in
+   * `lib/projects/display.ts`); ships with three built-ins and defaults
+   * new projects to the first one when omitted.
+   */
+  track: string;
   project_type: ProjectType;
   date_added: IsoDate;
   priority: Priority;
   status: ProjectStatus;
-  phase: ProjectPhase;
+  stage: ProjectStage;
   primary_stakeholders: string[];
   project_lead: UserId;
   /** Mix of UserIds and free-form names is permitted (Section 4.1). */
@@ -1037,7 +1052,7 @@ export interface SavedKanbanConfig {
 export type RolePermissionsMap = Record<UserRole, string[]>;
 
 /**
- * The four project-record enums an Admin can extend at runtime. Each
+ * The extensible project-record enums an Admin can grow at runtime. Each
  * has a code-defined set of "system" values (locked, semantically
  * load-bearing) plus an admin-curated list of additional values.
  *
@@ -1046,18 +1061,23 @@ export type RolePermissionsMap = Record<UserRole, string[]>;
  * can grow each dimension without a code change.
  *
  *   - status:               extra workflow states beyond the eight built-ins
- *   - phase:                extra lifecycle phases beyond the nine built-ins
  *   - priority:             extra priority bands beyond Critical/High/Medium/Low
  *   - application_product:  Application/Product values (no built-ins; the
  *                           system ships with an empty list and admins
  *                           own every entry)
+ *   - program:              top-level workstreams beyond the three built-ins
+ *   - track:                delivery tracks beyond the three built-ins
+ *
+ * Stage is *not* one of these — its valid set depends on `track`, so it's
+ * governed by `stagesForTrack` in `lib/projects/display.ts` (a per-track
+ * code list) rather than a single flat admin-curated list.
  */
 export type ExtensibleEnumKey =
   | "status"
-  | "phase"
   | "priority"
   | "application_product"
-  | "program";
+  | "program"
+  | "track";
 
 /**
  * One admin-added value for an extensible enum.
@@ -1092,8 +1112,6 @@ export interface EnumExtension {
    * Medium(2)/Low(3) ordering.
    */
   rank?: number;
-  /** For phase: order in the lifecycle (0 = earliest). */
-  order?: number;
   created_by: UserId | null;
   created_at: IsoTimestamp;
 }
@@ -1115,9 +1133,9 @@ export interface AppSettings {
    */
   role_permissions: RolePermissionsMap;
   /**
-   * Admin-added values for the four extensible project enums (status,
-   * phase, priority, application_product). Edited from Admin Console
-   * → Project values. Empty arrays for all four keys on first run.
+   * Admin-added values for the extensible project enums (status,
+   * priority, application_product, program, track). Edited from Admin
+   * Console → Project values. Empty arrays for every key on first run.
    */
   enum_extensions: EnumExtensionsMap;
   /**

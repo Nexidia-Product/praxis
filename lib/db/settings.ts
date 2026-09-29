@@ -109,10 +109,10 @@ const DEFAULT_ROLE_PERMISSIONS_SEED: RolePermissionsMap = {
 
 const DEFAULT_ENUM_EXTENSIONS: EnumExtensionsMap = {
   status: [],
-  phase: [],
   priority: [],
   application_product: [],
   program: [],
+  track: [],
 };
 
 const DEFAULT_RESOURCE_SETTINGS_SEED: ResourceSettings = DEFAULT_RESOURCE_SETTINGS;

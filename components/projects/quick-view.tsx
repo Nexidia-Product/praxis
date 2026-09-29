@@ -34,9 +34,9 @@ import {
   HEALTH_DOT,
   HEALTH_TOOLTIP,
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   priorityBadgeClass,
+  stagesForTrack,
   statusBadgeClass,
 } from "@/lib/projects/display";
 import { rollupDependencyHealth } from "@/lib/projects/dependencies";
@@ -45,13 +45,13 @@ import {
   MILESTONE_LABELS,
   computeProjectMilestones,
 } from "@/lib/projects/milestones";
+import { buildProjectMarkdown } from "@/lib/projects/markdown";
 import type {
   CustomFieldDefinition,
   Priority,
   Project,
   ProjectGroup,
   ProjectId,
-  ProjectPhase,
   ProjectStatus,
   StatusHistoryEntry,
 } from "@/lib/db";
@@ -81,7 +81,6 @@ interface ProjectQuickViewProps {
    * values appear in the inline-edit dropdowns.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /**
    * Every project group this project belongs to. Pre-computed by the
@@ -134,7 +133,7 @@ interface ProjectQuickViewProps {
    * as `null` server-side.
    */
   onStatusChange: (status: ProjectStatus, summary?: string) => void;
-  onPhaseChange: (phase: ProjectPhase) => void;
+  onStageChange: (stage: string) => void;
   onPriorityChange: (priority: Priority) => void;
 }
 
@@ -171,7 +170,6 @@ export function ProjectQuickView({
   canEdit,
   allProjects,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   groupsForProject = [],
   mentionableUsers = [],
@@ -182,7 +180,7 @@ export function ProjectQuickView({
   onClose,
   onEdit,
   onStatusChange,
-  onPhaseChange,
+  onStageChange,
   onPriorityChange,
 }: ProjectQuickViewProps) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "details");
@@ -192,9 +190,10 @@ export function ProjectQuickView({
   const statusList =
     statusOptions ??
     PROJECT_STATUSES.map((s) => ({ id: s, label: s } as EnumOption));
-  const phaseList =
-    phaseOptions ??
-    PROJECT_PHASES.map((p) => ({ id: p, label: p } as EnumOption));
+  // Stage options are a pure function of the project's track (stages are
+  // track-scoped — see `stagesForTrack`), not an admin-merged list, so no
+  // prop is needed here.
+  const stageList = stagesForTrack(project.track);
   const priorityList =
     priorityOptions ??
     PRIORITIES.map((p) => ({ id: p, label: p } as EnumOption));
@@ -235,6 +234,21 @@ export function ProjectQuickView({
     const byId = new Map(allProjects.map((p) => [p.project_id, p]));
     return rollupDependencyHealth(project, byId);
   }, [project, allProjects]);
+
+  // Client-side only — same Blob/anchor download trick as
+  // `downloadMarkdown` in components/insights/key-findings-view.tsx.
+  function downloadMarkdown() {
+    const md = buildProjectMarkdown(project, allProjects);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project.project_id}-${filenameSafe(project.name)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div
@@ -383,32 +397,30 @@ export function ProjectQuickView({
                     </span>
                   )}
                 </Field>
-                <Field label="Phase">
+                <Field label="Stage">
                   {canEdit ? (
                     <select
-                      value={project.phase}
-                      onChange={(e) =>
-                        onPhaseChange(e.target.value as ProjectPhase)
-                      }
+                      value={project.stage}
+                      onChange={(e) => onStageChange(e.target.value)}
                       className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
                     >
-                      {phaseList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label}
+                      {stageList.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
                         </option>
                       ))}
-                      {/* Preserve the project's current phase as a
-                          selectable option even if it's been archived
-                          out of the merged list — same defensive
+                      {/* Preserve the project's current stage as a
+                          selectable option even if it's not part of its
+                          track's list (e.g. a retired phase from before
+                          the Phase → Stage change) — same defensive
                           pattern as the application_product select. */}
-                      {project.phase &&
-                      !phaseList.some((p) => p.id === project.phase) ? (
-                        <option value={project.phase}>{project.phase}</option>
+                      {project.stage && !stageList.includes(project.stage) ? (
+                        <option value={project.stage}>{project.stage}</option>
                       ) : null}
                     </select>
                   ) : (
                     <span className="text-sm text-gray-900">
-                      {project.phase}
+                      {project.stage}
                     </span>
                   )}
                 </Field>
@@ -440,6 +452,11 @@ export function ProjectQuickView({
                       {project.priority}
                     </span>
                   )}
+                </Field>
+                <Field label="Track">
+                  <span className="text-sm text-gray-900">
+                    {project.track || "—"}
+                  </span>
                 </Field>
                 <Field label="Health">
                   {project.health_score ? (
@@ -795,6 +812,13 @@ export function ProjectQuickView({
             <div className="flex gap-2">
               <button
                 type="button"
+                onClick={downloadMarkdown}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              >
+                Export to Markdown
+              </button>
+              <button
+                type="button"
                 onClick={onClose}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
               >
@@ -820,6 +844,19 @@ export function ProjectQuickView({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Reduce a project name to characters safe in a downloaded filename on
+ * every OS (strips `\/:*?"<>|`, collapses whitespace to `-`). Falls back
+ * to "project" if the name is empty or entirely made of unsafe characters.
+ */
+function filenameSafe(name: string): string {
+  const cleaned = name
+    .replace(/[\\/:*?"<>|]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+  return cleaned || "project";
+}
 
 function Field({
   label,

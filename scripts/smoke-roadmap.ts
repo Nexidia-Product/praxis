@@ -80,11 +80,12 @@ async function main() {
       definition_of_done: "",
       application_product: "Insights",
       program: "Innovation",
+      track: "Track A - Dashboard/visualization",
       project_type: "New Feature",
       date_added: "2026-01-15",
       priority: "Medium",
       status: "In Progress",
-      phase: "Planning",
+      stage: "Planning",
       primary_stakeholders: [],
       project_lead: "alex",
       additional_resources: [],
@@ -745,8 +746,8 @@ async function main() {
     // Save a config and read it back
     const cfg = {
       config_id: "cfg-1",
-      name: "By Phase",
-      column_field: "phase",
+      name: "By Stage",
+      column_field: "stage",
       swimlane_field: null,
       wip_limits: {},
       column_order: [],
@@ -759,7 +760,7 @@ async function main() {
       "SettingsRepository round-trips kanban_configs",
       after.kanban_configs.length === 1 &&
         after.kanban_configs[0].config_id === "cfg-1" &&
-        after.kanban_configs[0].column_field === "phase",
+        after.kanban_configs[0].column_field === "stage",
     );
 
     // Other fields aren't clobbered by a partial update

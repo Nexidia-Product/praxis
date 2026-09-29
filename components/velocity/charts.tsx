@@ -23,7 +23,6 @@
  * seven independent widgets glued together.
  */
 
-import { PROJECT_PHASES } from "@/lib/projects/display";
 import type {
   AvgTimeToCompletionMetric,
   BlockedTimeMetric,
@@ -31,7 +30,7 @@ import type {
   DataQuality,
   EstVsActualMetric,
   IdeaConversionMetric,
-  PhaseCycleTimeMetric,
+  StageCycleTimeMetric,
   TaskThroughputMetric,
 } from "@/lib/velocity/types";
 
@@ -659,35 +658,36 @@ export function TaskThroughputChart({
 }
 
 // ---------------------------------------------------------------------------
-// 5. Phase Cycle Time
+// 5. Stage Cycle Time
 // ---------------------------------------------------------------------------
 
-export function PhaseCycleTimeChart({
+export function StageCycleTimeChart({
   metric,
 }: {
-  metric: PhaseCycleTimeMetric;
+  metric: StageCycleTimeMetric;
 }) {
   const isEmpty = metric.bars.every((b) => b.sample_size === 0);
   const max = Math.max(...metric.bars.map((b) => b.avg_days), 1);
 
   return (
     <ChartCard
-      title="Phase cycle time"
-      subtitle="Average days projects spend in each phase"
+      title="Stage cycle time"
+      subtitle="Average days projects spend in each stage"
       data_quality={metric.data_quality}
       note={metric.note}
       isEmpty={isEmpty}
-      emptyMessage="No phase data available yet."
+      emptyMessage="No stage data available yet."
     >
       <div className="space-y-1.5">
-        {/* Render in canonical phase order (Section 4.1, Appendix C). */}
-        {PROJECT_PHASES.map((phase) => {
-          const bar = metric.bars.find((b) => b.phase === phase);
-          if (!bar || bar.sample_size === 0) {
+        {/* Stages are track-scoped, so `metric.bars` (built in
+            computeStageCycleTime) is already in the right axis order —
+            no canonical global list to re-derive it from here. */}
+        {metric.bars.map((bar) => {
+          if (bar.sample_size === 0) {
             return (
-              <div key={phase} className="flex items-center gap-3">
+              <div key={bar.stage} className="flex items-center gap-3">
                 <div className="w-44 shrink-0 text-xs text-gray-400">
-                  {phase}
+                  {bar.stage}
                 </div>
                 <div className="h-4 flex-1 rounded bg-gray-50" />
                 <div className="w-24 shrink-0 text-right text-xs text-gray-300">
@@ -698,9 +698,9 @@ export function PhaseCycleTimeChart({
           }
           const pct = (bar.avg_days / max) * 100;
           return (
-            <div key={phase} className="flex items-center gap-3">
+            <div key={bar.stage} className="flex items-center gap-3">
               <div className="w-44 shrink-0 text-xs text-gray-700">
-                {phase}
+                {bar.stage}
               </div>
               <div className="h-4 flex-1 rounded bg-gray-100">
                 <div

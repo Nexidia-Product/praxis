@@ -234,12 +234,12 @@ async function main() {
 
   console.log("\nDependencies — validation");
 
-  // Build a minimal project list to validate against. We keep the literal
-  // shape skeletal — only project_id is read by the validators.
-  const allProjects: Pick<Project, "project_id">[] = [
-    { project_id: "2026-001" },
-    { project_id: "2026-002" },
-    { project_id: "2026-003" },
+  // Build a minimal project list to validate against. validateDependencies
+  // reads project_id and (for Blocks Stage) track.
+  const allProjects: Pick<Project, "project_id" | "track">[] = [
+    { project_id: "2026-001", track: "Track A - Dashboard/visualization" },
+    { project_id: "2026-002", track: "Track A - Dashboard/visualization" },
+    { project_id: "2026-003", track: "Track A - Dashboard/visualization" },
   ];
 
   const okDeps = validateDependencies(
@@ -247,8 +247,8 @@ async function main() {
       { upstream_id: "2026-001", type: "Blocks Start" },
       {
         upstream_id: "2026-002",
-        type: "Blocks Phase",
-        required_phase: "Application Development",
+        type: "Blocks Stage",
+        required_stage: "Kickoff",
       },
     ],
     "2026-003",
@@ -281,10 +281,10 @@ async function main() {
     (e) => e instanceof DependencyValidationError,
   );
   await expectThrows(
-    "rejects Blocks Phase missing required_phase",
+    "rejects Blocks Stage missing required_stage",
     () =>
       validateDependencies(
-        [{ upstream_id: "2026-001", type: "Blocks Phase" }],
+        [{ upstream_id: "2026-001", type: "Blocks Stage" }],
         "2026-003",
         allProjects,
       ),
@@ -305,7 +305,7 @@ async function main() {
   const deduped = validateDependencies(
     [
       { upstream_id: "2026-001", type: "Blocks Start" },
-      { upstream_id: "2026-001", type: "Blocks Phase", required_phase: "Closeout" },
+      { upstream_id: "2026-001", type: "Blocks Stage", required_stage: "Productization" },
     ],
     "2026-003",
     allProjects,
@@ -313,15 +313,15 @@ async function main() {
   check("dedupes duplicate upstream_id", deduped.dependencies.length === 1);
   check(
     "later entry wins on dedupe",
-    deduped.dependencies[0].type === "Blocks Phase",
+    deduped.dependencies[0].type === "Blocks Stage",
   );
 
   // reconcileDependsOn preserves existing types where IDs are unchanged.
   const existing = [
     {
       upstream_id: "2026-001",
-      type: "Blocks Phase" as const,
-      required_phase: "Application Development" as const,
+      type: "Blocks Stage" as const,
+      required_stage: "Kickoff" as const,
     },
   ];
   const reconciled = reconcileDependsOn(
@@ -333,7 +333,7 @@ async function main() {
   check(
     "reconcile preserves existing dep type",
     reconciled.dependencies.find((d) => d.upstream_id === "2026-001")?.type ===
-      "Blocks Phase",
+      "Blocks Stage",
   );
   check(
     "reconcile defaults new dep to Blocks Start",
@@ -387,11 +387,12 @@ async function main() {
       definition_of_done: "",
       application_product: "Test",
       program: "Innovation",
+      track: "Track A - Dashboard/visualization",
       project_type: "New Feature",
       date_added: "2026-04-01",
       priority: "Medium",
       status: "In Progress",
-      phase: "Application Development",
+      stage: "Kickoff",
       primary_stakeholders: [],
       project_lead: "",
       additional_resources: [],
@@ -427,70 +428,70 @@ async function main() {
   const upstreamCanceled = fakeProject("U-4", { status: "Canceled" });
   const upstreamCompleted = fakeProject("U-5", {
     status: "Completed",
-    phase: "Closeout",
+    stage: "Productization",
   });
-  const upstreamEarlyPhase = fakeProject("U-6", {
+  const upstreamEarlyStage = fakeProject("U-6", {
     status: "In Progress",
-    phase: "Qualification",
+    stage: "Qualification",
   });
 
   check(
     "Blocks Start + In Progress → clear",
     dependencyHealth(
-      { upstream_id: "U-1", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-1", type: "Blocks Start", required_stage: null },
       upstreamGreen,
     ) === "clear",
   );
   check(
     "Blocks Start + Blocked → blocked",
     dependencyHealth(
-      { upstream_id: "U-2", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-2", type: "Blocks Start", required_stage: null },
       upstreamBlocked,
     ) === "blocked",
   );
   check(
     "Blocks Start + Delayed → at-risk",
     dependencyHealth(
-      { upstream_id: "U-3", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-3", type: "Blocks Start", required_stage: null },
       upstreamDelayed,
     ) === "at-risk",
   );
   check(
     "Blocks Start + Canceled → blocked",
     dependencyHealth(
-      { upstream_id: "U-4", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-4", type: "Blocks Start", required_stage: null },
       upstreamCanceled,
     ) === "blocked",
   );
   check(
-    "Blocks Phase, upstream past required phase → clear",
+    "Blocks Stage, upstream past required stage → clear",
     dependencyHealth(
       {
         upstream_id: "U-1",
-        type: "Blocks Phase",
-        required_phase: "Qualification",
+        type: "Blocks Stage",
+        required_stage: "Qualification",
       },
       upstreamGreen,
     ) === "clear",
   );
   check(
-    "Blocks Phase, upstream behind phase + In Progress → at-risk",
+    "Blocks Stage, upstream behind stage + In Progress → at-risk",
     dependencyHealth(
       {
         upstream_id: "U-6",
-        type: "Blocks Phase",
-        required_phase: "Application Development",
+        type: "Blocks Stage",
+        required_stage: "Kickoff",
       },
-      upstreamEarlyPhase,
+      upstreamEarlyStage,
     ) === "at-risk",
   );
   check(
-    "Blocks Phase, upstream Completed even if behind → clear",
+    "Blocks Stage, upstream Completed even if behind → clear",
     dependencyHealth(
       {
         upstream_id: "U-5",
-        type: "Blocks Phase",
-        required_phase: "Closeout",
+        type: "Blocks Stage",
+        required_stage: "Productization",
       },
       upstreamCompleted,
     ) === "clear",
@@ -498,7 +499,7 @@ async function main() {
   check(
     "missing upstream → blocked (dangling)",
     dependencyHealth(
-      { upstream_id: "U-X", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-X", type: "Blocks Start", required_stage: null },
       undefined,
     ) === "blocked",
   );
@@ -507,9 +508,9 @@ async function main() {
   const dependent = fakeProject("D-1", {
     depends_on: ["U-1", "U-3", "U-2"],
     dependencies: [
-      { upstream_id: "U-1", type: "Blocks Start", required_phase: null },
-      { upstream_id: "U-3", type: "Blocks Start", required_phase: null },
-      { upstream_id: "U-2", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-1", type: "Blocks Start", required_stage: null },
+      { upstream_id: "U-3", type: "Blocks Start", required_stage: null },
+      { upstream_id: "U-2", type: "Blocks Start", required_stage: null },
     ],
   });
   const byId = new Map<string, Project>([
@@ -524,8 +525,8 @@ async function main() {
   const dep2 = fakeProject("D-2", {
     depends_on: ["U-1", "U-3"],
     dependencies: [
-      { upstream_id: "U-1", type: "Blocks Start", required_phase: null },
-      { upstream_id: "U-3", type: "Blocks Start", required_phase: null },
+      { upstream_id: "U-1", type: "Blocks Start", required_stage: null },
+      { upstream_id: "U-3", type: "Blocks Start", required_stage: null },
     ],
   });
   check("rollup with delayed only → at-risk", rollupDependencyHealth(dep2, byId) === "at-risk");
@@ -561,7 +562,7 @@ async function main() {
     project_type: "New Feature" as const,
     priority: "Medium" as const,
     status: "Not Started" as const,
-    phase: "Qualification" as const,
+    stage: "Qualification" as const,
     primary_stakeholders: [],
     project_lead: "",
     additional_resources: [],
@@ -585,8 +586,8 @@ async function main() {
         { upstream_id: p1.project_id, type: "Blocks Start" },
         {
           upstream_id: p2.project_id,
-          type: "Blocks Phase",
-          required_phase: "Application Development",
+          type: "Blocks Stage",
+          required_stage: "Kickoff",
         },
       ],
       document_links: [
@@ -597,7 +598,7 @@ async function main() {
   );
   check("created project with 2 deps", p3.depends_on.length === 2);
   check("dependencies persisted", p3.dependencies.length === 2);
-  check("Blocks Phase persisted required_phase", p3.dependencies[1].required_phase === "Application Development");
+  check("Blocks Stage persisted required_stage", p3.dependencies[1].required_stage === "Kickoff");
   check("document_links persisted", p3.document_links.length === 1);
   check("link auto-detected", p3.document_links[0].link_type === "GitHub Repo");
   check("link added_by stamped", p3.document_links[0].added_by === "user-1");

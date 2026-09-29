@@ -3,12 +3,20 @@
 /**
  * Project values editor.
  *
- * Four tabs (one per extensible enum). Each tab shows:
+ * One tab per extensible enum (status, priority, application/product,
+ * program, track). Each tab shows:
  *
  *   - System rows: read-only chip listing the built-in values.
  *   - Extension rows: editable label + per-enum metadata + archive
  *     toggle + delete button. New extensions are added through an
  *     inline form at the bottom.
+ *
+ * Stage isn't one of these editable tabs — its valid set is track-scoped
+ * (`stagesForTrack` in `lib/projects/display.ts`), a code-defined list
+ * per track rather than a single admin-curated list, so it doesn't fit
+ * this editor's add/archive/delete shape. It still gets its own
+ * view-only "Stage" tab (see `TrackStagesView` below) so an admin can
+ * see what each track's stage list currently is.
  *
  * State is held locally and committed to the API on Save (single PUT
  * with the full enum_extensions object). "Discard" reverts to the
@@ -18,8 +26,7 @@
  *
  *   - status:    is_open + is_terminal toggles
  *   - priority:  rank input (numeric; placed between Critical=0 and Low=3)
- *   - phase:     order input (numeric; lifecycle position)
- *   - application_product: no extra metadata
+ *   - application_product / program / track: no extra metadata
  *
  * IDs vs labels: when an admin types a new label we auto-derive the id
  * (slug-style) and let them override it. Once an id has been used in
@@ -36,13 +43,15 @@ import type {
   ExtensibleEnumKey,
 } from "@/lib/db";
 import type { EnumOption } from "@/lib/projects/enum-options";
+import { stagesForTrack } from "@/lib/projects/display";
 
 interface ProjectValuesEditorProps {
   initialOptions: Record<ExtensibleEnumKey, EnumOption[]>;
   initialExtensions: EnumExtensionsMap;
 }
 
-type TabKey = ExtensibleEnumKey;
+/** "stage" is a view-only pseudo-tab — not one of the editable ExtensibleEnumKeys. */
+type TabKey = ExtensibleEnumKey | "stage";
 
 const TABS: Array<{ key: TabKey; label: string; description: string }> = [
   {
@@ -50,12 +59,6 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     label: "Status",
     description:
       "Project workflow states. The eight built-in values are locked because the application's filtering, health scoring, and reporting branch on them.",
-  },
-  {
-    key: "phase",
-    label: "Phase",
-    description:
-      "Lifecycle phases. Built-in phases follow Appendix C; admin-added phases pick an Order value to slot in.",
   },
   {
     key: "priority",
@@ -75,6 +78,18 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     description:
       "Top-level workstream a project belongs to — drives program-scoped Roadmap, Velocity, and Work in Progress views. Ships with three built-ins (Innovation, Complaints, UI Maintenance); all other values are admin-curated.",
   },
+  {
+    key: "track",
+    label: "Track",
+    description:
+      "Delivery track a project belongs to. Ships with three built-ins (Track A - Dashboard/visualization, Track B - Cognigy bot inputs, Track C - WFM/mid-shift reskilling); all other values are admin-curated.",
+  },
+  {
+    key: "stage",
+    label: "Stage",
+    description:
+      "View only. Every track's stage list starts with Qualification, then Prioritization, and ends with Productization; the stages in between are defined per track in code, not here — ask engineering to add stages for a track that doesn't have them yet.",
+  },
 ];
 
 export function ProjectValuesEditor({
@@ -91,13 +106,15 @@ export function ProjectValuesEditor({
   );
   // Track which extension IDs are new (added in this session) — those
   // can be deleted; saved ones can only be archived.
-  const [unsavedIds, setUnsavedIds] = useState<Record<TabKey, Set<string>>>(
+  const [unsavedIds, setUnsavedIds] = useState<
+    Record<ExtensibleEnumKey, Set<string>>
+  >(
     () => ({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     }),
   );
 
@@ -108,14 +125,14 @@ export function ProjectValuesEditor({
 
   // Track the system rows for each enum (these never change).
   const systemRows = useMemo(() => {
-    const out: Record<TabKey, EnumOption[]> = {
+    const out: Record<ExtensibleEnumKey, EnumOption[]> = {
       status: [],
-      phase: [],
       priority: [],
       application_product: [],
       program: [],
+      track: [],
     };
-    for (const k of Object.keys(initialOptions) as TabKey[]) {
+    for (const k of Object.keys(initialOptions) as ExtensibleEnumKey[]) {
       out[k] = initialOptions[k].filter((o) => o.source === "system");
     }
     return out;
@@ -128,7 +145,7 @@ export function ProjectValuesEditor({
 
   // ----- Mutators -----
 
-  function addExtension(enumKey: TabKey, draft: NewExtensionDraft) {
+  function addExtension(enumKey: ExtensibleEnumKey, draft: NewExtensionDraft) {
     const id = draft.id.trim();
     const label = draft.label.trim();
     if (!id || !label) {
@@ -158,9 +175,6 @@ export function ProjectValuesEditor({
     if (enumKey === "priority" && draft.rank !== undefined) {
       ext.rank = draft.rank;
     }
-    if (enumKey === "phase" && draft.order !== undefined) {
-      ext.order = draft.order;
-    }
     if (draft.description) ext.description = draft.description;
 
     setExtensions((prev) => ({
@@ -176,7 +190,7 @@ export function ProjectValuesEditor({
   }
 
   function patchExtension(
-    enumKey: TabKey,
+    enumKey: ExtensibleEnumKey,
     id: string,
     patch: Partial<EnumExtension>,
   ) {
@@ -190,7 +204,7 @@ export function ProjectValuesEditor({
     setSavedAt(null);
   }
 
-  function deleteExtension(enumKey: TabKey, id: string) {
+  function deleteExtension(enumKey: ExtensibleEnumKey, id: string) {
     setExtensions((prev) => ({
       ...prev,
       [enumKey]: prev[enumKey].filter((e) => e.id !== id),
@@ -208,10 +222,10 @@ export function ProjectValuesEditor({
     setExtensions(clone(savedExtensions));
     setUnsavedIds({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     });
     setError(null);
     setSavedAt(null);
@@ -243,10 +257,10 @@ export function ProjectValuesEditor({
     setSavedExtensions(clone(data.extensions));
     setUnsavedIds({
       status: new Set(),
-      phase: new Set(),
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     });
     setSavedAt(Date.now());
   }
@@ -254,9 +268,10 @@ export function ProjectValuesEditor({
   // ----- Render -----
 
   const activeTabMeta = TABS.find((t) => t.key === activeTab)!;
-  const activeSystem = systemRows[activeTab];
-  const activeExtensions = extensions[activeTab];
-  const activeUnsaved = unsavedIds[activeTab];
+  const activeSystem = activeTab === "stage" ? [] : systemRows[activeTab];
+  const activeExtensions = activeTab === "stage" ? [] : extensions[activeTab];
+  const activeUnsaved =
+    activeTab === "stage" ? new Set<string>() : unsavedIds[activeTab];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -270,10 +285,9 @@ export function ProjectValuesEditor({
       >
         {TABS.map((t) => {
           const active = t.key === activeTab;
-          const tabDirty = !deepEqualOne(
-            extensions[t.key],
-            savedExtensions[t.key],
-          );
+          const tabDirty =
+            t.key !== "stage" &&
+            !deepEqualOne(extensions[t.key], savedExtensions[t.key]);
           return (
             <button
               key={t.key}
@@ -328,91 +342,164 @@ export function ProjectValuesEditor({
         </div>
       ) : null}
 
-      {/* System rows */}
-      {activeSystem.length > 0 ? (
-        <div className="pol-card pol-card-pad">
-          <div className="section-label" style={{ marginBottom: 10 }}>
-            System values (locked)
-          </div>
+      {activeTab === "stage" ? (
+        <TrackStagesView tracks={initialOptions.track} />
+      ) : (
+        <>
+          {/* System rows */}
+          {activeSystem.length > 0 ? (
+            <div className="pol-card pol-card-pad">
+              <div className="section-label" style={{ marginBottom: 10 }}>
+                System values (locked)
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                }}
+              >
+                {activeSystem.map((o) => (
+                  <span key={o.id} className="pol-tag pol-tag-gray" title={o.id}>
+                    {o.label}
+                    {activeTab === "status" && o.is_terminal ? " · terminal" : null}
+                    {activeTab === "status" && o.is_open === false && !o.is_terminal
+                      ? " · closed"
+                      : null}
+                    {activeTab === "priority" && typeof o.rank === "number"
+                      ? ` · rank ${o.rank}`
+                      : null}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="pol-notice pol-notice-info">
+              <span aria-hidden="true">ℹ</span>
+              <span>
+                This dimension has no system values — every entry below is
+                admin-curated.
+              </span>
+            </div>
+          )}
+
+          {/* Extensions table */}
+          <ExtensionsTable
+            enumKey={activeTab}
+            extensions={activeExtensions}
+            unsavedIds={activeUnsaved}
+            onPatch={(id, patch) => patchExtension(activeTab, id, patch)}
+            onDelete={(id) => deleteExtension(activeTab, id)}
+          />
+
+          {/* Add form */}
+          <AddExtensionForm
+            enumKey={activeTab}
+            existingIds={[
+              ...activeSystem.map((o) => o.id),
+              ...activeExtensions.map((e) => e.id),
+            ]}
+            onAdd={(draft) => addExtension(activeTab, draft)}
+          />
+
+          {/* Footer */}
           <div
             style={{
               display: "flex",
-              flexWrap: "wrap",
-              gap: 6,
+              justifyContent: "flex-end",
+              gap: 8,
+              paddingTop: 4,
             }}
           >
-            {activeSystem.map((o) => (
-              <span key={o.id} className="pol-tag pol-tag-gray" title={o.id}>
-                {o.label}
-                {activeTab === "status" && o.is_terminal ? " · terminal" : null}
-                {activeTab === "status" && o.is_open === false && !o.is_terminal
-                  ? " · closed"
-                  : null}
-                {activeTab === "phase" && typeof o.order === "number"
-                  ? ` · #${o.order + 1}`
-                  : null}
-                {activeTab === "priority" && typeof o.rank === "number"
-                  ? ` · rank ${o.rank}`
-                  : null}
-              </span>
-            ))}
+            <button
+              type="button"
+              onClick={discard}
+              className="pol-btn pol-btn-secondary"
+              disabled={!dirty || submitting}
+            >
+              Discard changes
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              className="pol-btn pol-btn-primary"
+              disabled={!dirty || submitting}
+            >
+              {submitting ? "Saving…" : "Save changes"}
+            </button>
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stage view (read only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Read-only per-track stage list. Unlike the other tabs there's nothing to
+ * add/archive/delete here — stages come from `stagesForTrack` (code), not
+ * `settings.enum_extensions` — so this just picks a track and lists its
+ * current stage order.
+ */
+function TrackStagesView({ tracks }: { tracks: EnumOption[] }) {
+  const [selectedTrack, setSelectedTrack] = useState(tracks[0]?.id ?? "");
+  const stages = selectedTrack ? stagesForTrack(selectedTrack) : [];
+
+  return (
+    <div className="pol-card pol-card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {tracks.length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {tracks.map((t) => {
+            const active = t.id === selectedTrack;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSelectedTrack(t.id)}
+                className={
+                  active ? "pol-btn pol-btn-primary pol-btn-sm" : "pol-btn pol-btn-ghost pol-btn-sm"
+                }
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       ) : (
-        <div className="pol-notice pol-notice-info">
-          <span aria-hidden="true">ℹ</span>
-          <span>
-            This dimension has no system values — every entry below is
-            admin-curated.
-          </span>
-        </div>
+        <p style={{ color: "var(--tm)", fontSize: 12 }}>No tracks defined yet.</p>
       )}
 
-      {/* Extensions table */}
-      <ExtensionsTable
-        enumKey={activeTab}
-        extensions={activeExtensions}
-        unsavedIds={activeUnsaved}
-        onPatch={(id, patch) => patchExtension(activeTab, id, patch)}
-        onDelete={(id) => deleteExtension(activeTab, id)}
-      />
+      {stages.length > 0 ? (
+        <ol style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, paddingLeft: 22 }}>
+          {stages.map((s, i) => {
+            const isAnchor = i === 0 || i === 1 || i === stages.length - 1;
+            return (
+              <li key={s} style={{ fontSize: 13, color: "var(--t2)" }}>
+                <span style={{ color: "var(--t1)", fontWeight: isAnchor ? 600 : 500 }}>
+                  {s}
+                </span>
+                {isAnchor ? (
+                  <span
+                    className="pol-tag pol-tag-gray"
+                    style={{ marginLeft: 8, fontSize: 10 }}
+                  >
+                    {i === stages.length - 1 ? "always last" : "always present"}
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
 
-      {/* Add form */}
-      <AddExtensionForm
-        enumKey={activeTab}
-        existingIds={[
-          ...activeSystem.map((o) => o.id),
-          ...activeExtensions.map((e) => e.id),
-        ]}
-        onAdd={(draft) => addExtension(activeTab, draft)}
-      />
-
-      {/* Footer */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          paddingTop: 4,
-        }}
-      >
-        <button
-          type="button"
-          onClick={discard}
-          className="pol-btn pol-btn-secondary"
-          disabled={!dirty || submitting}
-        >
-          Discard changes
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          className="pol-btn pol-btn-primary"
-          disabled={!dirty || submitting}
-        >
-          {submitting ? "Saving…" : "Save changes"}
-        </button>
-      </div>
+      <p className="form-help" style={{ color: "var(--tm)", margin: 0 }}>
+        Stages are defined in code, per track — there&apos;s nothing to add or
+        edit here. Ask engineering to add stages for a track that doesn&apos;t
+        have its middle stages defined yet.
+      </p>
     </div>
   );
 }
@@ -422,7 +509,7 @@ export function ProjectValuesEditor({
 // ---------------------------------------------------------------------------
 
 interface ExtensionsTableProps {
-  enumKey: TabKey;
+  enumKey: ExtensibleEnumKey;
   extensions: EnumExtension[];
   unsavedIds: Set<string>;
   onPatch: (id: string, patch: Partial<EnumExtension>) => void;
@@ -475,7 +562,6 @@ function ExtensionsTable({
           </>
         ) : null}
         {enumKey === "priority" ? <div>Rank</div> : null}
-        {enumKey === "phase" ? <div>Order</div> : null}
         <div style={{ textAlign: "center" }}>Status</div>
         <div style={{ textAlign: "right" }}>Actions</div>
       </div>
@@ -556,23 +642,6 @@ function ExtensionsTable({
                 placeholder="e.g. 0.5"
               />
             ) : null}
-            {enumKey === "phase" ? (
-              <input
-                type="number"
-                step="0.5"
-                value={e.order ?? ""}
-                onChange={(ev) =>
-                  onPatch(e.id, {
-                    order:
-                      ev.target.value === ""
-                        ? undefined
-                        : Number(ev.target.value),
-                  })
-                }
-                className="pol-input"
-                placeholder="e.g. 4.5"
-              />
-            ) : null}
 
             <div style={{ textAlign: "center" }}>
               {e.archived ? (
@@ -630,17 +699,16 @@ function ExtensionsTable({
   );
 }
 
-function columnTemplate(enumKey: TabKey): string {
+function columnTemplate(enumKey: ExtensibleEnumKey): string {
   // Common: Label | ID | (per-enum cols) | Status | Actions
   switch (enumKey) {
     case "status":
       return "1.4fr 1fr 80px 90px 90px 170px";
     case "priority":
       return "1.4fr 1fr 100px 90px 170px";
-    case "phase":
-      return "1.4fr 1fr 100px 90px 170px";
     case "application_product":
     case "program":
+    case "track":
       return "1.4fr 1fr 90px 170px";
   }
 }
@@ -656,11 +724,10 @@ interface NewExtensionDraft {
   is_open?: boolean;
   is_terminal?: boolean;
   rank?: number;
-  order?: number;
 }
 
 interface AddExtensionFormProps {
-  enumKey: TabKey;
+  enumKey: ExtensibleEnumKey;
   existingIds: string[];
   onAdd: (draft: NewExtensionDraft) => void;
 }
@@ -676,7 +743,6 @@ function AddExtensionForm({
   const [isOpen, setIsOpen] = useState(true);
   const [isTerminal, setIsTerminal] = useState(false);
   const [rank, setRank] = useState<string>("");
-  const [order, setOrder] = useState<string>("");
 
   // Auto-derive id from label until the user types in the id field.
   const derivedId = idTouched ? id : slugify(label);
@@ -688,7 +754,6 @@ function AddExtensionForm({
     setIsOpen(true);
     setIsTerminal(false);
     setRank("");
-    setOrder("");
   }
 
   function submit(e: React.FormEvent) {
@@ -704,10 +769,6 @@ function AddExtensionForm({
     if (enumKey === "priority" && rank !== "") {
       const n = Number(rank);
       if (Number.isFinite(n)) draft.rank = n;
-    }
-    if (enumKey === "phase" && order !== "") {
-      const n = Number(order);
-      if (Number.isFinite(n)) draft.order = n;
     }
     onAdd(draft);
     reset();
@@ -812,22 +873,6 @@ function AddExtensionForm({
             />
           </div>
         ) : null}
-        {enumKey === "phase" ? (
-          <div className="form-field">
-            <label className="form-label" htmlFor="ext-order">
-              Order
-            </label>
-            <input
-              id="ext-order"
-              type="number"
-              step="0.5"
-              value={order}
-              onChange={(e) => setOrder(e.target.value)}
-              placeholder="4.5"
-              className="pol-input"
-            />
-          </div>
-        ) : null}
 
         <button
           type="submit"
@@ -852,16 +897,15 @@ function AddExtensionForm({
   );
 }
 
-function addFormColumns(enumKey: TabKey): string {
+function addFormColumns(enumKey: ExtensibleEnumKey): string {
   switch (enumKey) {
     case "status":
       return "1fr 1fr 80px 90px auto";
     case "priority":
       return "1fr 1fr 100px auto";
-    case "phase":
-      return "1fr 1fr 100px auto";
     case "application_product":
     case "program":
+    case "track":
       return "1fr 1fr auto";
   }
 }
@@ -896,9 +940,9 @@ function deepEqualExtensions(
 ): boolean {
   return (
     deepEqualOne(a.status, b.status) &&
-    deepEqualOne(a.phase, b.phase) &&
     deepEqualOne(a.priority, b.priority) &&
     deepEqualOne(a.application_product, b.application_product) &&
-    deepEqualOne(a.program, b.program)
+    deepEqualOne(a.program, b.program) &&
+    deepEqualOne(a.track, b.track)
   );
 }

@@ -10,7 +10,7 @@
  * Three responsibilities live in this file:
  *
  *   1. **Validate** an inbound dependency payload (project IDs exist; types
- *      and required_phase are well-formed; no self-loop).
+ *      and required_stage are well-formed; no self-loop).
  *   2. **Detect circular chains** at save time, with a clear error pointing
  *      at the cycle. We refuse to save a project whose `depends_on` would
  *      complete a cycle anywhere in the graph.
@@ -27,11 +27,10 @@ import type {
   Project,
   ProjectDependency,
   ProjectId,
-  ProjectPhase,
 } from "@/lib/db";
-import { PROJECT_PHASES } from "@/lib/projects/display";
+import { stagesForTrack } from "@/lib/projects/display";
 
-const DEPENDENCY_TYPES: DependencyType[] = ["Blocks Start", "Blocks Phase"];
+const DEPENDENCY_TYPES: DependencyType[] = ["Blocks Start", "Blocks Stage"];
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -52,7 +51,7 @@ export class DependencyValidationError extends Error {
 export interface DependencyInput {
   upstream_id: unknown;
   type: unknown;
-  required_phase?: unknown;
+  required_stage?: unknown;
 }
 
 /**
@@ -68,12 +67,15 @@ export interface DependencyInput {
  * - Duplicate upstream IDs collapse to the last-seen entry rather than
  *   throwing — the form lets a user accidentally pick the same upstream
  *   twice and we'd rather silently dedupe than surface a confusing error.
- * - `Blocks Phase` requires `required_phase`; `Blocks Start` ignores it.
+ * - `Blocks Stage` requires `required_stage`, and validates it against the
+ *   specific upstream project's own track's stage list (stages are
+ *   track-scoped — see `stagesForTrack` in `lib/projects/display.ts`);
+ *   `Blocks Start` ignores it.
  */
 export function validateDependencies(
   raw: unknown,
   selfId: ProjectId | null,
-  allProjects: Pick<Project, "project_id">[],
+  allProjects: Pick<Project, "project_id" | "track">[],
 ): { dependencies: ProjectDependency[]; depends_on: ProjectId[] } {
   if (raw === undefined || raw === null) {
     return { dependencies: [], depends_on: [] };
@@ -85,6 +87,7 @@ export function validateDependencies(
   }
 
   const known = new Set(allProjects.map((p) => p.project_id));
+  const projectsById = new Map(allProjects.map((p) => [p.project_id, p]));
   const byUpstream = new Map<ProjectId, ProjectDependency>();
 
   for (let i = 0; i < raw.length; i++) {
@@ -123,20 +126,26 @@ export function validateDependencies(
     }
     const type = d.type as DependencyType;
 
-    let required_phase: ProjectPhase | null = null;
-    if (type === "Blocks Phase") {
-      if (
-        typeof d.required_phase !== "string" ||
-        !(PROJECT_PHASES as string[]).includes(d.required_phase)
-      ) {
+    let required_stage: string | null = null;
+    if (type === "Blocks Stage") {
+      if (typeof d.required_stage !== "string" || !d.required_stage.trim()) {
         throw new DependencyValidationError(
-          `dependencies[${i}].required_phase must be one of: ${PROJECT_PHASES.join(", ")} (when type is "Blocks Phase").`,
+          `dependencies[${i}].required_stage is required (when type is "Blocks Stage").`,
         );
       }
-      required_phase = d.required_phase as ProjectPhase;
+      const upstreamProject = projectsById.get(upstream_id);
+      const validStages = upstreamProject
+        ? stagesForTrack(upstreamProject.track)
+        : null;
+      if (validStages && !validStages.includes(d.required_stage)) {
+        throw new DependencyValidationError(
+          `dependencies[${i}].required_stage must be one of: ${validStages.join(", ")} (the upstream project's track stages).`,
+        );
+      }
+      required_stage = d.required_stage.trim();
     }
 
-    byUpstream.set(upstream_id, { upstream_id, type, required_phase });
+    byUpstream.set(upstream_id, { upstream_id, type, required_stage });
   }
 
   const dependencies = Array.from(byUpstream.values());
@@ -201,7 +210,7 @@ export function reconcileDependsOn(
       existingByUpstream.get(trimmed) ?? {
         upstream_id: trimmed,
         type: "Blocks Start",
-        required_phase: null,
+        required_stage: null,
       },
     );
   }
@@ -286,8 +295,8 @@ export type DependencyHealth = "clear" | "at-risk" | "blocked";
  *
  *   - `clear`     upstream is on track or already complete past the gate
  *   - `at-risk`   upstream is `On Hold` or `Delayed`
- *   - `blocked`   upstream is `Blocked` (or, for `Blocks Phase`, hasn't
- *                 reached the required phase and the project is otherwise
+ *   - `blocked`   upstream is `Blocked` (or, for `Blocks Stage`, hasn't
+ *                 reached the required stage and the project is otherwise
  *                 actively trying to start)
  *
  * This is what the timeline arrow color and the project-record warning
@@ -303,12 +312,14 @@ export function dependencyHealth(
   if (upstream.status === "On Hold" || upstream.status === "Delayed") {
     return "at-risk";
   }
-  if (dependency.type === "Blocks Phase" && dependency.required_phase) {
-    // If the upstream isn't yet at or past the required phase, dependent
+  if (dependency.type === "Blocks Stage" && dependency.required_stage) {
+    // If the upstream isn't yet at or past the required stage, dependent
     // is blocked from advancing into work that depends on it. We compare
-    // by phase index (Appendix C ordering, mirrored in PROJECT_PHASES).
-    const upstreamIdx = PROJECT_PHASES.indexOf(upstream.phase);
-    const requiredIdx = PROJECT_PHASES.indexOf(dependency.required_phase);
+    // by index within the upstream's OWN track's stage list — stages are
+    // track-scoped, so there's no single global order to index into.
+    const stages = stagesForTrack(upstream.track);
+    const upstreamIdx = stages.indexOf(upstream.stage);
+    const requiredIdx = stages.indexOf(dependency.required_stage);
     if (upstreamIdx >= 0 && requiredIdx >= 0 && upstreamIdx < requiredIdx) {
       // Upstream is still in motion but hasn't reached the gate. If
       // upstream is Completed, this is fine — completed-before-gate is

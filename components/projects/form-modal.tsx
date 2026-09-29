@@ -23,9 +23,9 @@ import Link from "next/link";
 
 import {
   PRIORITIES,
-  PROJECT_PHASES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  stagesForTrack,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import {
@@ -41,7 +41,6 @@ import type {
   Project,
   ProjectDependency,
   ProjectOutcome,
-  ProjectPhase,
   ProjectStatus,
   ProjectType,
   TaskTemplate,
@@ -61,6 +60,8 @@ interface ProjectFormModalProps {
   applicationOptions: string[];
   /** Distinct program values from the dataset, for autocomplete. */
   programOptions: string[];
+  /** Distinct track values from the dataset, for autocomplete. */
+  trackOptions: string[];
   /**
    * Merged option lists from `lib/projects/enum-options` (built-ins +
    * admin extensions, archived excluded). Optional for backwards
@@ -70,7 +71,6 @@ interface ProjectFormModalProps {
    * and one-off callers can leave them out.
    */
   statusOptions?: EnumOption[];
-  phaseOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
   /** Available task templates — used to offer auto-apply on create. */
   templates?: TaskTemplate[];
@@ -116,10 +116,11 @@ interface FormState {
   description: string;
   application_product: string;
   program: string;
+  track: string;
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
-  phase: ProjectPhase;
+  stage: string;
   primary_stakeholders: string;
   project_lead: string;
   additional_resources: string;
@@ -177,10 +178,11 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     description: "",
     application_product: "",
     program: "Innovation",
+    track: "Track A - Dashboard/visualization",
     project_type: "New Feature",
     priority: "Medium",
     status: "Not Started",
-    phase: "Qualification",
+    stage: "Qualification",
     primary_stakeholders: "",
     project_lead: "",
     additional_resources: "",
@@ -255,10 +257,11 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     description: p.description,
     application_product: p.application_product,
     program: p.program,
+    track: p.track,
     project_type: p.project_type,
     priority: p.priority,
     status: p.status,
-    phase: p.phase,
+    stage: p.stage,
     primary_stakeholders: p.primary_stakeholders.join(", "),
     project_lead: p.project_lead,
     additional_resources: p.additional_resources.join(", "),
@@ -296,10 +299,11 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     description: s.description,
     application_product: s.application_product.trim(),
     program: s.program.trim(),
+    track: s.track.trim(),
     project_type: s.project_type,
     priority: s.priority,
     status: s.status,
-    phase: s.phase,
+    stage: s.stage,
     primary_stakeholders: splitList(s.primary_stakeholders),
     // Drop the LEAD_OTHER_SENTINEL if it leaks through (the user opened
     // "Other…" but hit save before typing a name); it should never reach
@@ -380,8 +384,8 @@ export function ProjectFormModal({
   leadOptions,
   applicationOptions,
   programOptions,
+  trackOptions,
   statusOptions,
-  phaseOptions,
   priorityOptions,
   templates,
   allProjects,
@@ -423,10 +427,12 @@ export function ProjectFormModal({
       PROJECT_STATUSES.map((s) => ({ id: s, label: s }) as EnumOption),
     state.status,
   );
-  const phaseList = ensureCurrent(
-    phaseOptions ??
-      PROJECT_PHASES.map((p) => ({ id: p, label: p }) as EnumOption),
-    state.phase,
+  // Stages are track-scoped (see `stagesForTrack`), not an admin-merged
+  // list, so this is derived from `state.track` rather than a prop —
+  // it recomputes whenever the user changes Track.
+  const stageList = ensureCurrent(
+    stagesForTrack(state.track).map((s) => ({ id: s, label: s }) as EnumOption),
+    state.stage,
   );
   const priorityList = ensureCurrent(
     priorityOptions ??
@@ -444,6 +450,23 @@ export function ProjectFormModal({
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((prev) => ({ ...prev, [key]: value }));
+  }
+
+  /**
+   * Track changes carry stage along with them: stages are track-scoped,
+   * so a stage picked under the old track (e.g. "Kickoff" under Track A)
+   * may not exist under the new one. Reset to the new track's first
+   * stage ("Qualification") when that happens, rather than leaving a
+   * stage value the new track's dropdown doesn't offer.
+   */
+  function updateTrack(track: string) {
+    setState((prev) => ({
+      ...prev,
+      track,
+      stage: stagesForTrack(track).includes(prev.stage)
+        ? prev.stage
+        : stagesForTrack(track)[0],
+    }));
   }
 
   async function generateAiEstimate() {
@@ -762,6 +785,31 @@ export function ProjectFormModal({
               </p>
             </Field>
 
+            <Field id="proj-track" label="Track" required>
+              <select
+                id="proj-track"
+                required
+                value={state.track}
+                onChange={(e) => updateTrack(e.target.value)}
+                disabled={saving}
+                className={baseInput}
+              >
+                {trackOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+                {/* Same "preserve an unrecognized existing value" escape
+                    hatch as Application/Product above. */}
+                {state.track && !trackOptions.includes(state.track) ? (
+                  <option value={state.track}>{state.track}</option>
+                ) : null}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Which delivery track this project belongs to.
+              </p>
+            </Field>
+
             <Field id="proj-type" label="Type" required>
               <select
                 id="proj-type"
@@ -814,19 +862,17 @@ export function ProjectFormModal({
               </select>
             </Field>
 
-            <Field id="proj-phase" label="Phase" required>
+            <Field id="proj-stage" label="Stage" required>
               <select
-                id="proj-phase"
-                value={state.phase}
-                onChange={(e) =>
-                  update("phase", e.target.value as ProjectPhase)
-                }
+                id="proj-stage"
+                value={state.stage}
+                onChange={(e) => update("stage", e.target.value)}
                 disabled={saving}
                 className={baseInput}
               >
-                {phaseList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
+                {stageList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
                   </option>
                 ))}
               </select>

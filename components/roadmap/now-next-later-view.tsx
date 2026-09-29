@@ -9,7 +9,7 @@
  * placement is locked in.
  *
  * Distinct from the Kanban view: those columns map to operational state
- * (status / phase). These map to *time horizon* — communication, not
+ * (status / stage). These map to *time horizon* — communication, not
  * workflow.
  */
 

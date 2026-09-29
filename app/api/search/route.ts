@@ -103,7 +103,7 @@ export const GET = withAuth(async (request: Request) => {
       detail: detailLine([
         p.application_product,
         p.status,
-        p.phase,
+        p.stage,
       ]),
       href: `/projects?id=${encodeURIComponent(p.project_id)}`,
       matched,

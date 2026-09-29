@@ -78,14 +78,10 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
 
   // Merged option lists (Section 5.19) — built-ins plus admin-added
   // extensions, archived excluded. The conversion form uses these so
-  // promoting an idea picks up admin-defined statuses/phases/priorities.
+  // promoting an idea picks up admin-defined statuses/priorities.
   const statusOptions = mergeEnumOptions(
     "status",
     settings.enum_extensions.status,
-  );
-  const phaseOptions = mergeEnumOptions(
-    "phase",
-    settings.enum_extensions.phase,
   );
   const priorityOptions = mergeEnumOptions(
     "priority",
@@ -119,7 +115,6 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         applicationOptions={applicationOptions}
         projects={openProjects}
         statusOptions={statusOptions}
-        phaseOptions={phaseOptions}
         canReview={canReview}
         canConvert={permissions["ideas.convert"] === true}
         aiEnabled={isAiEnabled()}

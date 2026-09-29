@@ -202,5 +202,5 @@ function describeDependency(dep: ProjectDependency): string {
   if (dep.type === "Blocks Start") {
     return "Blocks start — upstream must complete before this can begin.";
   }
-  return `Blocks phase — upstream must reach "${dep.required_phase ?? "?"}".`;
+  return `Blocks stage — upstream must reach "${dep.required_stage ?? "?"}".`;
 }

@@ -4,11 +4,11 @@
     "name": "Auto Insights Application Build",
     "description": "Create Claude Code project as a application with capability to import files for each customer.",
     "application_product": "Automated Insights",
-    "project_type": "New Application",
+    "project_type": "New Capability",
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "Completed",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -46,11 +46,11 @@
     "name": "Regulatory Complaint",
     "description": "Create application to handle model development, testing and improvement. Includes capability to push output in the IPM format for Nexidia. Classification layer required; methodology TBD.",
     "application_product": "Complaints",
-    "project_type": "New Application",
+    "project_type": "New Capability",
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Planning",
+    "stage": "Planning",
     "primary_stakeholders": [
       "Katie"
     ],
@@ -90,7 +90,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Josh",
     "additional_resources": [
@@ -127,11 +127,11 @@
     "name": "Topic AI Version",
     "description": "Create our own version of topic AI",
     "application_product": "TopicAI",
-    "project_type": "New Application",
+    "project_type": "New Capability",
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "Not Started",
-    "phase": "Prioritization",
+    "stage": "Prioritization",
     "primary_stakeholders": [
       "Mark",
       "Vanessa",
@@ -174,7 +174,7 @@
     "date_added": "2026-04-10",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Trish",
     "additional_resources": [
@@ -213,7 +213,7 @@
     "date_added": "2026-04-10",
     "priority": "Medium",
     "status": "Not Started",
-    "phase": "Prioritization",
+    "stage": "Prioritization",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -251,11 +251,11 @@
     "name": "Proactive Outbound Application Build",
     "description": "Create new application to identify intents suitable for proactive outbound, create journeys and create bots for Cognigy",
     "application_product": "Proactive Outbound",
-    "project_type": "New Application",
+    "project_type": "New Capability",
     "date_added": "2026-04-10",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Giles Bryan",
       "Glen Foster",
@@ -299,7 +299,7 @@
     "date_added": "2026-04-14",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Customer Validation",
+    "stage": "Customer Validation",
     "primary_stakeholders": [
       "Brett",
       "Jeremy",
@@ -337,11 +337,11 @@
     "name": "Topic AI Validation process",
     "description": "Automate the existing manual process for TopicAI using a Claude application",
     "application_product": "TopicAI",
-    "project_type": "New Prototype",
+    "project_type": "New Capability",
     "date_added": "2026-04-21",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Mark",
       "Vanessa",
@@ -381,7 +381,7 @@
     "date_added": "2026-04-22",
     "priority": "High",
     "status": "In Progress",
-    "phase": "Data Modeling",
+    "stage": "Data Modeling",
     "primary_stakeholders": [],
     "project_lead": "Trish",
     "additional_resources": [
@@ -420,7 +420,7 @@
     "date_added": "2026-04-27",
     "priority": "Medium",
     "status": "In Progress",
-    "phase": "Application Development",
+    "stage": "Application Development",
     "primary_stakeholders": [
       "Brett"
     ],

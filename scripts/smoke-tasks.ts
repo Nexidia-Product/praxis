@@ -62,7 +62,7 @@ async function main() {
         project_type: "New Feature",
         priority: "Medium",
         status: "Not Started",
-        phase: "Qualification",
+        stage: "Qualification",
         primary_stakeholders: [],
         project_lead: "lead-user-id",
         additional_resources: [],

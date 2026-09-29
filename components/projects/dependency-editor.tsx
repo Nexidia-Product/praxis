@@ -4,8 +4,8 @@
  * "Depends on" editor (Section 5.10).
  *
  * Multi-select widget for choosing upstream projects, with per-row
- * dependency type (Blocks Start | Blocks Phase) and an optional required
- * phase when the type is "Blocks Phase". Used by the project form modal.
+ * dependency type (Blocks Start | Blocks Stage) and an optional required
+ * stage when the type is "Blocks Stage". Used by the project form modal.
  *
  * Read-only display variant lives in `dependency-chips.tsx` — that one is
  * what shows up in the quick view, where editing isn't allowed (per the
@@ -16,7 +16,7 @@
  *     array; this component is fully controlled.
  *   - Adding a row: pick from the project picker, then it appears with a
  *     default of "Blocks Start". The user can change the type and pick a
- *     required phase from there.
+ *     required stage from there.
  *   - Removing a row: × on the row.
  *
  * Self-loops are filtered out of the picker server-side AND here; the
@@ -26,13 +26,12 @@
 
 import { useState } from "react";
 
-import { PROJECT_PHASES, statusBadgeClass } from "@/lib/projects/display";
+import { stagesForTrack, statusBadgeClass } from "@/lib/projects/display";
 import type {
   DependencyType,
   Project,
   ProjectDependency,
   ProjectId,
-  ProjectPhase,
   ProjectStatus,
 } from "@/lib/db";
 
@@ -47,7 +46,7 @@ interface DependencyEditorProps {
   disabled?: boolean;
 }
 
-const DEPENDENCY_TYPES: DependencyType[] = ["Blocks Start", "Blocks Phase"];
+const DEPENDENCY_TYPES: DependencyType[] = ["Blocks Start", "Blocks Stage"];
 
 export function DependencyEditor({
   selfId,
@@ -75,7 +74,7 @@ export function DependencyEditor({
       {
         upstream_id: pickerValue,
         type: "Blocks Start",
-        required_phase: null,
+        required_stage: null,
       },
     ]);
     setPickerValue("");
@@ -88,18 +87,20 @@ export function DependencyEditor({
   }
 
   function setType(idx: number, type: DependencyType) {
-    // Switching to "Blocks Start" clears the required phase; switching to
-    // "Blocks Phase" defaults required_phase to the upstream's current
-    // phase if available, otherwise the first enum value.
+    // Switching to "Blocks Start" clears the required stage; switching to
+    // "Blocks Stage" defaults required_stage to the upstream's current
+    // stage if available, otherwise the first stage in the upstream's
+    // track (stages are track-scoped).
     if (type === "Blocks Start") {
-      updateRow(idx, { type, required_phase: null });
+      updateRow(idx, { type, required_stage: null });
       return;
     }
     const dep = value[idx];
     const upstream = projectsById.get(dep.upstream_id);
     updateRow(idx, {
       type,
-      required_phase: upstream?.phase ?? PROJECT_PHASES[0],
+      required_stage:
+        upstream?.stage ?? (upstream ? stagesForTrack(upstream.track)[0] : null),
     });
   }
 
@@ -124,6 +125,7 @@ export function DependencyEditor({
         <ul className="space-y-2">
           {value.map((dep, idx) => {
             const upstream = projectsById.get(dep.upstream_id);
+            const stageChoices = upstream ? stagesForTrack(upstream.track) : [];
             return (
               <li
                 key={dep.upstream_id}
@@ -163,21 +165,21 @@ export function DependencyEditor({
                           </option>
                         ))}
                       </select>
-                      {dep.type === "Blocks Phase" ? (
+                      {dep.type === "Blocks Stage" ? (
                         <select
-                          value={dep.required_phase ?? PROJECT_PHASES[0]}
+                          value={dep.required_stage ?? stageChoices[0] ?? ""}
                           onChange={(e) =>
                             updateRow(idx, {
-                              required_phase: e.target.value as ProjectPhase,
+                              required_stage: e.target.value,
                             })
                           }
                           disabled={disabled}
                           className={inputCls}
-                          aria-label="Required phase"
+                          aria-label="Required stage"
                         >
-                          {PROJECT_PHASES.map((p) => (
-                            <option key={p} value={p}>
-                              Until phase: {p}
+                          {stageChoices.map((s) => (
+                            <option key={s} value={s}>
+                              Until stage: {s}
                             </option>
                           ))}
                         </select>

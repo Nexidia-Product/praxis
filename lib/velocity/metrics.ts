@@ -7,8 +7,8 @@
  * loads from the repositories and applies the cache wrapper around us.
  *
  * Section 5.15 lists seven metrics. Five of them are exact computations
- * over fields we persist; two (`phase_cycle_time`, `blocked_time`) ask
- * about transitions in project status / phase that we don't track in a
+ * over fields we persist; two (`stage_cycle_time`, `blocked_time`) ask
+ * about transitions in project status / stage that we don't track in a
  * history log today. Rather than synthesize numbers that look real but
  * aren't, those two metrics fall back to a documented proxy and report
  * `data_quality: "proxy"` along with a `note` the UI surfaces. When the
@@ -37,14 +37,13 @@ import type {
   IsoDate,
   Project,
   ProjectIdea,
-  ProjectPhase,
   ProjectType,
   Task,
   UserId,
 } from "@/lib/db";
 import {
   PORTFOLIO_PROJECT_TYPES,
-  PROJECT_PHASES,
+  stagesForTrack,
 } from "@/lib/projects/display";
 
 import type {
@@ -57,7 +56,7 @@ import type {
   EstVsActualMetric,
   EstVsActualPoint,
   IdeaConversionMetric,
-  PhaseCycleTimeMetric,
+  StageCycleTimeMetric,
   QuarterBar,
   TaskThroughputMetric,
   ThroughputBar,
@@ -488,46 +487,71 @@ export function computeTaskThroughput(
 }
 
 // ---------------------------------------------------------------------------
-// Metric: Phase Cycle Time
+// Metric: Stage Cycle Time
 // ---------------------------------------------------------------------------
 
 /**
- * Average days per phase. Without a phase-transition log (Phase 2 work,
- * Section 8/10), we approximate using each project's *current* phase and
+ * Average days per stage. Without a stage-transition log (Phase 2 work,
+ * Section 8/10), we approximate using each project's *current* stage and
  * the time elapsed since `date_added`. This means:
  *
- *   - A project that's been in Application Development for 30 days
- *     contributes 30 to that phase's bucket.
- *   - Projects in Closeout will skew long; projects in Qualification
- *     will skew short; that's expected for a snapshot proxy.
+ *   - A project that's been in the same stage for 30 days contributes 30
+ *     to that stage's bucket.
+ *   - Projects on the final stage of their track will skew long; projects
+ *     on Qualification will skew short; that's expected for a snapshot
+ *     proxy.
  *   - The number stops being meaningful once status-transition history
  *     ships and replaces this implementation.
+ *
+ * Stages are track-scoped (`stagesForTrack`), so there's no single global
+ * axis order like the old flat phase list had. The bars are ordered by
+ * each track's own stage order (for every track actually present in
+ * range), followed by any stray stored value that isn't part of any of
+ * those tracks' lists (e.g. a legacy retired phase on an old project).
  *
  * The metric reports `data_quality: "proxy"` and a note explaining the
  * limitation. The note flows into the chart card as a footnote.
  */
-export function computePhaseCycleTime(
+export function computeStageCycleTime(
   projects: Project[],
   range: VelocityRange,
-): PhaseCycleTimeMetric {
+): StageCycleTimeMetric {
   // Anchor on `updated_at` for the range filter so a stale project
   // doesn't dominate when the user picks "last 30 days".
   const inRange = projects.filter((p) => withinRange(p.updated_at, range));
 
-  const buckets = new Map<ProjectPhase, { sum: number; n: number }>();
+  const buckets = new Map<string, { sum: number; n: number }>();
   for (const p of inRange) {
     const days = daysBetween(p.date_added, p.updated_at);
     if (days < 0) continue;
-    const acc = buckets.get(p.phase) ?? { sum: 0, n: 0 };
+    const acc = buckets.get(p.stage) ?? { sum: 0, n: 0 };
     acc.sum += days;
     acc.n += 1;
-    buckets.set(p.phase, acc);
+    buckets.set(p.stage, acc);
   }
 
-  const bars = PROJECT_PHASES.map((phase) => {
-    const acc = buckets.get(phase);
+  const tracksPresent = Array.from(new Set(inRange.map((p) => p.track)));
+  const orderedStages: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tracksPresent) {
+    for (const s of stagesForTrack(t)) {
+      if (!seen.has(s)) {
+        seen.add(s);
+        orderedStages.push(s);
+      }
+    }
+  }
+  for (const s of buckets.keys()) {
+    if (!seen.has(s)) {
+      seen.add(s);
+      orderedStages.push(s);
+    }
+  }
+
+  const bars = orderedStages.map((stage) => {
+    const acc = buckets.get(stage);
     return {
-      phase,
+      stage,
       avg_days: acc && acc.n > 0 ? acc.sum / acc.n : 0,
       sample_size: acc?.n ?? 0,
     };
@@ -538,7 +562,7 @@ export function computePhaseCycleTime(
     data_quality:
       inRange.length === 0 ? "insufficient" : "proxy",
     note:
-      "Approximated from each project's current phase and time since creation. " +
+      "Approximated from each project's current stage and time since creation. " +
       "Becomes exact once status-transition history is persisted.",
   };
 }
@@ -554,7 +578,7 @@ export function computePhaseCycleTime(
  * project's `updated_at` quarter. The number tells you how many
  * blockages were live this quarter, not how long each one lasted.
  *
- * As with `phase_cycle_time`, this is a placeholder that swaps to the
+ * As with `stage_cycle_time`, this is a placeholder that swaps to the
  * exact computation when history persistence ships.
  */
 export function computeBlockedTime(
@@ -679,7 +703,7 @@ export function computeVelocityMetrics(
     filters.range,
   );
   const task_throughput = computeTaskThroughput(filteredTasks, filters.range);
-  const phase_cycle_time = computePhaseCycleTime(filteredProjects, filters.range);
+  const stage_cycle_time = computeStageCycleTime(filteredProjects, filters.range);
   const blocked_time = computeBlockedTime(filteredProjects, filters.range);
   const idea_conversion = computeIdeaConversion(filteredIdeas, filters.range);
 
@@ -703,7 +727,7 @@ export function computeVelocityMetrics(
     avg_time_to_completion,
     estimated_vs_actual,
     task_throughput,
-    phase_cycle_time,
+    stage_cycle_time,
     blocked_time,
     idea_conversion,
     insufficient_history,

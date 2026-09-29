@@ -71,10 +71,10 @@ async function main() {
     name: "Sample",
     description: "Sample project",
     application_product: "Insights",
-    project_type: "New Application" as const,
+    project_type: "New Capability" as const,
     priority: "High" as const,
     status: "Not Started" as const,
-    phase: "Qualification" as const,
+    stage: "Qualification" as const,
     primary_stakeholders: [],
     project_lead: admin.user_id,
     additional_resources: [],
@@ -100,7 +100,7 @@ async function main() {
     ...baseProject,
     depends_on: [p1.project_id],
     dependencies: [
-      { upstream_id: p1.project_id, type: "Blocks Start", required_phase: null },
+      { upstream_id: p1.project_id, type: "Blocks Start", required_stage: null },
     ],
   });
   const year = new Date().getUTCFullYear();
@@ -190,7 +190,7 @@ async function main() {
   console.log("Templates");
   const tmpl = await TemplateRepository.create({
     template_name: "Standard",
-    project_types: ["New Application"],
+    project_types: ["New Capability"],
     tasks: [
       {
         local_id: "tpl-smoke-1",
@@ -211,7 +211,7 @@ async function main() {
     ],
     created_by: admin.user_id,
   });
-  const byType = await TemplateRepository.getByProjectType("New Application");
+  const byType = await TemplateRepository.getByProjectType("New Capability");
   check("template retrievable by project type", byType[0]?.template_id === tmpl.template_id);
 
   console.log("Settings");

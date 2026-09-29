@@ -227,7 +227,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
               "Name",
               "Role",
               "Status",
-              "Phase",
+              "Stage",
               "Health",
               "Target",
             ]}
@@ -252,7 +252,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
                   <RoleTag owner={isOwner} />
                 </td>
                 <td style={tdStyle}>{p.status}</td>
-                <td style={tdStyle}>{p.phase}</td>
+                <td style={tdStyle}>{p.stage}</td>
                 <td style={tdStyle}>
                   <HealthDot value={p.health_score} />{" "}
                   <span style={{ color: "var(--t2)" }}>
