@@ -217,6 +217,7 @@ interface ProjectsTableProps {
     priority: EnumOption[];
     application_product: EnumOption[];
     program: EnumOption[];
+    track: EnumOption[];
   };
   /**
    * The four user-facing labels for the strategic-position bucket
@@ -449,6 +450,34 @@ export function ProjectsTable({
       }
     }
     const curatedCount = enumOptions?.program.length ?? 0;
+    const head = out.slice(0, curatedCount);
+    const tail = out.slice(curatedCount).sort();
+    return [...head, ...tail];
+  }, [projects, enumOptions]);
+
+  const trackOptions = useMemo(() => {
+    // Same admin-curated-first, dataset-discovered-tail pattern as
+    // applicationOptions above.
+    const seen = new Set<string>();
+    const out: string[] = [];
+    if (enumOptions) {
+      for (const o of enumOptions.track) {
+        const key = o.id.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          out.push(o.id);
+        }
+      }
+    }
+    for (const p of projects) {
+      if (!p.track) continue;
+      const key = p.track.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(p.track);
+      }
+    }
+    const curatedCount = enumOptions?.track.length ?? 0;
     const head = out.slice(0, curatedCount);
     const tail = out.slice(curatedCount).sort();
     return [...head, ...tail];
@@ -1320,6 +1349,7 @@ export function ProjectsTable({
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           programOptions={programOptions}
+          trackOptions={trackOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}
@@ -1343,6 +1373,7 @@ export function ProjectsTable({
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           programOptions={programOptions}
+          trackOptions={trackOptions}
           statusOptions={enumOptions?.status}
           phaseOptions={enumOptions?.phase}
           priorityOptions={enumOptions?.priority}

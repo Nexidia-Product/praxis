@@ -39,6 +39,7 @@ export function buildProjectMarkdown(
     "## Overview",
     "",
     line("Application/Product", project.application_product),
+    line("Track", project.track),
     line("Type", project.project_type),
     line("Priority", project.priority),
     line("Complexity", project.ai_complexity_score),

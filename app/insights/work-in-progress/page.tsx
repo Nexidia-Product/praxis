@@ -98,6 +98,7 @@ export default async function WorkInProgressPage() {
     program: mergeEnumOptions("program", settings.enum_extensions.program).filter(
       (o) => allowedPrograms === "all" || allowedPrograms.includes(o.id),
     ),
+    track: mergeEnumOptions("track", settings.enum_extensions.track),
   };
 
   // Stable base order: project_id ascending (YYYY-NNN). The client sorts

@@ -85,6 +85,7 @@ export default async function ProjectsPage() {
     program: mergeEnumOptions("program", settings.enum_extensions.program).filter(
       (o) => allowedPrograms === "all" || allowedPrograms.includes(o.id),
     ),
+    track: mergeEnumOptions("track", settings.enum_extensions.track),
   };
 
   // Initial sort: by project_id ascending — oldest projects on top,

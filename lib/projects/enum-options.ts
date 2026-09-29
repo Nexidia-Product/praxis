@@ -1,7 +1,7 @@
 /**
- * Merged option lists for the four extensible project enums.
+ * Merged option lists for the extensible project enums.
  *
- * The four enums (status, phase, priority, application_product) ship
+ * Each enum (status, phase, priority, application_product, program, track) ships
  * with a built-in set of values (defined as code constants in this
  * file or imported from `lib/projects/display.ts`) and accept admin-
  * added extensions stored in `settings.enum_extensions`. UI dropdowns,
@@ -42,6 +42,7 @@ import {
   PROJECT_STATUSES,
   SYSTEM_APPLICATION_PRODUCTS,
   SYSTEM_PROGRAMS,
+  SYSTEM_TRACKS,
 } from "@/lib/projects/display";
 
 /**
@@ -161,6 +162,17 @@ const SYSTEM_PROGRAM_OPTIONS: EnumOption[] = SYSTEM_PROGRAMS.map((id) => ({
   archived: false,
 }));
 
+/**
+ * Track ships with three built-in values (see `SYSTEM_TRACKS` in
+ * `lib/projects/display.ts`). Admin-curated extensions are merged on top.
+ */
+const SYSTEM_TRACK_OPTIONS: EnumOption[] = SYSTEM_TRACKS.map((id) => ({
+  id,
+  label: id,
+  source: "system",
+  archived: false,
+}));
+
 // ---------------------------------------------------------------------------
 // Merge logic
 // ---------------------------------------------------------------------------
@@ -201,6 +213,8 @@ function systemOptionsFor(enumKey: ExtensibleEnumKey): EnumOption[] {
       return SYSTEM_APP_OPTIONS;
     case "program":
       return SYSTEM_PROGRAM_OPTIONS;
+    case "track":
+      return SYSTEM_TRACK_OPTIONS;
   }
 }
 
@@ -214,7 +228,9 @@ function systemOptionsFor(enumKey: ExtensibleEnumKey): EnumOption[] {
  *     correctly;
  *   - priority: by `rank` ascending so an admin-added "Urgent" with
  *     rank 0.5 lands between Critical and High;
- *   - application_product: alphabetical (no inherent ordering).
+ *   - application_product, program, track: alphabetical (no inherent
+ *     ordering). Track's "Track A/B/C" prefix happens to sort in the
+ *     identified order.
  */
 function sortOptions(
   options: EnumOption[],
@@ -230,6 +246,7 @@ function sortOptions(
       return out;
     case "application_product":
     case "program":
+    case "track":
       out.sort((a, b) => a.label.localeCompare(b.label));
       return out;
     case "status":
@@ -316,6 +333,11 @@ export async function getAllEnumOptions(
     program: mergeEnumOptions(
       "program",
       settings.enum_extensions.program ?? [],
+      includeArchived,
+    ),
+    track: mergeEnumOptions(
+      "track",
+      settings.enum_extensions.track ?? [],
       includeArchived,
     ),
   };

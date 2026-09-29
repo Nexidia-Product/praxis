@@ -81,6 +81,7 @@ export default async function ConfigurationPage({ searchParams }: PageProps) {
       true,
     ),
     program: mergeEnumOptions("program", settings.enum_extensions.program, true),
+    track: mergeEnumOptions("track", settings.enum_extensions.track, true),
   };
 
   return (

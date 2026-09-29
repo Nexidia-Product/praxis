@@ -75,6 +75,12 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     description:
       "Top-level workstream a project belongs to — drives program-scoped Roadmap, Velocity, and Work in Progress views. Ships with three built-ins (Innovation, Complaints, UI Maintenance); all other values are admin-curated.",
   },
+  {
+    key: "track",
+    label: "Track",
+    description:
+      "Delivery track a project belongs to. Ships with three built-ins (Track A - Dashboard/visualization, Track B - Cognigy bot inputs, Track C - WFM/mid-shift reskilling); all other values are admin-curated.",
+  },
 ];
 
 export function ProjectValuesEditor({
@@ -98,6 +104,7 @@ export function ProjectValuesEditor({
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     }),
   );
 
@@ -114,6 +121,7 @@ export function ProjectValuesEditor({
       priority: [],
       application_product: [],
       program: [],
+      track: [],
     };
     for (const k of Object.keys(initialOptions) as TabKey[]) {
       out[k] = initialOptions[k].filter((o) => o.source === "system");
@@ -212,6 +220,7 @@ export function ProjectValuesEditor({
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     });
     setError(null);
     setSavedAt(null);
@@ -247,6 +256,7 @@ export function ProjectValuesEditor({
       priority: new Set(),
       application_product: new Set(),
       program: new Set(),
+      track: new Set(),
     });
     setSavedAt(Date.now());
   }
@@ -641,6 +651,7 @@ function columnTemplate(enumKey: TabKey): string {
       return "1.4fr 1fr 100px 90px 170px";
     case "application_product":
     case "program":
+    case "track":
       return "1.4fr 1fr 90px 170px";
   }
 }
@@ -862,6 +873,7 @@ function addFormColumns(enumKey: TabKey): string {
       return "1fr 1fr 100px auto";
     case "application_product":
     case "program":
+    case "track":
       return "1fr 1fr auto";
   }
 }

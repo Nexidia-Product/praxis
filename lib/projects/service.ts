@@ -142,6 +142,7 @@ export interface ProjectCreatePayload {
   definition_of_done?: unknown;
   application_product?: unknown;
   program?: unknown;
+  track?: unknown;
   project_type?: unknown;
   priority?: unknown;
   status?: unknown;
@@ -448,6 +449,12 @@ async function validateAndShape(
   // application_product) — defaults to "Innovation" when omitted/blank
   // rather than requiring every caller to specify it.
   const program = asOptionalString(payload.program, "program") || "Innovation";
+  // Not enum-gated against settings.enum_extensions.track (same as
+  // program/application_product) — defaults to the first built-in track
+  // when omitted/blank rather than requiring every caller to specify one.
+  const track =
+    asOptionalString(payload.track, "track") ||
+    "Track A - Dashboard/visualization";
   const project_type = asEnum(payload.project_type, PROJECT_TYPES, "project_type");
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
@@ -548,6 +555,7 @@ async function validateAndShape(
     definition_of_done,
     application_product,
     program,
+    track,
     project_type,
     priority,
     status,
@@ -924,6 +932,11 @@ export async function updateProject(
     const prog = asString(payload.program, "program");
     if (!prog) throw new ValidationError("program cannot be empty.");
     patch.program = prog;
+  }
+  if (payload.track !== undefined) {
+    const trk = asString(payload.track, "track");
+    if (!trk) throw new ValidationError("track cannot be empty.");
+    patch.track = trk;
   }
   if (payload.project_type !== undefined) {
     patch.project_type = asEnum(payload.project_type, PROJECT_TYPES, "project_type");

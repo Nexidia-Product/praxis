@@ -32,6 +32,7 @@ export type CreateProjectInput = Omit<
   | "key_capability_quarter"
   | "outcomes"
   | "program"
+  | "track"
 > &
   Partial<
     Pick<
@@ -44,6 +45,7 @@ export type CreateProjectInput = Omit<
       | "key_capability_quarter"
       | "outcomes"
       | "program"
+      | "track"
     >
   >;
 
@@ -79,6 +81,7 @@ export const ProjectRepository = {
         description: input.description,
         application_product: input.application_product,
         program: input.program ?? "Innovation",
+        track: input.track ?? "Track A - Dashboard/visualization",
         project_type: input.project_type,
         priority: input.priority,
         status: input.status,

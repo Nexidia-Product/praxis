@@ -419,6 +419,10 @@ function transformProjects(
         asString(raw["Application/Product"]) === "Complaints"
           ? "Complaints"
           : "Innovation",
+      // Track is a new categorization with no source column in the legacy
+      // spreadsheet; every seeded project starts on Track A and gets
+      // reclassified by hand later.
+      track: "Track A - Dashboard/visualization",
       project_type: projectType,
       date_added: dateAdded,
       priority,

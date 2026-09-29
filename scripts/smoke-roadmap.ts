@@ -80,6 +80,7 @@ async function main() {
       definition_of_done: "",
       application_product: "Insights",
       program: "Innovation",
+      track: "Track A - Dashboard/visualization",
       project_type: "New Feature",
       date_added: "2026-01-15",
       priority: "Medium",

@@ -111,6 +111,7 @@ async function main() {
       definition_of_done: "",
       application_product: "Automated Insights",
       program: "Innovation",
+      track: "Track A - Dashboard/visualization",
       project_type: "New Application",
       date_added: "2026-01-01",
       priority: "Medium",

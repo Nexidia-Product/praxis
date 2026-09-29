@@ -185,6 +185,19 @@ export const SYSTEM_PROGRAMS: string[] = [
   "UI Maintenance",
 ];
 
+/**
+ * Track ships with three built-in values — the identified delivery tracks
+ * as of Section 5.1's follow-up. `settings.enum_extensions.track` are
+ * merged on top via `mergeEnumOptions(...)`, same mechanism as `program`.
+ * The id and label are the same string (no separate short code), matching
+ * how the values are referred to elsewhere.
+ */
+export const SYSTEM_TRACKS: string[] = [
+  "Track A - Dashboard/visualization",
+  "Track B - Cognigy bot inputs",
+  "Track C - WFM/mid-shift reskilling",
+];
+
 // ---------------------------------------------------------------------------
 // Phase (Appendix C)
 // ---------------------------------------------------------------------------

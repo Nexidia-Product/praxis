@@ -61,6 +61,8 @@ interface ProjectFormModalProps {
   applicationOptions: string[];
   /** Distinct program values from the dataset, for autocomplete. */
   programOptions: string[];
+  /** Distinct track values from the dataset, for autocomplete. */
+  trackOptions: string[];
   /**
    * Merged option lists from `lib/projects/enum-options` (built-ins +
    * admin extensions, archived excluded). Optional for backwards
@@ -116,6 +118,7 @@ interface FormState {
   description: string;
   application_product: string;
   program: string;
+  track: string;
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
@@ -177,6 +180,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     description: "",
     application_product: "",
     program: "Innovation",
+    track: "Track A - Dashboard/visualization",
     project_type: "New Feature",
     priority: "Medium",
     status: "Not Started",
@@ -255,6 +259,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     description: p.description,
     application_product: p.application_product,
     program: p.program,
+    track: p.track,
     project_type: p.project_type,
     priority: p.priority,
     status: p.status,
@@ -296,6 +301,7 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     description: s.description,
     application_product: s.application_product.trim(),
     program: s.program.trim(),
+    track: s.track.trim(),
     project_type: s.project_type,
     priority: s.priority,
     status: s.status,
@@ -380,6 +386,7 @@ export function ProjectFormModal({
   leadOptions,
   applicationOptions,
   programOptions,
+  trackOptions,
   statusOptions,
   phaseOptions,
   priorityOptions,
@@ -759,6 +766,31 @@ export function ProjectFormModal({
               <p className="mt-1 text-xs text-gray-500">
                 Which workstream this project belongs to — drives Roadmap,
                 Velocity, and Work in Progress scoping.
+              </p>
+            </Field>
+
+            <Field id="proj-track" label="Track" required>
+              <select
+                id="proj-track"
+                required
+                value={state.track}
+                onChange={(e) => update("track", e.target.value)}
+                disabled={saving}
+                className={baseInput}
+              >
+                {trackOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+                {/* Same "preserve an unrecognized existing value" escape
+                    hatch as Application/Product above. */}
+                {state.track && !trackOptions.includes(state.track) ? (
+                  <option value={state.track}>{state.track}</option>
+                ) : null}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Which delivery track this project belongs to.
               </p>
             </Field>
 

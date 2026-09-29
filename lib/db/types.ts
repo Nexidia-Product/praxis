@@ -360,6 +360,15 @@ export interface Project {
    * with "Innovation" as the default for existing/new projects.
    */
   program: string;
+  /**
+   * Which delivery track this project belongs to (e.g. "Track A -
+   * Dashboard/visualization"). Orthogonal to `program`/`application_product`
+   * — a separate categorization axis. Admin-curatable via the same
+   * enum-extension mechanism (see `SYSTEM_TRACKS` in
+   * `lib/projects/display.ts`); ships with three built-ins and defaults
+   * new projects to the first one when omitted.
+   */
+  track: string;
   project_type: ProjectType;
   date_added: IsoDate;
   priority: Priority;
@@ -1037,7 +1046,7 @@ export interface SavedKanbanConfig {
 export type RolePermissionsMap = Record<UserRole, string[]>;
 
 /**
- * The four project-record enums an Admin can extend at runtime. Each
+ * The extensible project-record enums an Admin can grow at runtime. Each
  * has a code-defined set of "system" values (locked, semantically
  * load-bearing) plus an admin-curated list of additional values.
  *
@@ -1051,13 +1060,16 @@ export type RolePermissionsMap = Record<UserRole, string[]>;
  *   - application_product:  Application/Product values (no built-ins; the
  *                           system ships with an empty list and admins
  *                           own every entry)
+ *   - program:              top-level workstreams beyond the three built-ins
+ *   - track:                delivery tracks beyond the three built-ins
  */
 export type ExtensibleEnumKey =
   | "status"
   | "phase"
   | "priority"
   | "application_product"
-  | "program";
+  | "program"
+  | "track";
 
 /**
  * One admin-added value for an extensible enum.

@@ -92,6 +92,7 @@ interface EnumOptionSet {
   priority: EnumOption[];
   application_product: EnumOption[];
   program: EnumOption[];
+  track: EnumOption[];
 }
 
 interface Props {
@@ -276,6 +277,30 @@ export function WorkInProgressView({
     const curated = enumOptions.program.length;
     return [...out.slice(0, curated), ...out.slice(curated).sort()];
   }, [projects, enumOptions.program]);
+
+  // Track options: same admin-curated-first, dataset-discovered-tail
+  // pattern as applicationOptions above.
+  const trackOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const o of enumOptions.track) {
+      const key = o.id.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(o.id);
+      }
+    }
+    for (const p of projects) {
+      if (!p.track) continue;
+      const key = p.track.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(p.track);
+      }
+    }
+    const curated = enumOptions.track.length;
+    return [...out.slice(0, curated), ...out.slice(curated).sort()];
+  }, [projects, enumOptions.track]);
 
   // Task-responsible dropdown source for the task form modal.
   const formResponsibleOptions = useMemo(() => {
@@ -724,6 +749,7 @@ export function WorkInProgressView({
           leadOptions={formLeadOptions}
           applicationOptions={applicationOptions}
           programOptions={programOptions}
+          trackOptions={trackOptions}
           statusOptions={enumOptions.status}
           phaseOptions={enumOptions.phase}
           priorityOptions={enumOptions.priority}

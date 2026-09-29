@@ -113,6 +113,7 @@ const DEFAULT_ENUM_EXTENSIONS: EnumExtensionsMap = {
   priority: [],
   application_product: [],
   program: [],
+  track: [],
 };
 
 const DEFAULT_RESOURCE_SETTINGS_SEED: ResourceSettings = DEFAULT_RESOURCE_SETTINGS;
