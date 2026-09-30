@@ -21,7 +21,7 @@
 
 import { useState } from "react";
 
-import { PRIORITIES } from "@/lib/projects/display";
+import { PRIORITIES, stagesForTrack } from "@/lib/projects/display";
 import { TASK_STATUSES } from "@/lib/tasks/display";
 import type { Priority, Project, ProjectIdea, Task, TaskStatus } from "@/lib/db";
 
@@ -40,6 +40,12 @@ interface FormState {
   priority: Priority;
   status: TaskStatus;
   target_date: string;
+  /**
+   * Required, no default — scoped to the selected project's track (see
+   * `stagesForTrack`). Starts blank so the admin picks it deliberately,
+   * matching the standalone task form's create behavior.
+   */
+  stage: string;
 }
 
 /** Mirrors `urgencyToPriority` in `lib/ideas/service.ts`. */
@@ -64,6 +70,7 @@ function initialState(idea: ProjectIdea): FormState {
     priority: urgencyToPriority(idea),
     status: "Not Started",
     target_date: idea.requested_target_date ?? "",
+    stage: "",
   };
 }
 
@@ -81,6 +88,26 @@ export function IdeaMergeForm({
     setState((s) => ({ ...s, [key]: value }));
   }
 
+  /**
+   * Changing the project can change which stages are valid (stages are
+   * track-scoped) — clear a stage that doesn't belong to the newly
+   * picked project's track rather than carrying over an invalid value.
+   */
+  function updateProjectId(id: string) {
+    const proj = projects.find((p) => p.project_id === id);
+    setState((prev) => ({
+      ...prev,
+      project_id: id,
+      stage:
+        proj && stagesForTrack(proj.track).includes(prev.stage)
+          ? prev.stage
+          : "",
+    }));
+  }
+
+  const selectedProject = projects.find((p) => p.project_id === state.project_id);
+  const stageOptions = selectedProject ? stagesForTrack(selectedProject.track) : [];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (saving) return;
@@ -94,6 +121,7 @@ export function IdeaMergeForm({
       priority: state.priority,
       status: state.status,
       target_date: state.target_date || null,
+      stage: state.stage,
     };
 
     const res = await fetch(`/api/ideas/${idea.idea_id}/merge`, {
@@ -151,7 +179,7 @@ export function IdeaMergeForm({
             id="merge_project"
             required
             value={state.project_id}
-            onChange={(e) => update("project_id", e.target.value)}
+            onChange={(e) => updateProjectId(e.target.value)}
             disabled={saving}
             className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
           >
@@ -199,7 +227,37 @@ export function IdeaMergeForm({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div>
+            <label
+              htmlFor="merge_stage"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Stage <span className="text-red-600">*</span>
+            </label>
+            <select
+              id="merge_stage"
+              required
+              value={state.stage}
+              onChange={(e) => update("stage", e.target.value)}
+              disabled={saving || !selectedProject}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            >
+              <option value="" disabled>
+                — Select a stage —
+              </option>
+              {stageOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            {!selectedProject ? (
+              <p className="mt-1 text-xs text-gray-500">
+                Pick a project first.
+              </p>
+            ) : null}
+          </div>
           <div>
             <label
               htmlFor="merge_priority"
@@ -280,7 +338,12 @@ export function IdeaMergeForm({
           </button>
           <button
             type="submit"
-            disabled={saving || !state.project_id || !state.task_name.trim()}
+            disabled={
+              saving ||
+              !state.project_id ||
+              !state.task_name.trim() ||
+              !state.stage
+            }
             className="rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-gray-400"
           >
             {saving ? "Merging…" : "Create task & mark Converted"}
