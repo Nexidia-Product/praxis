@@ -153,6 +153,15 @@ export function WorkInProgressView({
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [editTask, setEditTask] = useState<Task | null>(null);
+  /**
+   * Project a new task is being created for, from that project's card on
+   * this page (not the header — that opens the quick view). Separate from
+   * `editTask` since one represents "create" and the other "edit"; the
+   * form modal itself branches on `task` being null.
+   */
+  const [addTaskProjectId, setAddTaskProjectId] = useState<string | null>(
+    null,
+  );
 
   // Recompute "today" on focus so urgency / past-due buckets stay honest
   // after an idle tab crosses midnight (matches the Tasks table).
@@ -172,6 +181,12 @@ export function WorkInProgressView({
   const canEditTask =
     permissions["tasks.edit"] === true ||
     (permissions["tasks.edit"] === undefined &&
+      (currentUserRole === "Admin" ||
+        currentUserRole === "Project Lead" ||
+        currentUserRole === "Team Member"));
+  const canCreateTask =
+    permissions["tasks.create"] === true ||
+    (permissions["tasks.create"] === undefined &&
       (currentUserRole === "Admin" ||
         currentUserRole === "Project Lead" ||
         currentUserRole === "Team Member"));
@@ -492,6 +507,9 @@ export function WorkInProgressView({
       prev.map((t) => (t.task_id === updated.task_id ? updated : t)),
     );
   }
+  function applyCreatedTask(created: Task) {
+    setTasks((prev) => [...prev, created]);
+  }
   function applyDeletedTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.task_id !== id));
   }
@@ -706,7 +724,9 @@ export function WorkInProgressView({
                     projectsById={projectsById}
                     canEditTask={canEditTask}
                     canDeleteTask={canDeleteTask}
+                    canCreateTask={canCreateTask}
                     onOpenQuickView={() => setQuickViewId(project.project_id)}
+                    onAddTask={() => setAddTaskProjectId(project.project_id)}
                     onEditTask={(t) => setEditTask(t)}
                     onTaskStatusChange={changeTaskStatus}
                     onTaskPriorityChange={changeTaskPriority}
@@ -792,6 +812,26 @@ export function WorkInProgressView({
           }}
         />
       ) : null}
+
+      {/* Add-task modal — opened from a project card's own "+ Add task"
+          affordance (not the card header, which opens the quick view),
+          so the new task always defaults to that project. */}
+      {addTaskProjectId ? (
+        <TaskFormModal
+          task={null}
+          projects={projects}
+          allTasks={tasks}
+          defaultProjectId={addTaskProjectId}
+          responsibleOptions={formResponsibleOptions}
+          mentionableUsers={mentionableUsers}
+          currentUserId={currentUserId}
+          onClose={() => setAddTaskProjectId(null)}
+          onSaved={(t) => {
+            applyCreatedTask(t);
+            setAddTaskProjectId(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -808,7 +848,9 @@ function ProjectWipCard({
   projectsById,
   canEditTask,
   canDeleteTask,
+  canCreateTask,
   onOpenQuickView,
+  onAddTask,
   onEditTask,
   onTaskStatusChange,
   onTaskPriorityChange,
@@ -822,7 +864,10 @@ function ProjectWipCard({
   projectsById: Map<string, Project>;
   canEditTask: boolean;
   canDeleteTask: boolean;
+  canCreateTask: boolean;
   onOpenQuickView: () => void;
+  /** Opens the create-task modal defaulted to this card's project. */
+  onAddTask: () => void;
   onEditTask: (task: Task) => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
   onTaskPriorityChange: (task: Task, priority: Priority) => void;
@@ -902,8 +947,22 @@ function ProjectWipCard({
         <OutcomesList outcomes={project.outcomes} />
       </div>
 
-      {/* Open-task table — same rows / inline edits as the Tasks view. */}
+      {/* Open-task table — same rows / inline edits as the Tasks view.
+          The "+ Add task" affordance lives here, not on the card header
+          above (which opens the project quick view on click), so the
+          two click targets never compete. */}
       <div className="border-t border-gray-200">
+        {canCreateTask ? (
+          <div className="flex justify-end border-b border-gray-100 px-3 py-1.5">
+            <button
+              type="button"
+              onClick={onAddTask}
+              className="text-xs font-medium text-gray-700 hover:underline"
+            >
+              + Add task
+            </button>
+          </div>
+        ) : null}
         {openTasks.length === 0 ? (
           <p className="px-4 py-4 text-center text-xs italic text-gray-400">
             No open tasks.
