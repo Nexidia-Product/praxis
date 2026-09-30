@@ -239,6 +239,7 @@ const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
     "Signoff",
     "Handoff",
     "Integration",
+    "Visualization Build",
     "Final Visualization",
     "Release",
   ],
