@@ -33,8 +33,18 @@
  */
 
 import { subtractBusinessDays } from "./milestones";
-import { todayIso } from "@/lib/db/store";
 import type { Project, ProjectId } from "@/lib/db";
+
+/**
+ * Current UTC date as `YYYY-MM-DD`. Inlined rather than imported from
+ * `lib/db/store.ts`'s `todayIso` — that module pulls in `node:crypto`
+ * (for ID generation elsewhere in it), which breaks the client bundle
+ * for this file's only caller, the quick view's "Export to Markdown"
+ * button. This file must stay client-safe.
+ */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function line(label: string, value: string | null | undefined): string {
   return `- **${label}:** ${value && value.trim() ? value : "—"}`;
