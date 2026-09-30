@@ -18,6 +18,7 @@ import type {
 export interface RoadmapFilters {
   status: ProjectStatus[];
   stage: string[];
+  track: string[];
   priority: Priority[];
   project_type: ProjectType[];
   project_lead: string[];
@@ -29,6 +30,7 @@ export interface RoadmapFilters {
 export const EMPTY_ROADMAP_FILTERS: RoadmapFilters = {
   status: [],
   stage: [],
+  track: [],
   priority: [],
   project_type: [],
   project_lead: [],
@@ -64,6 +66,9 @@ export function applyRoadmapFilters(
       return false;
     }
     if (filters.stage.length && !filters.stage.includes(p.stage)) {
+      return false;
+    }
+    if (filters.track.length && !filters.track.includes(p.track)) {
       return false;
     }
     if (filters.priority.length && !filters.priority.includes(p.priority)) {

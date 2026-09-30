@@ -109,9 +109,21 @@ export function KanbanView({
   const columnValues = useMemo(() => {
     if (!columnField) return [];
     if (columnField.values) {
-      return [...columnField.values, ""].filter(
-        (v, i, arr) => arr.indexOf(v) === i,
-      );
+      // Append any value actually on a project but outside the field's
+      // fixed list (e.g. a retired stage left as-is on an un-migrated
+      // project) so those projects still get a column instead of
+      // silently disappearing from the board.
+      const known = new Set(columnField.values);
+      const extra = new Set<string>();
+      for (const p of projects) {
+        const v = columnField.getValue(p);
+        if (v && !known.has(v)) extra.add(v);
+      }
+      return [
+        ...columnField.values,
+        ...Array.from(extra).sort(),
+        "",
+      ].filter((v, i, arr) => arr.indexOf(v) === i);
     }
     // Data-derived: collect all values seen on projects, plus "" for
     // unbucketed.

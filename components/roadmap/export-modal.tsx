@@ -532,6 +532,7 @@ function summarizeFilters(filters: RoadmapFilters): string {
     parts.push(`Lead: ${filters.project_lead.join(", ")}`);
   }
   if (filters.stage.length) parts.push(`Stage: ${filters.stage.join(", ")}`);
+  if (filters.track.length) parts.push(`Track: ${filters.track.join(", ")}`);
   if (filters.search) parts.push(`Search: "${filters.search}"`);
   return parts.join("  ·  ");
 }
