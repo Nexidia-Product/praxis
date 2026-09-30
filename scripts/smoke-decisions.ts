@@ -389,6 +389,7 @@ async function main() {
       program: "Innovation",
       track: "Track A - Dashboard/visualization",
       project_type: "New Feature",
+      visualization_type: "Data Only",
       date_added: "2026-04-01",
       priority: "Medium",
       status: "In Progress",

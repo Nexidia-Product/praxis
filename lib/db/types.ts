@@ -86,6 +86,21 @@ export type ProjectType =
   | "Admin"
   | (string & {});
 
+/**
+ * What kind of visualization deliverable this project involves. Fixed
+ * list, not admin-extensible (unlike status/priority/application_product/
+ * program/track) — same `"<literal>" | (string & {})` trick as
+ * `ProjectType` for forward-compatible narrowing. Required on every
+ * project; see `VISUALIZATION_TYPES` in `lib/projects/display.ts`.
+ */
+export type VisualizationType =
+  | "Data Only"
+  | "Function Update"
+  | "New Visualization"
+  | "New Page"
+  | "New Cognigy Build"
+  | (string & {});
+
 export type Priority =
   | "Critical"
   | "High"
@@ -376,6 +391,8 @@ export interface Project {
    */
   track: string;
   project_type: ProjectType;
+  /** What kind of visualization deliverable this project involves. Required. */
+  visualization_type: VisualizationType;
   date_added: IsoDate;
   priority: Priority;
   status: ProjectStatus;

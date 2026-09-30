@@ -72,6 +72,7 @@ async function main() {
     description: "Sample project",
     application_product: "Insights",
     project_type: "New Capability" as const,
+    visualization_type: "Data Only" as const,
     priority: "High" as const,
     status: "Not Started" as const,
     stage: "Qualification" as const,

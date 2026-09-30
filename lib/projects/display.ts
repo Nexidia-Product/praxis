@@ -20,6 +20,7 @@ import type {
   Priority,
   ProjectStatus,
   ProjectType,
+  VisualizationType,
 } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,18 @@ export const PROJECT_TYPES: ProjectType[] = [
 export const PORTFOLIO_PROJECT_TYPES: ProjectType[] = PROJECT_TYPES.filter(
   (t) => t !== "Admin",
 );
+
+// ---------------------------------------------------------------------------
+// Visualization type
+// ---------------------------------------------------------------------------
+
+export const VISUALIZATION_TYPES: VisualizationType[] = [
+  "Data Only",
+  "Function Update",
+  "New Visualization",
+  "New Page",
+  "New Cognigy Build",
+];
 
 /**
  * Application/Product values that ship as built-in defaults. Admin-added
