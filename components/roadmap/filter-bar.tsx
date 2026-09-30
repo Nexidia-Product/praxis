@@ -25,10 +25,17 @@ interface RoadmapFilterBarProps {
   applicationOptions: string[];
   programOptions: string[];
   /**
-   * Distinct stage values in the current dataset. Stages are track-scoped
-   * (see `stagesForTrack` in `lib/projects/display.ts`), so — like lead
-   * and application/product — this is dataset-derived rather than a
-   * fixed global list.
+   * Track values to offer — every system track plus any admin-added or
+   * data-derived one (see the `trackOptions` memo in `workspace.tsx`).
+   */
+  trackOptions: string[];
+  /**
+   * Stage values to offer — the canonical stages for every known track
+   * (see `stagesForTrack` in `lib/projects/display.ts`), plus any legacy
+   * value still recorded on a project from before stages were renamed
+   * (see migration `0027_phase_renamed_to_stage.sql`), so those older
+   * records stay filterable even though their value isn't in the current
+   * taxonomy.
    */
   stageOptions: string[];
   /** Optional: render a checkbox to include closed projects. Default off. */
@@ -42,6 +49,7 @@ export function RoadmapFilterBar({
   leadOptions,
   applicationOptions,
   programOptions,
+  trackOptions,
   stageOptions,
   includeClosed,
   onIncludeClosedChange,
@@ -54,6 +62,7 @@ export function RoadmapFilterBar({
   const activeCount =
     filters.status.length +
     filters.stage.length +
+    filters.track.length +
     filters.priority.length +
     filters.project_type.length +
     filters.project_lead.length +
@@ -75,6 +84,12 @@ export function RoadmapFilterBar({
         options={PROJECT_STATUSES}
         selected={filters.status}
         onChange={(v) => set("status", v as RoadmapFilters["status"])}
+      />
+      <MultiPicker
+        label="Track"
+        options={trackOptions}
+        selected={filters.track}
+        onChange={(v) => set("track", v as RoadmapFilters["track"])}
       />
       <MultiPicker
         label="Stage"
@@ -136,6 +151,7 @@ export function RoadmapFilterBar({
             onChange({
               status: [],
               stage: [],
+              track: [],
               priority: [],
               project_type: [],
               project_lead: [],

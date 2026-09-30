@@ -135,6 +135,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
     return {
       status: [],
       stage: [],
+      track: [],
       priority: [],
       project_type: [],
       project_lead: [],
@@ -154,6 +155,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
   return {
     status: arr(f.status) as RoadmapFilters["status"],
     stage: arr(f.stage) as RoadmapFilters["stage"],
+    track: arr(f.track),
     priority: arr(f.priority) as RoadmapFilters["priority"],
     project_type: arr(f.project_type) as RoadmapFilters["project_type"],
     project_lead: arr(f.project_lead),
@@ -268,6 +270,7 @@ function summarizeFilters(filters: RoadmapFilters): string {
     parts.push(`Lead: ${filters.project_lead.join(", ")}`);
   }
   if (filters.stage.length) parts.push(`Stage: ${filters.stage.join(", ")}`);
+  if (filters.track.length) parts.push(`Track: ${filters.track.join(", ")}`);
   if (filters.search) parts.push(`"${filters.search}"`);
   return parts.join("  ·  ");
 }

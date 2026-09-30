@@ -44,6 +44,7 @@ import {
   EMPTY_ROADMAP_FILTERS,
   type RoadmapFilters,
 } from "@/lib/roadmap/filters";
+import { SYSTEM_TRACKS, stagesForTrack } from "@/lib/projects/display";
 import type { RoadmapView } from "@/lib/roadmap/views";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
@@ -176,25 +177,47 @@ export function RoadmapWorkspace({
   // Lead and application/product option lists for the filter bar.
   // Derived from the projects we actually have, deduplicated and sorted.
   // Recomputed only when the project list changes.
+  //
+  // Track and Stage are handled differently: both start from the built-in
+  // taxonomy (`SYSTEM_TRACKS` / `stagesForTrack`) rather than purely from
+  // the data, so a track or stage nobody has used yet (e.g. Track B/C, or
+  // a newly-added Track A stage) still shows up as a filter/column choice.
+  // Stage additionally appends any legacy value still recorded on a
+  // project from before stages were renamed and made track-scoped (see
+  // migration `0027_phase_renamed_to_stage.sql`, which intentionally
+  // leaves those records as-is) so older projects stay filterable.
   const { leadOptions, applicationOptions, programOptions, trackOptions, stageOptions } = useMemo(() => {
     const leads = new Set<string>();
     const apps = new Set<string>();
     const programs = new Set<string>();
-    const tracks = new Set<string>();
-    const stages = new Set<string>();
+    const tracks = new Set<string>(SYSTEM_TRACKS);
     for (const p of projects) {
       if (p.project_lead) leads.add(p.project_lead);
       if (p.application_product) apps.add(p.application_product);
       if (p.program) programs.add(p.program);
       if (p.track) tracks.add(p.track);
-      if (p.stage) stages.add(p.stage);
     }
+    const trackList = Array.from(tracks).sort();
+
+    const canonicalStages: string[] = [];
+    for (const t of trackList) {
+      for (const s of stagesForTrack(t)) {
+        if (!canonicalStages.includes(s)) canonicalStages.push(s);
+      }
+    }
+    const legacyStages = new Set<string>();
+    for (const p of projects) {
+      if (p.stage && !canonicalStages.includes(p.stage)) {
+        legacyStages.add(p.stage);
+      }
+    }
+
     return {
       leadOptions: Array.from(leads).sort(),
       applicationOptions: Array.from(apps).sort(),
       programOptions: Array.from(programs).sort(),
-      trackOptions: Array.from(tracks).sort(),
-      stageOptions: Array.from(stages).sort(),
+      trackOptions: trackList,
+      stageOptions: [...canonicalStages, ...Array.from(legacyStages).sort()],
     };
   }, [projects]);
 
@@ -374,6 +397,7 @@ export function RoadmapWorkspace({
         leadOptions={leadOptions}
         applicationOptions={applicationOptions}
         programOptions={programOptions}
+        trackOptions={trackOptions}
         stageOptions={stageOptions}
         includeClosed={showIncludeClosed ? includeClosed : undefined}
         onIncludeClosedChange={

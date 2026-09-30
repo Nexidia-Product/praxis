@@ -650,6 +650,7 @@ async function main() {
         status: "Blocked",
         application_product: "Insights",
         project_lead: "Sam",
+        track: "Track B - Cognigy bot inputs",
       }),
     ];
 
@@ -719,6 +720,17 @@ async function main() {
     check(
       "applyRoadmapFilters: search by project_id",
       byId.length === 1 && byId[0].project_id === "2026-003",
+    );
+
+    // track filter
+    const trackB = applyRoadmapFilters(
+      dataset,
+      { ...EMPTY_ROADMAP_FILTERS, track: ["Track B - Cognigy bot inputs"] },
+      { includeClosed: true },
+    );
+    check(
+      "applyRoadmapFilters: track narrows",
+      trackB.length === 1 && trackB[0].project_id === "2026-003",
     );
 
     // combined: priority + status filter

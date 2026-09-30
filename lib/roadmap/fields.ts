@@ -20,8 +20,31 @@ import {
   PORTFOLIO_PROJECT_TYPES,
   PRIORITIES,
   PROJECT_STATUSES,
+  SYSTEM_TRACKS,
+  stagesForTrack,
 } from "@/lib/projects/display";
 import type { Project } from "@/lib/db";
+
+/**
+ * Every stage across every system track, in a stable order (Track A's
+ * full list first, since its stages are a superset of Track B/C's three
+ * anchors). Used as the Kanban "Stage" column set so the board shows the
+ * current taxonomy even before any project has adopted a given stage —
+ * same rationale as `PROJECT_STATUSES` for the Status field.
+ */
+const ALL_STAGE_VALUES: string[] = (() => {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const track of SYSTEM_TRACKS) {
+    for (const stage of stagesForTrack(track)) {
+      if (!seen.has(stage)) {
+        seen.add(stage);
+        ordered.push(stage);
+      }
+    }
+  }
+  return ordered;
+})();
 
 // ---------------------------------------------------------------------------
 // Kanban column / swimlane fields
@@ -58,10 +81,14 @@ export const KANBAN_FIELDS: KanbanField[] = [
   {
     key: "stage",
     label: "Stage",
-    // Stages are track-scoped (each track has its own list), so there's
-    // no single fixed order to show here — derived from the data, same
-    // as roadmap_bucket.
-    values: null,
+    // Stages are track-scoped, but the Kanban board still shows one
+    // fixed column set — the union of every track's stages, in order
+    // (see `ALL_STAGE_VALUES` above). Any value on a project that isn't
+    // in that union (e.g. a pre-rename phase left as-is by migration
+    // `0027_phase_renamed_to_stage.sql`) is still surfaced: `KanbanView`
+    // appends observed values that aren't in a field's fixed list so
+    // those projects don't silently disappear from the board.
+    values: ALL_STAGE_VALUES,
     getValue: (p) => p.stage,
   },
   {
