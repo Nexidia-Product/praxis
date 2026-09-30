@@ -228,6 +228,7 @@ export function buildProjectMarkdown(
     "",
     line("Application/Product", project.application_product),
     line("Type", project.project_type),
+    line("Track", project.track),
     line("Priority", project.priority),
     line("Complexity (Analysis Tier)", project.ai_complexity_score),
     line("Visualization Type", project.visualization_type),
