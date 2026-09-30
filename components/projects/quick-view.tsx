@@ -458,6 +458,11 @@ export function ProjectQuickView({
                     {project.track || "—"}
                   </span>
                 </Field>
+                <Field label="Visualization Type">
+                  <span className="text-sm text-gray-900">
+                    {project.visualization_type || "—"}
+                  </span>
+                </Field>
                 <Field label="Health">
                   {project.health_score ? (
                     <span

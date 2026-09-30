@@ -53,6 +53,7 @@ import {
 } from "@/lib/projects/dependencies";
 import {
   PROJECT_TYPES,
+  VISUALIZATION_TYPES,
   stagesForTrack,
 } from "@/lib/projects/display";
 import { randomUUID } from "node:crypto";
@@ -134,6 +135,7 @@ export interface ProjectCreatePayload {
   program?: unknown;
   track?: unknown;
   project_type?: unknown;
+  visualization_type?: unknown;
   priority?: unknown;
   status?: unknown;
   stage?: unknown;
@@ -446,6 +448,11 @@ async function validateAndShape(
     asOptionalString(payload.track, "track") ||
     "Track A - Dashboard/visualization";
   const project_type = asEnum(payload.project_type, PROJECT_TYPES, "project_type");
+  const visualization_type = asEnum(
+    payload.visualization_type,
+    VISUALIZATION_TYPES,
+    "visualization_type",
+  );
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
   const stage = asEnum(payload.stage, stagesForTrack(track), "stage");
@@ -547,6 +554,7 @@ async function validateAndShape(
     program,
     track,
     project_type,
+    visualization_type,
     priority,
     status,
     stage: effectiveStage,
@@ -930,6 +938,13 @@ export async function updateProject(
   }
   if (payload.project_type !== undefined) {
     patch.project_type = asEnum(payload.project_type, PROJECT_TYPES, "project_type");
+  }
+  if (payload.visualization_type !== undefined) {
+    patch.visualization_type = asEnum(
+      payload.visualization_type,
+      VISUALIZATION_TYPES,
+      "visualization_type",
+    );
   }
   if (payload.priority !== undefined) {
     patch.priority = asEnum(payload.priority, PRIORITIES, "priority");
@@ -1358,6 +1373,7 @@ export async function updateProject(
             "stage",
             "priority",
             "project_type",
+            "visualization_type",
             "application_product",
             "project_lead",
             "target_date",

@@ -57,6 +57,8 @@ interface TemplatesAdminProps {
   initialTemplates: TaskTemplate[];
   /** Merged track options (system + admin-added, archived excluded). */
   trackOptions: EnumOption[];
+  /** Active users' names, for the per-task "Default responsible" dropdown. */
+  userOptions: string[];
 }
 
 interface DraftTemplate {
@@ -111,6 +113,7 @@ function newDraft(trackOptions: EnumOption[]): DraftTemplate {
 export function TemplatesAdmin({
   initialTemplates,
   trackOptions,
+  userOptions,
 }: TemplatesAdminProps) {
   const [templates, setTemplates] = useState<TaskTemplate[]>(() =>
     sortTemplates(initialTemplates, trackOptions),
@@ -670,21 +673,34 @@ export function TemplatesAdmin({
                             </p>
                           ) : null}
                         </div>
-                        <input
-                          type="text"
+                        <select
                           aria-label={`Task ${i + 1} default responsible`}
-                          placeholder="Default responsible (optional)"
                           value={item.default_responsible ?? ""}
                           onChange={(e) =>
                             updateTaskItem(i, {
-                              default_responsible: e.target.value.trim()
-                                ? e.target.value
-                                : null,
+                              default_responsible: e.target.value || null,
                             })
                           }
                           disabled={saving}
                           className={baseInput}
-                        />
+                        >
+                          <option value="">— None (defaults to project lead) —</option>
+                          {userOptions.map((u) => (
+                            <option key={u} value={u}>
+                              {u}
+                            </option>
+                          ))}
+                          {/* Defensive: preserve a name that's no longer
+                              in the active-user roster (e.g. the user
+                              was deactivated after this template was
+                              saved) rather than silently dropping it. */}
+                          {item.default_responsible &&
+                          !userOptions.includes(item.default_responsible) ? (
+                            <option value={item.default_responsible}>
+                              {item.default_responsible}
+                            </option>
+                          ) : null}
+                        </select>
                       </div>
                       <textarea
                         aria-label={`Task ${i + 1} description`}

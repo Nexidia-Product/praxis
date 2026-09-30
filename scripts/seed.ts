@@ -421,6 +421,10 @@ function transformProjects(
       // reclassified by hand later.
       track: SEED_TRACK,
       project_type: projectType,
+      // No source column in the legacy spreadsheet either; seeded
+      // projects default to the first visualization type and get
+      // reclassified by hand later.
+      visualization_type: "Data Only",
       date_added: dateAdded,
       priority,
       status,

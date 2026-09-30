@@ -193,6 +193,7 @@ async function main() {
       program: p.program ?? "Innovation",
       track: p.track ?? "Track A - Dashboard/visualization",
       project_type: p.project_type ?? "New Capability",
+      visualization_type: p.visualization_type ?? "Data Only",
       date_added: p.date_added ?? "2026-01-01",
       priority: p.priority ?? "High",
       status: p.status ?? "In Progress",

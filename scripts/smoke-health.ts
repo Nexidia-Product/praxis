@@ -155,6 +155,7 @@ async function main() {
       description: overrides.description ?? "",
       application_product: overrides.application_product ?? "Test Product",
       project_type: overrides.project_type ?? "New Capability",
+      visualization_type: overrides.visualization_type ?? "Data Only",
       priority: overrides.priority ?? "Medium",
       status: overrides.status ?? "In Progress",
       stage: overrides.stage ?? "Application Development",

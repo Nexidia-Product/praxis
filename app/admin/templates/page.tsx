@@ -12,7 +12,7 @@ import {
   getCurrentUserPermissions,
   requirePagePermission,
 } from "@/lib/auth/permissions";
-import { TemplateRepository } from "@/lib/db";
+import { TemplateRepository, UserRepository } from "@/lib/db";
 import { getEnumOptions } from "@/lib/projects/enum-options";
 import { TemplatesAdmin } from "@/components/admin/templates-admin";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -24,9 +24,21 @@ export const dynamic = "force-dynamic";
 export default async function TemplatesAdminPage() {
   const session = await requirePagePermission("admin.templates.manage");
   const { permissions } = await getCurrentUserPermissions();
-  const templates = await TemplateRepository.getAll();
+  const [templates, users] = await Promise.all([
+    TemplateRepository.getAll(),
+    UserRepository.getAll(),
+  ]);
   templates.sort((a, b) => a.template_name.localeCompare(b.template_name));
   const trackOptions = await getEnumOptions("track");
+
+  // Same active-user roster shape as the project form's "Project lead"
+  // dropdown (see app/projects/page.tsx) — names, not user_ids, matching
+  // how Task.responsible is stored.
+  const userOptions = users
+    .filter((u) => u.active)
+    .map((u) => u.name.trim())
+    .filter((n) => n.length > 0)
+    .sort();
 
   return (
     <PolarisShell
@@ -42,7 +54,11 @@ export default async function TemplatesAdminPage() {
         title="Task templates"
         subtitle="Pre-built task lists offered when creating a project of the matching track."
       />
-      <TemplatesAdmin initialTemplates={templates} trackOptions={trackOptions} />
+      <TemplatesAdmin
+        initialTemplates={templates}
+        trackOptions={trackOptions}
+        userOptions={userOptions}
+      />
     </PolarisShell>
   );
 }

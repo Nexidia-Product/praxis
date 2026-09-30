@@ -25,6 +25,7 @@ import {
   PRIORITIES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  VISUALIZATION_TYPES,
   stagesForTrack,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
@@ -44,6 +45,7 @@ import type {
   ProjectStatus,
   ProjectType,
   TaskTemplate,
+  VisualizationType,
 } from "@/lib/db";
 import { DependencyEditor } from "./dependency-editor";
 import { DocumentLinksEditor } from "./document-links-editor";
@@ -118,6 +120,7 @@ interface FormState {
   program: string;
   track: string;
   project_type: ProjectType;
+  visualization_type: VisualizationType;
   priority: Priority;
   status: ProjectStatus;
   stage: string;
@@ -180,6 +183,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     program: "Innovation",
     track: "Track A - Dashboard/visualization",
     project_type: "New Feature",
+    visualization_type: "Data Only",
     priority: "Medium",
     status: "Not Started",
     stage: "Qualification",
@@ -259,6 +263,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     program: p.program,
     track: p.track,
     project_type: p.project_type,
+    visualization_type: p.visualization_type,
     priority: p.priority,
     status: p.status,
     stage: p.stage,
@@ -301,6 +306,7 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     program: s.program.trim(),
     track: s.track.trim(),
     project_type: s.project_type,
+    visualization_type: s.visualization_type,
     priority: s.priority,
     status: s.status,
     stage: s.stage,
@@ -821,6 +827,31 @@ export function ProjectFormModal({
                 className={baseInput}
               >
                 {PROJECT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              id="proj-visualization-type"
+              label="Visualization Type"
+              required
+            >
+              <select
+                id="proj-visualization-type"
+                value={state.visualization_type}
+                onChange={(e) =>
+                  update(
+                    "visualization_type",
+                    e.target.value as VisualizationType,
+                  )
+                }
+                disabled={saving}
+                className={baseInput}
+              >
+                {VISUALIZATION_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
