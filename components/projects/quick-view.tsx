@@ -243,7 +243,9 @@ export function ProjectQuickView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${project.project_id}-${filenameSafe(project.name)}.md`;
+    // Fixed filename by design — every export downloads as "PROJECT.md",
+    // not a per-project name.
+    a.download = "PROJECT.md";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -849,19 +851,6 @@ export function ProjectQuickView({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Reduce a project name to characters safe in a downloaded filename on
- * every OS (strips `\/:*?"<>|`, collapses whitespace to `-`). Falls back
- * to "project" if the name is empty or entirely made of unsafe characters.
- */
-function filenameSafe(name: string): string {
-  const cleaned = name
-    .replace(/[\\/:*?"<>|]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-  return cleaned || "project";
-}
 
 function Field({
   label,

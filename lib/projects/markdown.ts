@@ -27,9 +27,10 @@
  *     replacement scheme, scoped ONLY to this export — they do not
  *     replace `computeProjectMilestones` in `lib/projects/milestones.ts`,
  *     which still drives the project quick view.
- *   - The "Tasks" and "Change Log" sections are placeholders, not derived
- *     from real data (see the section builders below for what "static"
- *     and "placeholder" mean for each).
+ *   - The template's "Tasks" and "Change Log" sections are intentionally
+ *     omitted — both would have been placeholders (no real task-per-
+ *     project numbering or change tracking exists yet), and product
+ *     direction was to drop them rather than ship a static placeholder.
  */
 
 import { subtractBusinessDays } from "./milestones";
@@ -174,44 +175,6 @@ const MILESTONE_LABELS: Record<keyof ExportMilestones, string> = {
   application_deployment: "Application Deployment",
 };
 
-// ---------------------------------------------------------------------------
-// Tasks — placeholder section
-// ---------------------------------------------------------------------------
-//
-// Per the template conversation: static, not derived from this project's
-// real tasks. This is the template's own worked example verbatim (project
-// IDs, task IDs, assignees and all) — a placeholder for the shape a real
-// task table should take once project-scoped task numbering exists, not a
-// per-project rendering. Every export currently shows the same block.
-const STATIC_TASKS_TABLE = `| ID | Stage | Task | Assignee | Due | Status |
-|---|---|---|---|---|---|
-| 2026-024-T01 | Qualification | Existing Praxis tasks | Manager | Before kickoff | Complete |
-| 2026-024-T02 | Prioritization | Set priority, owner, release date, tier and visualization type | Manager | Before kickoff | Complete |
-| 2026-024-T03 | Kickoff | Export project, run kickoff, write brief | Project Owner | 2026-09-29 | Not started |
-| 2026-024-T04 | Kickoff | Update scope, definition of done and sizing in Praxis | Project Owner | 2026-09-29 | Not started |
-| 2026-024-T05 | Analysis and EDA | EDA notes and data coverage | Project Owner | 2026-10-05 | Not started |
-| 2026-024-T06 | Analysis and EDA | Draft expected-output CSV, reconciled against a run | Project Owner | 2026-10-05 | Not started |
-| 2026-024-T07 | Approach Review | Review packet | Project Owner | 2026-10-06 | Not started |
-| 2026-024-T08 | Approach Review | Hold review and record outcome | Approach Reviewer | 2026-10-06 | Not started |
-| 2026-024-T09 | Initial Revisions | Revisions and delta note (or not needed) | Project Owner | 2026-10-08 | Not started |
-| 2026-024-T10 | Initial Revisions | Async re-check (or not needed) | Approach Reviewer | 2026-10-08 | Not started |
-| 2026-024-T11 | Initiate Visualization | Send expected-output CSV and data dictionary | Project Owner | 2026-10-16 | Not started |
-| 2026-024-T12 | Initiate Visualization | Walkthrough done, files confirmed enough to start | Dashboard Developer | 2026-10-16 | Not started |
-| 2026-024-T13 | Deck Review | Storyline, deck, deck check, email | Project Owner | 2026-10-14 | Not started |
-| 2026-024-T14 | Deck Review | Deck feedback | Approach Reviewer | 2026-10-15 | Not started |
-| 2026-024-T15 | Manager Review | Review deck, meet if needed | Manager Reviewer | 2026-10-19 | Not started |
-| 2026-024-T16 | Signoff | Ship decision, on by default or opt-in | Signoff Approver | 2026-10-21 | Not started |
-| 2026-024-T17 | Handoff | Handoff package passes contract checks | Project Owner | 2026-10-23 | Not started |
-| 2026-024-T18 | Handoff | Package accepted | Approach Reviewer | 2026-10-23 | Not started |
-| 2026-024-T19 | Integration | Integrated, output matches expected CSV | Approach Reviewer | 2026-10-30 | Not started |
-| 2026-024-T20 | Integration | Version, changelog, build, deploy | Approach Reviewer | 2026-10-30 | Not started |
-| 2026-024-T21 | Final Visualization | Real files in, visualization finished | Dashboard Developer | 2026-11-03 | Not started |
-| 2026-024-T22 | Final Visualization | Caveats walkthrough | Project Owner | 2026-11-03 | Not started |
-| 2026-024-T23 | Release | Application deployed | Dashboard Developer | 2026-11-06 | Not started |
-| 2026-024-T24 | Release | Spot-check and exe version recorded | Approach Reviewer | 2026-11-06 | Not started |
-| 2026-024-T25 | Productization | Product write-up and walkthrough | Project Owner | Set by manager | Not started |
-| 2026-024-T26 | Productization | Ownership accepted | Product Owner | Set by manager | Not started |`;
-
 export function buildProjectMarkdown(
   project: Project,
   allProjects: Project[] = [],
@@ -228,6 +191,7 @@ export function buildProjectMarkdown(
     "",
     line("Application/Product", project.application_product),
     line("Type", project.project_type),
+    line("Track", project.track),
     line("Priority", project.priority),
     line("Complexity (Analysis Tier)", project.ai_complexity_score),
     line("Visualization Type", project.visualization_type),
@@ -296,16 +260,6 @@ export function buildProjectMarkdown(
       );
     }
   }
-
-  // Placeholder sections — see the module doc comment and the constants
-  // above for what "static"/"placeholder" mean here.
-  lines.push("", "## Tasks", "", STATIC_TASKS_TABLE);
-  lines.push(
-    "",
-    "## Change Log",
-    "",
-    "_Placeholder — change history (target dates, complexity, visualization type) is not yet tracked._",
-  );
 
   return lines.join("\n");
 }
