@@ -32,6 +32,7 @@ import type {
 } from "@/lib/db";
 import { stagesForTrack } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
+import { buildTemplateMarkdown } from "@/lib/tasks/template-markdown";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
@@ -815,18 +816,25 @@ export function TemplatesAdmin({
               </div>
 
               <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-                {draft.template_id ? (
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleDelete}
-                    disabled={saving}
-                    className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
+                    onClick={() => downloadTemplateMarkdown(draft, trackOptions)}
+                    className="text-sm font-medium text-gray-700 hover:underline"
                   >
-                    Delete template
+                    ↓ Download Markdown
                   </button>
-                ) : (
-                  <span />
-                )}
+                  {draft.template_id ? (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={saving}
+                      className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      Delete template
+                    </button>
+                  ) : null}
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -888,6 +896,32 @@ function Field({
       <div className="mt-1">{children}</div>
     </div>
   );
+}
+
+/** Lowercase, hyphenated filename stem — safe across OSes. */
+function slugify(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "template";
+}
+
+function downloadTemplateMarkdown(
+  draft: DraftTemplate,
+  trackOptions: EnumOption[],
+): void {
+  const md = buildTemplateMarkdown(draft, trackOptions);
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${slugify(draft.template_name)}-template.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function sortTemplates(
