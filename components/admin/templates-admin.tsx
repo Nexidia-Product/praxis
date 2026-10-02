@@ -97,6 +97,8 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
       default_responsible: i.default_responsible ?? null,
       estimate_hours: i.estimate_hours ?? null,
       complexity_estimate_hours: i.complexity_estimate_hours ?? null,
+      friday_anchor: i.friday_anchor ?? false,
+      fixed_lag_business_days_after: i.fixed_lag_business_days_after ?? null,
       dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
     })),
   };
@@ -117,6 +119,8 @@ function newDraft(trackOptions: EnumOption[]): DraftTemplate {
         default_responsible: null,
         estimate_hours: null,
         complexity_estimate_hours: null,
+        friday_anchor: false,
+        fixed_lag_business_days_after: null,
         dependencies: [],
       },
     ],
@@ -209,6 +213,8 @@ export function TemplatesAdmin({
                 default_responsible: null,
                 estimate_hours: null,
                 complexity_estimate_hours: null,
+                friday_anchor: false,
+                fixed_lag_business_days_after: null,
                 dependencies: [],
               },
             ],
@@ -230,6 +236,10 @@ export function TemplatesAdmin({
         dependencies: t.dependencies.filter(
           (d) => d.predecessor_local_id !== removed.local_id,
         ),
+        fixed_lag_business_days_after:
+          t.fixed_lag_business_days_after?.predecessor_local_id === removed.local_id
+            ? null
+            : t.fixed_lag_business_days_after,
       }));
       return { ...prev, tasks: cleaned };
     });
@@ -346,6 +356,8 @@ export function TemplatesAdmin({
         default_priority: t.default_priority,
         estimate_hours: t.estimate_hours,
         complexity_estimate_hours: t.complexity_estimate_hours,
+        friday_anchor: t.friday_anchor,
+        fixed_lag_business_days_after: t.fixed_lag_business_days_after,
         dependencies: t.dependencies,
       })),
     };
@@ -666,6 +678,20 @@ export function TemplatesAdmin({
                         value={item.complexity_estimate_hours ?? null}
                         onChange={(next) =>
                           updateTaskItem(i, { complexity_estimate_hours: next })
+                        }
+                        disabled={saving}
+                      />
+                      <ScheduleAnchorControls
+                        taskIndex={i}
+                        tasks={draft.tasks}
+                        selfLocalId={item.local_id}
+                        fridayAnchor={item.friday_anchor ?? false}
+                        onFridayAnchorChange={(next) =>
+                          updateTaskItem(i, { friday_anchor: next })
+                        }
+                        fixedLag={item.fixed_lag_business_days_after ?? null}
+                        onFixedLagChange={(next) =>
+                          updateTaskItem(i, { fixed_lag_business_days_after: next })
                         }
                         disabled={saving}
                       />
@@ -1010,6 +1036,122 @@ function ComplexityOverrides({
       >
         Remove
       </button>
+    </div>
+  );
+}
+
+type FixedLagValue = { predecessor_local_id: string; business_days: number } | null;
+
+/**
+ * Release-calendar scheduling anchors (`lib/tasks/schedule.ts`) for tasks
+ * that represent a real deployment milestone — e.g. "must land on a
+ * Friday," optionally "and exactly N business days after another task,"
+ * overriding the normal estimate/dependency-chain date computation for
+ * that one task. Rare — most tasks need neither — so the fixed-lag half
+ * is a collapsed disclosure, same pattern as `ComplexityOverrides`.
+ */
+function ScheduleAnchorControls({
+  taskIndex,
+  tasks,
+  selfLocalId,
+  fridayAnchor,
+  onFridayAnchorChange,
+  fixedLag,
+  onFixedLagChange,
+  disabled,
+}: {
+  taskIndex: number;
+  tasks: DraftTaskItem[];
+  selfLocalId: string;
+  fridayAnchor: boolean;
+  onFridayAnchorChange: (next: boolean) => void;
+  fixedLag: FixedLagValue;
+  onFixedLagChange: (next: FixedLagValue) => void;
+  disabled: boolean;
+}) {
+  const [lagOpen, setLagOpen] = useState(fixedLag != null);
+  const others = tasks.filter((t) => t.local_id !== selfLocalId);
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-600">
+      <label className="inline-flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={fridayAnchor}
+          onChange={(e) => onFridayAnchorChange(e.target.checked)}
+          disabled={disabled}
+          className="h-3 w-3"
+        />
+        Must land on a Friday (release-calendar anchor)
+      </label>
+
+      {!lagOpen ? (
+        <button
+          type="button"
+          onClick={() => setLagOpen(true)}
+          disabled={disabled}
+          className="font-medium text-gray-600 hover:underline disabled:opacity-50"
+        >
+          + Exact gap from another task
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5">
+          Exactly
+          <input
+            type="number"
+            min={1}
+            max={999}
+            aria-label={`Task ${taskIndex + 1} fixed-lag business days`}
+            value={fixedLag?.business_days ?? ""}
+            onChange={(e) => {
+              const days = e.target.value === "" ? null : Number(e.target.value);
+              onFixedLagChange(
+                days != null && fixedLag?.predecessor_local_id
+                  ? { predecessor_local_id: fixedLag.predecessor_local_id, business_days: days }
+                  : days != null && others[0]
+                    ? { predecessor_local_id: others[0].local_id, business_days: days }
+                    : null,
+              );
+            }}
+            disabled={disabled || others.length === 0}
+            className="w-14 rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+          />
+          business days after
+          <select
+            aria-label={`Task ${taskIndex + 1} fixed-lag reference task`}
+            value={fixedLag?.predecessor_local_id ?? ""}
+            onChange={(e) =>
+              onFixedLagChange(
+                fixedLag?.business_days
+                  ? { predecessor_local_id: e.target.value, business_days: fixedLag.business_days }
+                  : null,
+              )
+            }
+            disabled={disabled || others.length === 0}
+            className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+          >
+            <option value="" disabled>
+              — Select a task —
+            </option>
+            {others.map((t) => (
+              <option key={t.local_id} value={t.local_id}>
+                {t.name.trim() || "(untitled task)"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              onFixedLagChange(null);
+              setLagOpen(false);
+            }}
+            disabled={disabled}
+            className="text-gray-500 hover:underline disabled:opacity-50"
+          >
+            Remove
+          </button>
+        </span>
+      )}
     </div>
   );
 }
