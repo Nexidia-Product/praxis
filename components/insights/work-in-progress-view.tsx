@@ -178,6 +178,13 @@ export function WorkInProgressView({
     permissions["projects.edit"] === true ||
     (permissions["projects.edit"] === undefined &&
       (currentUserRole === "Admin" || currentUserRole === "Project Lead"));
+  // Narrower than canEditProject — stage changes are an admin-opted-in
+  // grant, not bundled into general project editing. No historical role
+  // behavior to fall back to, so the fallback is Admin-only.
+  const canEditProjectStage =
+    permissions["projects.edit_stage"] === true ||
+    (permissions["projects.edit_stage"] === undefined &&
+      currentUserRole === "Admin");
   const canEditTask =
     permissions["tasks.edit"] === true ||
     (permissions["tasks.edit"] === undefined &&
@@ -747,6 +754,7 @@ export function WorkInProgressView({
           project={quickViewProject}
           customFields={customFields}
           canEdit={canEditProject}
+          canEditStage={canEditProjectStage}
           allProjects={projects}
           statusOptions={enumOptions.status}
           priorityOptions={enumOptions.priority}
@@ -786,6 +794,7 @@ export function WorkInProgressView({
           templates={templates}
           allProjects={projects}
           aiEnabled={aiEnabled}
+          canEditStage={canEditProjectStage}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdatedProject(p);

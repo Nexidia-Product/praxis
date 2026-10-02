@@ -94,6 +94,15 @@ interface ProjectFormModalProps {
   /** Admin-managed vocabularies for the outcomes editor's dropdowns. */
   outcomeProducts?: string[];
   outcomeTypes?: string[];
+  /**
+   * Whether the Stage field is editable — gated by the narrower
+   * `projects.edit_stage` permission rather than general project
+   * editing (stage otherwise only advances automatically as a stage's
+   * tasks are completed). Defaults to true so a caller that hasn't been
+   * threaded through yet doesn't regress; every current caller passes
+   * it explicitly.
+   */
+  canEditStage?: boolean;
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -398,6 +407,7 @@ export function ProjectFormModal({
   aiEnabled = false,
   outcomeProducts = [],
   outcomeTypes = [],
+  canEditStage = true,
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
@@ -898,7 +908,7 @@ export function ProjectFormModal({
                 id="proj-stage"
                 value={state.stage}
                 onChange={(e) => update("stage", e.target.value)}
-                disabled={saving}
+                disabled={saving || !canEditStage}
                 className={baseInput}
               >
                 {stageList.map((s) => (
@@ -907,6 +917,13 @@ export function ProjectFormModal({
                   </option>
                 ))}
               </select>
+              {!canEditStage ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Stages advance automatically as a stage's tasks are
+                  completed. You don't have permission to change it
+                  manually.
+                </p>
+              ) : null}
             </Field>
 
             {/* Complexity + time estimate are settable both manually here

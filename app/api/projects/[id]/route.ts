@@ -74,6 +74,15 @@ export const PATCH = withAuth(async (request: Request, ctx: RouteContext) => {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 
+  // Changing stage is gated by a narrower permission than general project
+  // editing — only when the payload actually changes it, not merely
+  // includes it (the form/quick-view/Kanban surfaces resend the whole
+  // object on every save, so gating on presence alone would require this
+  // permission for every save that touches the form at all).
+  if (body.stage !== undefined && body.stage !== existing.stage) {
+    await requirePermission("projects.edit_stage");
+  }
+
   try {
     const project = await updateProject(id, body, {
       userId: session.user.user_id,

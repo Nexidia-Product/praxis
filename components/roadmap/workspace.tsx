@@ -173,6 +173,12 @@ export function RoadmapWorkspace({
   const canExport = permissions
     ? permissions["roadmap.export"] === true
     : true;
+  // Narrower than canEdit — stage changes are an admin-opted-in grant,
+  // not bundled into general project editing. No historical role
+  // behavior to fall back to, so the fallback is Admin-only.
+  const canEditStage = permissions
+    ? permissions["projects.edit_stage"] === true
+    : currentUserRole === "Admin";
 
   // Lead and application/product option lists for the filter bar.
   // Derived from the projects we actually have, deduplicated and sorted.
@@ -434,6 +440,7 @@ export function RoadmapWorkspace({
             onDeleteConfig={handleDeleteConfig}
             onOpenQuickView={setQuickViewId}
             canEdit={canEdit}
+            canEditStage={canEditStage}
             quadrantLabels={quadrantLabels}
           />
         ) : null}
@@ -465,6 +472,7 @@ export function RoadmapWorkspace({
           project={quickViewProject}
           customFields={customFields}
           canEdit={canEdit}
+          canEditStage={canEditStage}
           // Use the full project list (not the filtered view) so dependency
           // chips can resolve upstream names even when the upstream is
           // hidden by the active filter.
@@ -549,6 +557,7 @@ export function RoadmapWorkspace({
           templates={templates}
           allProjects={projects}
           aiEnabled={aiEnabled}
+          canEditStage={canEditStage}
           onClose={() => setEditingProject(null)}
           onSaved={(updated) => {
             setProjects((prev) =>

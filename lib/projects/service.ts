@@ -55,6 +55,7 @@ import {
   PROJECT_TYPES,
   VISUALIZATION_TYPES,
   stagesForTrack,
+  stageTransitionSetsStartDate,
 } from "@/lib/projects/display";
 import { randomUUID } from "node:crypto";
 import {
@@ -1110,6 +1111,24 @@ export async function updateProject(
       throw new ValidationError(
         `stage must be one of: ${validStages.join(", ")} (for track "${finalTrack}").`,
       );
+    }
+
+    // Prioritization → Kickoff marks the moment real work begins — same
+    // "start date" signal as the status-based auto-start rule below, just
+    // keyed off stage instead of status. Applies here (a human manually
+    // moving stage) as well as the task-completion auto-advance path
+    // (`advanceStageIfComplete` in lib/tasks/service.ts) sharing the same
+    // decision via `stageTransitionSetsStartDate` — one rule, not two
+    // that could drift apart. Same guards as the status-based rule: only
+    // when the field isn't already set, and the caller isn't setting it
+    // explicitly in this same patch.
+    if (
+      patch.stage !== existing.stage &&
+      stageTransitionSetsStartDate(existing.stage, patch.stage) &&
+      existing.roadmap_timeline_start === null &&
+      payload.roadmap_timeline_start === undefined
+    ) {
+      patch.roadmap_timeline_start = todayIso();
     }
   }
 

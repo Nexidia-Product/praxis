@@ -67,6 +67,14 @@ interface KanbanViewProps {
   onDeleteConfig: (configId: string) => Promise<void>;
   onOpenQuickView: (projectId: string) => void;
   canEdit: boolean;
+  /**
+   * Whether dragging a card into a different Stage column is allowed —
+   * gated by the narrower `projects.edit_stage` permission. Other
+   * draggable column fields (status, priority, etc.) are unaffected.
+   * Defaults to `canEdit`'s value so existing callers that haven't been
+   * threaded through yet don't regress.
+   */
+  canEditStage?: boolean;
   /** User-facing labels for the strategic-position bucket badge. */
   quadrantLabels: PortfolioQuadrantLabels;
 }
@@ -87,6 +95,7 @@ export function KanbanView({
   onDeleteConfig,
   onOpenQuickView,
   canEdit,
+  canEditStage = canEdit,
   quadrantLabels,
 }: KanbanViewProps) {
   const [config, setConfig] = useState<ActiveConfig>({
@@ -103,7 +112,10 @@ export function KanbanView({
   const swimlaneField = config.swimlaneField
     ? findKanbanField(config.swimlaneField)
     : null;
-  const draggable = canEdit && DRAGGABLE_FIELDS.has(config.columnField);
+  const draggable =
+    canEdit &&
+    DRAGGABLE_FIELDS.has(config.columnField) &&
+    (config.columnField !== "stage" || canEditStage);
 
   // ---- Derived: column values for the current field. ----
   const columnValues = useMemo(() => {
@@ -304,7 +316,9 @@ export function KanbanView({
         )}
         {!draggable && canEdit && (
           <span className="ml-auto text-xs text-gray-500">
-            Drag-to-update is disabled for this column type.
+            {config.columnField === "stage" && !canEditStage
+              ? "You don't have permission to change stage by dragging."
+              : "Drag-to-update is disabled for this column type."}
           </span>
         )}
       </div>
