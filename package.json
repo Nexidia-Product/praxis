@@ -35,6 +35,7 @@
     "seed:document-skills": "tsx --env-file=.env.local scripts/seed-document-skills.ts",
     "seed:visualization-template": "tsx --env-file=.env.local scripts/seed-visualization-template.ts",
     "patch:task-schedule-anchors": "tsx --env-file=.env.local scripts/patch-task-schedule-anchors.ts",
+    "inspect:project-schedule": "tsx --env-file=.env.local scripts/inspect-project-schedule.ts",
     "prepare:branding": "tsx scripts/prepare-branding.ts"
   },
   "dependencies": {
