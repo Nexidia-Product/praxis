@@ -110,6 +110,7 @@ function validate(
   const tasks: TaskTemplateItem[] = [];
   const localIds = new Set<string>();
   const rawDependencyLists: unknown[] = [];
+  const rawFixedLags: unknown[] = [];
 
   for (let i = 0; i < payload.tasks.length; i++) {
     const raw = payload.tasks[i];
@@ -161,8 +162,11 @@ function validate(
       item.complexity_estimate_hours,
       i,
     );
+    const friday_anchor =
+      item.friday_anchor === undefined ? false : asBoolean(item.friday_anchor, i);
 
     rawDependencyLists.push(item.dependencies);
+    rawFixedLags.push(item.fixed_lag_business_days_after);
 
     tasks.push({
       local_id,
@@ -173,17 +177,25 @@ function validate(
       default_responsible,
       estimate_hours,
       complexity_estimate_hours,
+      friday_anchor,
       // Filled in by the second pass once every local_id is known.
+      fixed_lag_business_days_after: null,
       dependencies: [],
     });
   }
 
-  // Second pass: dependencies. We needed every local_id collected
-  // first so a predecessor reference can point at any other row
+  // Second pass: dependencies and fixed-lag references. We needed every
+  // local_id collected first so a reference can point at any other row
   // regardless of order in the array.
   for (let i = 0; i < tasks.length; i++) {
     tasks[i].dependencies = parseDependencies(
       rawDependencyLists[i],
+      tasks[i].local_id,
+      localIds,
+      i,
+    );
+    tasks[i].fixed_lag_business_days_after = parseFixedLag(
+      rawFixedLags[i],
       tasks[i].local_id,
       localIds,
       i,
@@ -346,6 +358,56 @@ function parseDependencies(
   return out;
 }
 
+function asBoolean(value: unknown, taskIndex: number): boolean {
+  if (typeof value === "boolean") return value;
+  throw new ValidationError(`tasks[${taskIndex}].friday_anchor must be a boolean.`);
+}
+
+/**
+ * Validate the optional fixed-lag override. Same existence/self-reference
+ * rules as a dependency's predecessor, plus a positive business-day count.
+ */
+function parseFixedLag(
+  raw: unknown,
+  selfLocalId: string,
+  knownLocalIds: Set<string>,
+  taskIndex: number,
+): { predecessor_local_id: string; business_days: number } | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object") {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after must be an object or null.`,
+    );
+  }
+  const e = raw as Record<string, unknown>;
+  if (
+    typeof e.predecessor_local_id !== "string" ||
+    !e.predecessor_local_id.trim()
+  ) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after.predecessor_local_id is required.`,
+    );
+  }
+  const predecessor_local_id = e.predecessor_local_id.trim();
+  if (predecessor_local_id === selfLocalId) {
+    throw new ValidationError(
+      `tasks[${taskIndex}] cannot be fixed-lag relative to itself.`,
+    );
+  }
+  if (!knownLocalIds.has(predecessor_local_id)) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after references unknown predecessor_local_id "${predecessor_local_id}".`,
+    );
+  }
+  const n = typeof e.business_days === "number" ? e.business_days : Number(e.business_days);
+  if (!Number.isFinite(n) || n <= 0 || n > 999) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after.business_days must be a positive number (<= 999).`,
+    );
+  }
+  return { predecessor_local_id, business_days: n };
+}
+
 /**
  * DFS over the template's dependency graph. Each task points at its
  * predecessors, so a cycle means "this task is, transitively, its own
@@ -356,10 +418,11 @@ function parseDependencies(
 function detectCycles(tasks: TaskTemplateItem[]): void {
   const adjacency = new Map<string, string[]>();
   for (const t of tasks) {
-    adjacency.set(
-      t.local_id,
-      t.dependencies.map((d) => d.predecessor_local_id),
-    );
+    const edges = t.dependencies.map((d) => d.predecessor_local_id);
+    if (t.fixed_lag_business_days_after) {
+      edges.push(t.fixed_lag_business_days_after.predecessor_local_id);
+    }
+    adjacency.set(t.local_id, edges);
   }
   const onPath = new Set<string>();
   const done = new Set<string>();

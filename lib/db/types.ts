@@ -630,6 +630,31 @@ export interface Task {
    * estimation-accuracy tracking) has an obvious place to live.
    */
   estimate_hours: number | null;
+  /**
+   * When true, the auto-calculated due date (`lib/tasks/schedule.ts`)
+   * snaps forward to the next Friday if the normal estimate/dependency
+   * calculation doesn't already land on one. For release-calendar
+   * milestone tasks (e.g. executable/application deployment) landing on
+   * the wrong weekday isn't cosmetic — it breaks the release cadence.
+   * Defaults false; today only ever set by template instantiation, not
+   * directly user-editable.
+   */
+  friday_anchor: boolean;
+  /**
+   * When set, this task's due date is computed as exactly
+   * `business_days` business days after the referenced task's own
+   * (possibly Friday-snapped) due date — overriding the normal
+   * dependency-chain calculation for DATE purposes only. The ordinary
+   * `dependencies` array, if any, still drives FS-cascade auto-status
+   * behavior as usual; this field only affects date math. Used to keep
+   * two release-calendar milestones an exact number of business days
+   * apart regardless of how many intermediate tasks sit between them.
+   * Null for ordinary tasks.
+   */
+  fixed_lag_business_days_after: {
+    task_id: TaskId;
+    business_days: number;
+  } | null;
   /** Set when the task was instantiated from a TaskTemplate. */
   template_id: TemplateId | null;
   created_at: IsoTimestamp;
@@ -756,6 +781,20 @@ export interface TaskTemplateItem {
    * complexity.
    */
   complexity_estimate_hours?: Partial<Record<"Low" | "High", number>> | null;
+  /**
+   * Mirrors `Task.friday_anchor` — carried onto the instantiated task
+   * as-is. Absent/false for the common case.
+   */
+  friday_anchor?: boolean;
+  /**
+   * Mirrors `Task.fixed_lag_business_days_after`, but points at another
+   * task in the SAME template by `predecessor_local_id` (resolved to a
+   * real `task_id` at instantiation, same convention as `dependencies`).
+   */
+  fixed_lag_business_days_after?: {
+    predecessor_local_id: string;
+    business_days: number;
+  } | null;
   /** Predecessor relationships against other tasks in the SAME template. */
   dependencies: TemplateDependency[];
 }

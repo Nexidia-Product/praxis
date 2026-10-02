@@ -1322,6 +1322,8 @@ export async function rescheduleProjectTasks(projectId: ProjectId): Promise<void
       task_id: t.task_id,
       estimate_hours: t.estimate_hours,
       dependencies: t.dependencies,
+      friday_anchor: t.friday_anchor,
+      fixed_lag_business_days_after: t.fixed_lag_business_days_after,
     })),
   );
 
@@ -1649,11 +1651,31 @@ export async function instantiateTemplate(
       document_links: [],
       template_id: templateId,
       estimate_hours: effectiveHours,
+      friday_anchor: item.friday_anchor ?? false,
     });
     created.push(task);
     idByLocal.set(item.local_id, task.task_id);
     // No TaskAssigned notification here: template tasks are created
     // unassigned, so there's no owner to notify.
+  }
+
+  // Resolve each item's fixed-lag reference (if any) to a real task_id —
+  // needs every local_id collected above, since the referenced task may
+  // come later in the template's own task order. Persisted directly
+  // (bypassing `updateTask`'s public payload schema, which doesn't expose
+  // this field) before the schedule is computed, so it's part of the same
+  // task state the scheduler and the next reschedule both read.
+  for (let i = 0; i < template.tasks.length; i++) {
+    const lag = template.tasks[i].fixed_lag_business_days_after;
+    if (!lag) continue;
+    const resolved = {
+      task_id: idByLocal.get(lag.predecessor_local_id)!,
+      business_days: lag.business_days,
+    };
+    await TaskRepository.update(created[i].task_id, {
+      fixed_lag_business_days_after: resolved,
+    });
+    created[i] = { ...created[i], fixed_lag_business_days_after: resolved };
   }
 
   // Compute the full schedule up front — every real task_id, resolved
@@ -1670,6 +1692,8 @@ export async function instantiateTemplate(
         predecessor_task_id: idByLocal.get(d.predecessor_local_id)!,
         type: d.type,
       })),
+      friday_anchor: created[i].friday_anchor,
+      fixed_lag_business_days_after: created[i].fixed_lag_business_days_after,
     })),
   );
 

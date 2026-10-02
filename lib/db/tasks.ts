@@ -25,11 +25,18 @@ export type CreateTaskInput = Omit<
   | "key_findings"
   | "estimate_hours"
   | "dependencies"
+  | "friday_anchor"
+  | "fixed_lag_business_days_after"
 > &
   Partial<
     Pick<
       Task,
-      "comment_history" | "key_findings" | "estimate_hours" | "dependencies"
+      | "comment_history"
+      | "key_findings"
+      | "estimate_hours"
+      | "dependencies"
+      | "friday_anchor"
+      | "fixed_lag_business_days_after"
     >
   >;
 
@@ -90,6 +97,8 @@ export const TaskRepository = {
         comment_history: input.comment_history ?? [],
         key_findings: input.key_findings ?? [],
         estimate_hours: input.estimate_hours ?? null,
+        friday_anchor: input.friday_anchor ?? false,
+        fixed_lag_business_days_after: input.fixed_lag_business_days_after ?? null,
         // task_id, created_at, updated_at are filled by Postgres defaults
       })
       .select()

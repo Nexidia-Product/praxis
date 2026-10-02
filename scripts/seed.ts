@@ -534,6 +534,8 @@ function transformTasks(
       comments: asString(raw["Comments"]),
       document_links: [],
       dependencies: [],
+      friday_anchor: false,
+      fixed_lag_business_days_after: null,
       template_id: null,
       created_at: SEED_TIMESTAMP,
       updated_at: SEED_TIMESTAMP,

@@ -113,4 +113,62 @@ console.log("\nscheduleTaskDates");
   check("out-of-scope predecessor is non-constraining", crossProject.get("A") === "2026-03-02");
 }
 
+console.log("\nrelease-calendar anchors (friday_anchor / fixed_lag_business_days_after)");
+{
+  // 2026-03-02 is a Monday. A 1-day task starting there is normally due
+  // that same Monday — not a Friday. friday_anchor snaps it forward.
+  const snapped = scheduleTaskDates("2026-03-02", [
+    { task_id: "A", estimate_hours: 8, dependencies: [], friday_anchor: true },
+  ]);
+  check("friday_anchor snaps a Monday due date forward to that week's Friday", snapped.get("A") === "2026-03-06");
+
+  // An already-Friday due date is left alone (no-op snap).
+  const alreadyFriday = scheduleTaskDates("2026-03-02", [
+    { task_id: "A", estimate_hours: 40, dependencies: [], friday_anchor: true }, // 5-day task, Mon-Fri
+  ]);
+  check("friday_anchor is a no-op when already on a Friday", alreadyFriday.get("A") === "2026-03-06");
+
+  // This is the exact bug class reported against Project 2026-118: an
+  // "executable deployment" task (A) lands on a non-Friday via the normal
+  // chain, and a downstream "application deployment" task (E) must be
+  // EXACTLY 5 business days after A's (corrected) date, regardless of
+  // what several intermediate tasks in between would otherwise compute.
+  const milestones = scheduleTaskDates("2026-03-02", [
+    { task_id: "A", estimate_hours: 8, dependencies: [], friday_anchor: true }, // snaps Mon -> Fri 03-06
+    { task_id: "B", estimate_hours: 16, dependencies: [dep("A", "FS")] },
+    { task_id: "C", estimate_hours: 8, dependencies: [dep("B", "FS")] },
+    { task_id: "D", estimate_hours: 8, dependencies: [dep("C", "FS")] },
+    {
+      task_id: "E",
+      estimate_hours: 8,
+      // Fixed-lag overrides whatever this chain (via D) would compute —
+      // deliberately NOT 5 business days after A, to prove the override
+      // wins rather than coincidentally matching.
+      dependencies: [dep("D", "FS")],
+      fixed_lag_business_days_after: { task_id: "A", business_days: 5 },
+      friday_anchor: true,
+    },
+  ]);
+  check("friday_anchor corrects the upstream anchor (A)", milestones.get("A") === "2026-03-06");
+  check(
+    "fixed_lag_business_days_after: E is exactly 5 business days after A, ignoring the D chain",
+    milestones.get("E") === "2026-03-13",
+  );
+  // D's own (ordinary) chain date, for contrast — confirms E did NOT just
+  // happen to inherit D's chain-computed value.
+  check("D's own chain date differs from E's fixed-lag date", milestones.get("D") !== milestones.get("E"));
+
+  // fixed_lag target outside the provided set (or otherwise unresolved)
+  // means "can't say", not a silent fallback to the normal chain.
+  const unresolvedLag = scheduleTaskDates("2026-03-02", [
+    {
+      task_id: "A",
+      estimate_hours: 8,
+      dependencies: [],
+      fixed_lag_business_days_after: { task_id: "not-in-set" as TaskId, business_days: 5 },
+    },
+  ]);
+  check("unresolved fixed-lag target leaves the task unresolved", unresolvedLag.get("A") == null);
+}
+
 console.log(`\n${passed} checks passed.`);

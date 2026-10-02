@@ -35,10 +35,27 @@
  * rule — forward hours-driven chaining produces one deterministic date
  * per task, and there's no conditional-task-inclusion mechanism in
  * `instantiateTemplate` today.
+ *
+ * Two tasks are release-calendar anchors (`friday_anchor`): task 19
+ * ("Version, changelog, build, deploy" — the executable deployment) and
+ * task 31 ("Application deployed"). Both must land on a Friday; task 31
+ * additionally carries `fixed_lag_business_days_after` pointing at task
+ * 19 with a 5-business-day lag, so it's always exactly one business week
+ * after the executable deployment regardless of how the ordinary
+ * dependency chain through tasks 26/28/29/30 computes dates for the
+ * tasks in between (see lib/tasks/schedule.ts).
+ *
+ * Re-running this script UPDATES the existing "Visualization Template" /
+ * Track A template in place (by name + track) rather than creating a
+ * duplicate, so iterating on it doesn't leave old copies behind. Note
+ * that this only affects template DEFINITIONS — tasks already
+ * instantiated from a prior version (e.g. on a test project) keep
+ * whatever they were created with; re-apply the template to pick up
+ * changes on those.
  */
 
-import { UserRepository, type UserId } from "../lib/db";
-import { createTemplate } from "../lib/tasks/template-service";
+import { TemplateRepository, UserRepository, type UserId } from "../lib/db";
+import { createTemplate, updateTemplate } from "../lib/tasks/template-service";
 
 const TRACK_A = "Track A - Dashboard/visualization";
 const HOURS_PER_DAY = 8;
@@ -52,6 +69,8 @@ interface RawTask {
   default_responsible: string | null;
   estimate_hours: number;
   complexity_estimate_hours?: Partial<Record<"Low" | "High", number>>;
+  friday_anchor?: boolean;
+  fixed_lag_business_days_after?: { predecessor_local_id: string; business_days: number };
   dependencies: { predecessor_local_id: string; type: "FS" | "SS" }[];
 }
 
@@ -259,6 +278,8 @@ const TASKS: RawTask[] = [
     stage: "Integration",
     default_responsible: "Josh",
     estimate_hours: days(1),
+    // Executable deployment — must land on the release calendar's Friday.
+    friday_anchor: true,
     dependencies: [{ predecessor_local_id: "t18", type: "FS" }],
   },
   {
@@ -368,6 +389,12 @@ const TASKS: RawTask[] = [
     stage: "Release",
     default_responsible: "Min",
     estimate_hours: days(1),
+    // Application deployment — must land on a Friday, exactly one
+    // business week (5 business days) after the executable deployment
+    // (task 19), regardless of what the ordinary chain through tasks
+    // 26/28/29/30 would otherwise compute.
+    friday_anchor: true,
+    fixed_lag_business_days_after: { predecessor_local_id: "t19", business_days: 5 },
     dependencies: [
       { predecessor_local_id: "t27", type: "FS" },
       { predecessor_local_id: "t30", type: "FS" },
@@ -409,24 +436,35 @@ const TASKS: RawTask[] = [
   },
 ];
 
+const TEMPLATE_NAME = "Visualization Template";
+
 async function main() {
+  const payload = {
+    template_name: TEMPLATE_NAME,
+    tracks: [TRACK_A],
+    // Every task in the reference doc carries "Default priority: Medium" —
+    // injected here rather than repeated 34 times above.
+    tasks: TASKS.map((t) => ({ ...t, default_priority: "Medium" as const })),
+  };
+
+  const existing = (await TemplateRepository.getByTrack(TRACK_A)).find(
+    (t) => t.template_name === TEMPLATE_NAME,
+  );
+
+  if (existing) {
+    const template = await updateTemplate(existing.template_id, payload);
+    console.log(
+      `Updated template "${template.template_name}" (${template.template_id}) — now ${template.tasks.length} tasks.`,
+    );
+    return;
+  }
+
   const users = await UserRepository.getAll();
   const admin = users.find((u) => u.role === "Admin") ?? users[0];
   if (!admin) {
     throw new Error("No users found — create at least one user before seeding.");
   }
-
-  const template = await createTemplate(
-    {
-      template_name: "Visualization Template",
-      tracks: [TRACK_A],
-      // Every task in the reference doc carries "Default priority: Medium" —
-      // injected here rather than repeated 34 times above.
-      tasks: TASKS.map((t) => ({ ...t, default_priority: "Medium" as const })),
-    },
-    { createdBy: admin.user_id as UserId },
-  );
-
+  const template = await createTemplate(payload, { createdBy: admin.user_id as UserId });
   console.log(
     `Created template "${template.template_name}" (${template.template_id}) with ${template.tasks.length} tasks.`,
   );
