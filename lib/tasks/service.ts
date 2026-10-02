@@ -1101,11 +1101,20 @@ export async function updateTask(
     });
   }
 
-  // Estimate or dependency changes shift the derived schedule — recompute
-  // due dates across the project's dependency graph (lib/tasks/schedule.ts).
-  // Never blocks the response on failure; one task's bad data shouldn't
-  // prevent this update from succeeding.
-  if (patch.estimate_hours !== undefined || patch.dependencies !== undefined) {
+  // Estimate, dependency, or due-date changes shift the derived schedule —
+  // recompute due dates across the project's dependency graph
+  // (lib/tasks/schedule.ts). A direct edit to a root task's own due date
+  // (no predecessors) cascades through its dependents (respected via
+  // `respectCurrentRootDates`, the default); editing a task that itself
+  // has predecessors gets re-derived from them on this same pass, same as
+  // any other field (the "hand-editable, recompute follows" rule). Never
+  // blocks the response on failure; one task's bad data shouldn't prevent
+  // this update from succeeding.
+  if (
+    patch.estimate_hours !== undefined ||
+    patch.dependencies !== undefined ||
+    patch.target_date !== undefined
+  ) {
     await rescheduleProjectTasks(updated.project_id).catch((err) => {
       console.warn(
         `[tasks] reschedule after update failed for project ${updated.project_id}:`,
@@ -1309,7 +1318,18 @@ async function releaseFsDependentTasks(
  * or an unresolved/cyclic predecessor) never overwrites an existing
  * `target_date`. Best-effort per task, matching the other cascades here.
  */
-export async function rescheduleProjectTasks(projectId: ProjectId): Promise<void> {
+export async function rescheduleProjectTasks(
+  projectId: ProjectId,
+  options: { respectCurrentRootDates?: boolean } = {},
+): Promise<void> {
+  // Default true: most callers are task-level edits (a new dependency, a
+  // changed estimate, a directly-edited due date), where a root task's
+  // existing date should cascade to its dependents rather than snap back
+  // to a fresh project-start-derived value. The project-start-change path
+  // in lib/projects/service.ts passes false explicitly, since moving the
+  // project's start date is meant to shift every root task.
+  const { respectCurrentRootDates = true } = options;
+
   const [project, tasks] = await Promise.all([
     ProjectRepository.getById(projectId),
     TaskRepository.getByProjectId(projectId),
@@ -1324,7 +1344,9 @@ export async function rescheduleProjectTasks(projectId: ProjectId): Promise<void
       dependencies: t.dependencies,
       friday_anchor: t.friday_anchor,
       fixed_lag_business_days_after: t.fixed_lag_business_days_after,
+      current_target_date: t.target_date,
     })),
+    { respectCurrentRootDates },
   );
 
   for (const t of tasks) {

@@ -33,6 +33,13 @@
  * stay an exact number of business days apart regardless of how many
  * ordinary tasks sit between them — see `friday_anchor` and
  * `fixed_lag_business_days_after` on `SchedulableTask`.
+ *
+ * A root task's date is normally derived fresh from `projectStart` on
+ * every call. Pass `{ respectCurrentRootDates: true }` (via
+ * `current_target_date` on each task) when a reschedule is triggered by
+ * a task-level edit rather than a project-start change, so editing one
+ * task's date cascades through its dependents instead of snapping the
+ * edited root task back to its original project-start-derived value.
  */
 
 import {
@@ -75,6 +82,31 @@ export interface SchedulableTask {
    * `Task.fixed_lag_business_days_after`.
    */
   fixed_lag_business_days_after?: { task_id: TaskId; business_days: number } | null;
+  /**
+   * The task's currently stored `target_date`. Only consulted for a ROOT
+   * task (no in-scope dependencies or fixed-lag) when `respectCurrentRootDates`
+   * is on: once a root task has a date — whether set by an earlier
+   * auto-computation or a direct manual edit — that date is the anchor
+   * for its own successors going forward, not `projectStart`. This is
+   * what makes "I moved task 1 out a week" cascade through its
+   * dependents instead of task 1 snapping back to the original
+   * project-start-derived date on the next recompute. Ignored for
+   * non-root tasks, which are always re-derived from their predecessors.
+   */
+  current_target_date?: IsoDate | null;
+}
+
+export interface ScheduleOptions {
+  /**
+   * When true, a root task with a non-null `current_target_date` keeps it
+   * instead of being (re)derived from `projectStart`. Used for reschedules
+   * triggered by a task-level edit (estimate/dependency/target_date),
+   * where only the edited task's own change — and its downstream effects
+   * — should move. When false (the default), every root task is derived
+   * fresh from `projectStart` — used when the project's start date
+   * itself just changed, which is meant to shift the whole schedule.
+   */
+  respectCurrentRootDates?: boolean;
 }
 
 interface Resolved {
@@ -111,7 +143,9 @@ function candidateStart(
 export function scheduleTaskDates(
   projectStart: IsoDate | null,
   tasks: SchedulableTask[],
+  options: ScheduleOptions = {},
 ): Map<TaskId, IsoDate | null> {
+  const { respectCurrentRootDates = false } = options;
   const byId = new Map(tasks.map((t) => [t.task_id, t] as const));
 
   // In-scope dependency edges only (predecessor must be in this task set).
@@ -187,7 +221,11 @@ export function scheduleTaskDates(
           due = addBusinessDays(target.due, lag.business_days);
         }
       } else if (deps.length === 0) {
-        if (projectStart) due = addBusinessDays(projectStart, duration - 1);
+        if (respectCurrentRootDates && task.current_target_date) {
+          due = task.current_target_date;
+        } else if (projectStart) {
+          due = addBusinessDays(projectStart, duration - 1);
+        }
       } else {
         const candidates: IsoDate[] = [];
         let blocked = false;

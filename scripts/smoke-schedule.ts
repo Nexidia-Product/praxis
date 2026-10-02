@@ -171,4 +171,79 @@ console.log("\nrelease-calendar anchors (friday_anchor / fixed_lag_business_days
   check("unresolved fixed-lag target leaves the task unresolved", unresolvedLag.get("A") == null);
 }
 
+console.log("\nrespectCurrentRootDates (manual root-date edit cascades)");
+{
+  // A is a root task that was previously scheduled to 2026-03-02 (Monday)
+  // but has since been hand-edited to 2026-03-09 (the following Monday).
+  // B is a 1-day FS successor. Default (respectCurrentRootDates off,
+  // used for a project-start-date change): A is re-derived from
+  // projectStart, ignoring the edit.
+  const base = [
+    {
+      task_id: "A" as TaskId,
+      estimate_hours: 8,
+      dependencies: [],
+      current_target_date: "2026-03-09" as const,
+    },
+    { task_id: "B" as TaskId, estimate_hours: 8, dependencies: [dep("A", "FS")] },
+  ];
+  const projectStartMode = scheduleTaskDates("2026-03-02", base);
+  check(
+    "respectCurrentRootDates off: root re-derived from projectStart, not the edit",
+    projectStartMode.get("A") === "2026-03-02",
+  );
+  check(
+    "respectCurrentRootDates off: successor follows the re-derived root",
+    projectStartMode.get("B") === "2026-03-03",
+  );
+
+  // On (used for a task-level edit): A keeps the hand-edited date, and B
+  // cascades from THAT instead of the original project-start value.
+  const editMode = scheduleTaskDates("2026-03-02", base, { respectCurrentRootDates: true });
+  check(
+    "respectCurrentRootDates on: root keeps its manually-edited date",
+    editMode.get("A") === "2026-03-09",
+  );
+  check(
+    "respectCurrentRootDates on: successor cascades from the edited root",
+    editMode.get("B") === "2026-03-10",
+  );
+
+  // A friday_anchor root's sticky current date is still snapped forward
+  // if it isn't already a Friday — the flag applies regardless of source.
+  const stickyNonFriday = scheduleTaskDates(
+    "2026-03-02",
+    [
+      {
+        task_id: "A" as TaskId,
+        estimate_hours: 8,
+        dependencies: [],
+        current_target_date: "2026-03-09" as const, // a Monday
+        friday_anchor: true,
+      },
+    ],
+    { respectCurrentRootDates: true },
+  );
+  check(
+    "respectCurrentRootDates on: friday_anchor still snaps a sticky non-Friday date",
+    stickyNonFriday.get("A") === "2026-03-13",
+  );
+
+  // No current_target_date yet (first-time scheduling) -> falls back to
+  // projectStart even with respectCurrentRootDates on. (B just gives A a
+  // successor so A isn't excluded as isolated.)
+  const firstTime = scheduleTaskDates(
+    "2026-03-02",
+    [
+      { task_id: "A" as TaskId, estimate_hours: 8, dependencies: [] },
+      { task_id: "B" as TaskId, estimate_hours: 8, dependencies: [dep("A", "FS")] },
+    ],
+    { respectCurrentRootDates: true },
+  );
+  check(
+    "respectCurrentRootDates on, no prior date: falls back to projectStart",
+    firstTime.get("A") === "2026-03-02",
+  );
+}
+
 console.log(`\n${passed} checks passed.`);

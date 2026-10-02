@@ -1337,13 +1337,17 @@ export async function updateProject(
   // The schedule is anchored at the project's start date — recompute
   // every task's due date (lib/tasks/schedule.ts) whenever it moves,
   // whether from an explicit edit or the auto-set-on-first-active-status
-  // path above. Best-effort: a scheduling hiccup must not fail the
-  // project save that triggered it.
+  // path above. `respectCurrentRootDates: false` because moving the
+  // project's start date is meant to shift every root task fresh, unlike
+  // a task-level edit (the default), which should leave untouched root
+  // tasks alone and only cascade from whatever actually changed.
+  // Best-effort: a scheduling hiccup must not fail the project save that
+  // triggered it.
   if (
     patch.roadmap_timeline_start !== undefined &&
     patch.roadmap_timeline_start !== existing.roadmap_timeline_start
   ) {
-    await rescheduleProjectTasks(id).catch((err) => {
+    await rescheduleProjectTasks(id, { respectCurrentRootDates: false }).catch((err) => {
       console.warn(
         `[projects] reschedule after start-date change failed for ${id}:`,
         err,
