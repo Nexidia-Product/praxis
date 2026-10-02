@@ -201,7 +201,7 @@ async function main() {
         default_priority: "High",
         stage: "Qualification",
         default_responsible: null,
-        estimate_hours: null,
+        estimate_hours: 4,
         dependencies: [],
       },
       {
@@ -211,7 +211,7 @@ async function main() {
         default_priority: "Medium",
         stage: "Productization",
         default_responsible: null,
-        estimate_hours: null,
+        estimate_hours: 4,
         dependencies: [],
       },
     ],

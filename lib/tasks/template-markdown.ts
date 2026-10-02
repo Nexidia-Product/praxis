@@ -12,17 +12,50 @@
  * fields actually rendered are required.
  */
 
-import type { TaskTemplateItem } from "@/lib/db";
+import type { Priority, TemplateDependency } from "@/lib/db";
 import type { EnumOption } from "@/lib/projects/enum-options";
+
+/**
+ * Mirrors the fields of `TaskTemplateItem` this export actually renders.
+ * Declared locally (not imported) so an unsaved editor draft — whose
+ * `estimate_hours` is nullable while the admin is still typing, unlike
+ * the saved record's required field — can be passed straight through.
+ */
+export interface MarkdownableTemplateTask {
+  local_id: string;
+  name: string;
+  description: string;
+  default_priority: Priority;
+  stage: string;
+  default_responsible: string | null;
+  estimate_hours: number | null;
+  complexity_estimate_hours?: Partial<Record<"Low" | "High", number>> | null;
+  dependencies: TemplateDependency[];
+}
 
 export interface MarkdownableTemplate {
   template_name: string;
   tracks: string[];
-  tasks: TaskTemplateItem[];
+  tasks: MarkdownableTemplateTask[];
 }
 
 function line(label: string, value: string | null | undefined): string {
   return `- **${label}:** ${value && value.trim() ? value : "—"}`;
+}
+
+/**
+ * "72 (Low: 32, High: 152)" when per-complexity overrides are set —
+ * `estimate_hours` is always the Medium-complexity value (see
+ * `TaskTemplateItem.complexity_estimate_hours`).
+ */
+function formatEstimate(task: MarkdownableTemplateTask): string | null {
+  if (task.estimate_hours == null) return null;
+  const overrides = task.complexity_estimate_hours;
+  const parts: string[] = [];
+  if (overrides?.Low != null) parts.push(`Low: ${overrides.Low}`);
+  if (overrides?.High != null) parts.push(`High: ${overrides.High}`);
+  const suffix = parts.length > 0 ? ` (${parts.join(", ")})` : "";
+  return `${task.estimate_hours}${suffix}`;
 }
 
 export function buildTemplateMarkdown(
@@ -59,10 +92,7 @@ export function buildTemplateMarkdown(
           ? task.default_responsible
           : "— (defaults to project lead) —",
       ),
-      line(
-        "Estimate (hours)",
-        task.estimate_hours != null ? String(task.estimate_hours) : null,
-      ),
+      line("Estimate (hours)", formatEstimate(task)),
       "",
       task.description.trim() || "_No description._",
     );

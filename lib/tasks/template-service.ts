@@ -13,6 +13,7 @@
 
 import {
   TemplateRepository,
+  type DrivenProjectDateField,
   type Priority,
   type TaskDependencyType,
   type TaskTemplate,
@@ -26,6 +27,10 @@ import { getEnumOptions } from "@/lib/projects/enum-options";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 const TASK_DEPENDENCY_TYPES: TaskDependencyType[] = ["FS", "SS", "FF", "SF"];
+const DRIVEN_PROJECT_DATE_FIELDS: DrivenProjectDateField[] = [
+  "target_date",
+  "target_executable_deployment_date",
+];
 
 /** Cap on estimate_hours — matches the runtime task validator. 999h ≈ 6 months. */
 const ESTIMATE_HOURS_MAX = 999;
@@ -110,6 +115,7 @@ function validate(
   const tasks: TaskTemplateItem[] = [];
   const localIds = new Set<string>();
   const rawDependencyLists: unknown[] = [];
+  const rawFixedLags: unknown[] = [];
 
   for (let i = 0; i < payload.tasks.length; i++) {
     const raw = payload.tasks[i];
@@ -157,8 +163,16 @@ function validate(
     localIds.add(local_id);
 
     const estimate_hours = parseEstimateHours(item.estimate_hours, i);
+    const complexity_estimate_hours = parseComplexityOverrides(
+      item.complexity_estimate_hours,
+      i,
+    );
+    const friday_anchor =
+      item.friday_anchor === undefined ? false : asBoolean(item.friday_anchor, i);
+    const drives_project_date = parseDrivesProjectDate(item.drives_project_date, i);
 
     rawDependencyLists.push(item.dependencies);
+    rawFixedLags.push(item.fixed_lag_business_days_after);
 
     tasks.push({
       local_id,
@@ -168,17 +182,27 @@ function validate(
       stage: item.stage,
       default_responsible,
       estimate_hours,
+      complexity_estimate_hours,
+      friday_anchor,
+      drives_project_date,
       // Filled in by the second pass once every local_id is known.
+      fixed_lag_business_days_after: null,
       dependencies: [],
     });
   }
 
-  // Second pass: dependencies. We needed every local_id collected
-  // first so a predecessor reference can point at any other row
+  // Second pass: dependencies and fixed-lag references. We needed every
+  // local_id collected first so a reference can point at any other row
   // regardless of order in the array.
   for (let i = 0; i < tasks.length; i++) {
     tasks[i].dependencies = parseDependencies(
       rawDependencyLists[i],
+      tasks[i].local_id,
+      localIds,
+      i,
+    );
+    tasks[i].fixed_lag_business_days_after = parseFixedLag(
+      rawFixedLags[i],
       tasks[i].local_id,
       localIds,
       i,
@@ -194,16 +218,19 @@ function validate(
 }
 
 /**
- * Coerce + validate an `estimate_hours` value. Accepts:
- *   - undefined / null / "" → null (no estimate)
- *   - number (must be finite, >= 0, <= 999)
- *   - numeric string (parsed; same bounds)
+ * Coerce + validate a required `estimate_hours` value. Accepts a number or
+ * numeric string, >= 0, <= 999. Unlike the runtime `Task` field, a template
+ * task's estimate has no legacy-data exception — it drives the
+ * instantiated task's due-date calculation (`lib/tasks/schedule.ts`), so
+ * it can't be left blank.
  *
- * Mirrors `asOptionalNonNegativeNumber` in `lib/tasks/service.ts`. Duplicated
- * here so this validator stays self-contained.
+ * Bounds mirror `asOptionalNonNegativeNumber` in `lib/tasks/service.ts`.
+ * Duplicated here so this validator stays self-contained.
  */
-function parseEstimateHours(value: unknown, taskIndex: number): number | null {
-  if (value === undefined || value === null || value === "") return null;
+function parseEstimateHours(value: unknown, taskIndex: number): number {
+  if (value === undefined || value === null || value === "") {
+    throw new ValidationError(`tasks[${taskIndex}].estimate_hours is required.`);
+  }
   let n: number;
   if (typeof value === "number") {
     n = value;
@@ -211,7 +238,7 @@ function parseEstimateHours(value: unknown, taskIndex: number): number | null {
     n = Number(value);
   } else {
     throw new ValidationError(
-      `tasks[${taskIndex}].estimate_hours must be a number or null.`,
+      `tasks[${taskIndex}].estimate_hours must be a number.`,
     );
   }
   if (!Number.isFinite(n) || n < 0 || n > ESTIMATE_HOURS_MAX) {
@@ -220,6 +247,54 @@ function parseEstimateHours(value: unknown, taskIndex: number): number | null {
     );
   }
   return n;
+}
+
+const COMPLEXITY_TIERS = ["Low", "High"] as const;
+
+/**
+ * Coerce + validate the optional per-complexity-tier override map. Absent/
+ * null → `null` (no overrides, the common case). Only `Low`/`High` keys are
+ * recognized — `estimate_hours` itself already represents the Medium
+ * value, so there's no separate "Medium override" to store.
+ */
+function parseComplexityOverrides(
+  value: unknown,
+  taskIndex: number,
+): Partial<Record<"Low" | "High", number>> | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].complexity_estimate_hours must be an object.`,
+    );
+  }
+  const raw = value as Record<string, unknown>;
+  const out: Partial<Record<"Low" | "High", number>> = {};
+  for (const key of Object.keys(raw)) {
+    if (!(COMPLEXITY_TIERS as readonly string[]).includes(key)) {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours key "${key}" must be one of: ${COMPLEXITY_TIERS.join(", ")}.`,
+      );
+    }
+    const raw_v = raw[key];
+    if (raw_v === undefined || raw_v === null || raw_v === "") continue;
+    let n: number;
+    if (typeof raw_v === "number") {
+      n = raw_v;
+    } else if (typeof raw_v === "string") {
+      n = Number(raw_v);
+    } else {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours.${key} must be a number.`,
+      );
+    }
+    if (!Number.isFinite(n) || n < 0 || n > ESTIMATE_HOURS_MAX) {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours.${key} must be between 0 and ${ESTIMATE_HOURS_MAX}.`,
+      );
+    }
+    out[key as "Low" | "High"] = n;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /**
@@ -290,6 +365,72 @@ function parseDependencies(
   return out;
 }
 
+function asBoolean(value: unknown, taskIndex: number): boolean {
+  if (typeof value === "boolean") return value;
+  throw new ValidationError(`tasks[${taskIndex}].friday_anchor must be a boolean.`);
+}
+
+function parseDrivesProjectDate(
+  value: unknown,
+  taskIndex: number,
+): DrivenProjectDateField | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (
+    typeof value !== "string" ||
+    !(DRIVEN_PROJECT_DATE_FIELDS as readonly string[]).includes(value)
+  ) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].drives_project_date must be one of: ${DRIVEN_PROJECT_DATE_FIELDS.join(", ")}, or null.`,
+    );
+  }
+  return value as DrivenProjectDateField;
+}
+
+/**
+ * Validate the optional fixed-lag override. Same existence/self-reference
+ * rules as a dependency's predecessor, plus a positive business-day count.
+ */
+function parseFixedLag(
+  raw: unknown,
+  selfLocalId: string,
+  knownLocalIds: Set<string>,
+  taskIndex: number,
+): { predecessor_local_id: string; business_days: number } | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object") {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after must be an object or null.`,
+    );
+  }
+  const e = raw as Record<string, unknown>;
+  if (
+    typeof e.predecessor_local_id !== "string" ||
+    !e.predecessor_local_id.trim()
+  ) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after.predecessor_local_id is required.`,
+    );
+  }
+  const predecessor_local_id = e.predecessor_local_id.trim();
+  if (predecessor_local_id === selfLocalId) {
+    throw new ValidationError(
+      `tasks[${taskIndex}] cannot be fixed-lag relative to itself.`,
+    );
+  }
+  if (!knownLocalIds.has(predecessor_local_id)) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after references unknown predecessor_local_id "${predecessor_local_id}".`,
+    );
+  }
+  const n = typeof e.business_days === "number" ? e.business_days : Number(e.business_days);
+  if (!Number.isFinite(n) || n <= 0 || n > 999) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].fixed_lag_business_days_after.business_days must be a positive number (<= 999).`,
+    );
+  }
+  return { predecessor_local_id, business_days: n };
+}
+
 /**
  * DFS over the template's dependency graph. Each task points at its
  * predecessors, so a cycle means "this task is, transitively, its own
@@ -300,10 +441,11 @@ function parseDependencies(
 function detectCycles(tasks: TaskTemplateItem[]): void {
   const adjacency = new Map<string, string[]>();
   for (const t of tasks) {
-    adjacency.set(
-      t.local_id,
-      t.dependencies.map((d) => d.predecessor_local_id),
-    );
+    const edges = t.dependencies.map((d) => d.predecessor_local_id);
+    if (t.fixed_lag_business_days_after) {
+      edges.push(t.fixed_lag_business_days_after.predecessor_local_id);
+    }
+    adjacency.set(t.local_id, edges);
   }
   const onPath = new Set<string>();
   const done = new Set<string>();

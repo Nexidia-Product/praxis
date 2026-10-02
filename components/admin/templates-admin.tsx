@@ -24,6 +24,7 @@
 import { useState } from "react";
 
 import type {
+  DrivenProjectDateField,
   Priority,
   TaskDependencyType,
   TaskTemplate,
@@ -62,12 +63,22 @@ interface TemplatesAdminProps {
   userOptions: string[];
 }
 
+/**
+ * Draft shape for a task row in the editor. `estimate_hours` is nullable
+ * here even though the saved `TaskTemplateItem` requires it — the editor
+ * needs to represent "not filled in yet" while the admin is still typing;
+ * `handleSave` validates it's non-null before the request goes out.
+ */
+type DraftTaskItem = Omit<TaskTemplateItem, "estimate_hours"> & {
+  estimate_hours: number | null;
+};
+
 interface DraftTemplate {
   /** null = unsaved draft, will POST on save. */
   template_id: string | null;
   template_name: string;
   tracks: string[];
-  tasks: TaskTemplateItem[];
+  tasks: DraftTaskItem[];
 }
 
 function templateToDraft(t: TaskTemplate): DraftTemplate {
@@ -86,6 +97,10 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
       stage: i.stage ?? "",
       default_responsible: i.default_responsible ?? null,
       estimate_hours: i.estimate_hours ?? null,
+      complexity_estimate_hours: i.complexity_estimate_hours ?? null,
+      friday_anchor: i.friday_anchor ?? false,
+      fixed_lag_business_days_after: i.fixed_lag_business_days_after ?? null,
+      drives_project_date: i.drives_project_date ?? null,
       dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
     })),
   };
@@ -105,6 +120,10 @@ function newDraft(trackOptions: EnumOption[]): DraftTemplate {
         stage: "",
         default_responsible: null,
         estimate_hours: null,
+        complexity_estimate_hours: null,
+        friday_anchor: false,
+        fixed_lag_business_days_after: null,
+        drives_project_date: null,
         dependencies: [],
       },
     ],
@@ -170,7 +189,7 @@ export function TemplatesAdmin({
 
   function updateTaskItem(
     index: number,
-    patch: Partial<TaskTemplateItem>,
+    patch: Partial<DraftTaskItem>,
   ) {
     setDraft((prev) => {
       if (!prev) return prev;
@@ -196,6 +215,10 @@ export function TemplatesAdmin({
                 stage: "",
                 default_responsible: null,
                 estimate_hours: null,
+                complexity_estimate_hours: null,
+                friday_anchor: false,
+                fixed_lag_business_days_after: null,
+                drives_project_date: null,
                 dependencies: [],
               },
             ],
@@ -217,6 +240,10 @@ export function TemplatesAdmin({
         dependencies: t.dependencies.filter(
           (d) => d.predecessor_local_id !== removed.local_id,
         ),
+        fixed_lag_business_days_after:
+          t.fixed_lag_business_days_after?.predecessor_local_id === removed.local_id
+            ? null
+            : t.fixed_lag_business_days_after,
       }));
       return { ...prev, tasks: cleaned };
     });
@@ -311,6 +338,10 @@ export function TemplatesAdmin({
         setError(`Task ${i + 1}: stage is required.`);
         return;
       }
+      if (t.estimate_hours == null) {
+        setError(`Task ${i + 1}: estimate (hours) is required.`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -328,6 +359,10 @@ export function TemplatesAdmin({
         default_responsible: t.default_responsible,
         default_priority: t.default_priority,
         estimate_hours: t.estimate_hours,
+        complexity_estimate_hours: t.complexity_estimate_hours,
+        friday_anchor: t.friday_anchor,
+        fixed_lag_business_days_after: t.fixed_lag_business_days_after,
+        drives_project_date: t.drives_project_date,
         dependencies: t.dependencies,
       })),
     };
@@ -621,12 +656,13 @@ export function TemplatesAdmin({
                         </select>
                         <input
                           type="number"
+                          required
                           inputMode="decimal"
                           step="0.25"
                           min={0}
                           max={999}
-                          aria-label={`Task ${i + 1} estimate in hours`}
-                          placeholder="Hours"
+                          aria-label={`Task ${i + 1} estimate in hours (required)`}
+                          placeholder="Hours *"
                           // Render null/0 as an empty string so the
                           // placeholder is visible. The controlled value
                           // only becomes a number when the admin types
@@ -642,6 +678,32 @@ export function TemplatesAdmin({
                           className={baseInput}
                         />
                       </div>
+                      <ComplexityOverrides
+                        taskIndex={i}
+                        value={item.complexity_estimate_hours ?? null}
+                        onChange={(next) =>
+                          updateTaskItem(i, { complexity_estimate_hours: next })
+                        }
+                        disabled={saving}
+                      />
+                      <ScheduleAnchorControls
+                        taskIndex={i}
+                        tasks={draft.tasks}
+                        selfLocalId={item.local_id}
+                        fridayAnchor={item.friday_anchor ?? false}
+                        onFridayAnchorChange={(next) =>
+                          updateTaskItem(i, { friday_anchor: next })
+                        }
+                        fixedLag={item.fixed_lag_business_days_after ?? null}
+                        onFixedLagChange={(next) =>
+                          updateTaskItem(i, { fixed_lag_business_days_after: next })
+                        }
+                        drivesProjectDate={item.drives_project_date ?? null}
+                        onDrivesProjectDateChange={(next) =>
+                          updateTaskItem(i, { drives_project_date: next })
+                        }
+                        disabled={saving}
+                      />
                       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <div>
                           <select
@@ -894,6 +956,255 @@ function Field({
         {required ? <span className="ml-0.5 text-red-600">*</span> : null}
       </label>
       <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+type ComplexityOverrideValue = Partial<Record<"Low" | "High", number>> | null;
+
+/**
+ * Optional per-task disclosure for a duration that genuinely varies by
+ * project complexity (e.g. EDA: Low 4d / Medium 9d / High 19d). The task's
+ * main Estimate field above is always the Medium value; this reveals two
+ * extra number inputs that override it for Low/High-complexity projects
+ * (`lib/tasks/service.ts`'s `instantiateTemplate` picks the matching one).
+ * Collapsed by default; clearing both inputs removes the override object
+ * entirely rather than leaving `{}` on the record.
+ */
+function ComplexityOverrides({
+  taskIndex,
+  value,
+  onChange,
+  disabled,
+}: {
+  taskIndex: number;
+  value: ComplexityOverrideValue;
+  onChange: (next: ComplexityOverrideValue) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(value != null);
+
+  function set(tier: "Low" | "High", n: number | null) {
+    const next = { ...(value ?? {}) };
+    if (n == null) delete next[tier];
+    else next[tier] = n;
+    onChange(Object.keys(next).length > 0 ? next : null);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className="mt-1 text-[11px] font-medium text-gray-600 hover:underline disabled:opacity-50"
+      >
+        + Vary by complexity
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-600">
+      <span>Overrides — Low:</span>
+      <input
+        type="number"
+        min={0}
+        max={999}
+        step="0.25"
+        aria-label={`Task ${taskIndex + 1} Low-complexity estimate override`}
+        value={value?.Low ?? ""}
+        onChange={(e) =>
+          set("Low", e.target.value === "" ? null : Number(e.target.value))
+        }
+        disabled={disabled}
+        className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+      />
+      <span>High:</span>
+      <input
+        type="number"
+        min={0}
+        max={999}
+        step="0.25"
+        aria-label={`Task ${taskIndex + 1} High-complexity estimate override`}
+        value={value?.High ?? ""}
+        onChange={(e) =>
+          set("High", e.target.value === "" ? null : Number(e.target.value))
+        }
+        disabled={disabled}
+        className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          onChange(null);
+          setOpen(false);
+        }}
+        disabled={disabled}
+        className="text-gray-500 hover:underline disabled:opacity-50"
+      >
+        Remove
+      </button>
+    </div>
+  );
+}
+
+type FixedLagValue = { predecessor_local_id: string; business_days: number } | null;
+
+/**
+ * Display labels for `DrivenProjectDateField` — kept as its own map
+ * (rather than inlined in the `<select>`) so a future addition to the
+ * type is a one-line change here, matching how the type itself is
+ * documented in lib/db/types.ts.
+ */
+const DRIVEN_PROJECT_DATE_LABELS: Record<DrivenProjectDateField, string> = {
+  target_date: "Target Application Deployment Date",
+  target_executable_deployment_date: "Target Executable Deployment Date",
+};
+
+/**
+ * Release-calendar scheduling anchors (`lib/tasks/schedule.ts`) for tasks
+ * that represent a real deployment milestone — e.g. "must land on a
+ * Friday," optionally "and exactly N business days after another task,"
+ * overriding the normal estimate/dependency-chain date computation for
+ * that one task, and optionally "this task's due date IS the project's
+ * Target Application/Executable Deployment Date" (`drives_project_date`
+ * — kept in sync automatically by `lib/tasks/service.ts`'s
+ * `syncProjectDateFromTask` whenever the task's date is set or changes).
+ * Track-specific: each track's template tags whichever task represents
+ * that milestone, so a future track's equivalent task is just the same
+ * tag via this editor — no code change needed. Rare — most tasks need
+ * none of this — so the fixed-lag half is a collapsed disclosure, same
+ * pattern as `ComplexityOverrides`.
+ */
+function ScheduleAnchorControls({
+  taskIndex,
+  tasks,
+  selfLocalId,
+  fridayAnchor,
+  onFridayAnchorChange,
+  fixedLag,
+  onFixedLagChange,
+  drivesProjectDate,
+  onDrivesProjectDateChange,
+  disabled,
+}: {
+  taskIndex: number;
+  tasks: DraftTaskItem[];
+  selfLocalId: string;
+  fridayAnchor: boolean;
+  onFridayAnchorChange: (next: boolean) => void;
+  fixedLag: FixedLagValue;
+  onFixedLagChange: (next: FixedLagValue) => void;
+  drivesProjectDate: DrivenProjectDateField | null;
+  onDrivesProjectDateChange: (next: DrivenProjectDateField | null) => void;
+  disabled: boolean;
+}) {
+  const [lagOpen, setLagOpen] = useState(fixedLag != null);
+  const others = tasks.filter((t) => t.local_id !== selfLocalId);
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-600">
+      <label className="inline-flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={fridayAnchor}
+          onChange={(e) => onFridayAnchorChange(e.target.checked)}
+          disabled={disabled}
+          className="h-3 w-3"
+        />
+        Must land on a Friday (release-calendar anchor)
+      </label>
+
+      <label className="inline-flex items-center gap-1.5">
+        Drives project date:
+        <select
+          aria-label={`Task ${taskIndex + 1} drives project date`}
+          value={drivesProjectDate ?? ""}
+          onChange={(e) =>
+            onDrivesProjectDateChange(
+              e.target.value === "" ? null : (e.target.value as DrivenProjectDateField),
+            )
+          }
+          disabled={disabled}
+          className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+        >
+          <option value="">— None —</option>
+          {(Object.keys(DRIVEN_PROJECT_DATE_LABELS) as DrivenProjectDateField[]).map((f) => (
+            <option key={f} value={f}>
+              {DRIVEN_PROJECT_DATE_LABELS[f]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {!lagOpen ? (
+        <button
+          type="button"
+          onClick={() => setLagOpen(true)}
+          disabled={disabled}
+          className="font-medium text-gray-600 hover:underline disabled:opacity-50"
+        >
+          + Exact gap from another task
+        </button>
+      ) : (
+        <span className="inline-flex items-center gap-1.5">
+          Exactly
+          <input
+            type="number"
+            min={1}
+            max={999}
+            aria-label={`Task ${taskIndex + 1} fixed-lag business days`}
+            value={fixedLag?.business_days ?? ""}
+            onChange={(e) => {
+              const days = e.target.value === "" ? null : Number(e.target.value);
+              onFixedLagChange(
+                days != null && fixedLag?.predecessor_local_id
+                  ? { predecessor_local_id: fixedLag.predecessor_local_id, business_days: days }
+                  : days != null && others[0]
+                    ? { predecessor_local_id: others[0].local_id, business_days: days }
+                    : null,
+              );
+            }}
+            disabled={disabled || others.length === 0}
+            className="w-14 rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+          />
+          business days after
+          <select
+            aria-label={`Task ${taskIndex + 1} fixed-lag reference task`}
+            value={fixedLag?.predecessor_local_id ?? ""}
+            onChange={(e) =>
+              onFixedLagChange(
+                fixedLag?.business_days
+                  ? { predecessor_local_id: e.target.value, business_days: fixedLag.business_days }
+                  : null,
+              )
+            }
+            disabled={disabled || others.length === 0}
+            className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+          >
+            <option value="" disabled>
+              — Select a task —
+            </option>
+            {others.map((t) => (
+              <option key={t.local_id} value={t.local_id}>
+                {t.name.trim() || "(untitled task)"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              onFixedLagChange(null);
+              setLagOpen(false);
+            }}
+            disabled={disabled}
+            className="text-gray-500 hover:underline disabled:opacity-50"
+          >
+            Remove
+          </button>
+        </span>
+      )}
     </div>
   );
 }

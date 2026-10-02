@@ -46,6 +46,7 @@ import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
 import { ForbiddenError } from "@/lib/auth/permissions";
 import { stagesForTrack } from "@/lib/projects/display";
+import { scheduleTaskDates } from "@/lib/tasks/schedule";
 import { sanitizeKeyFindingHtml } from "./key-findings";
 import { randomUUID } from "node:crypto";
 
@@ -248,6 +249,23 @@ function asOptionalNonNegativeNumber(
     throw new ValidationError(`${field} cannot exceed ${max}.`);
   }
   return n;
+}
+
+/**
+ * Same bounds as `asOptionalNonNegativeNumber`, but rejects the "not set"
+ * case instead of returning `null`. Used for `estimate_hours` on create —
+ * due dates are derived from it (`lib/tasks/schedule.ts`), so a new task
+ * can't be created without one.
+ */
+function asRequiredNonNegativeNumber(
+  value: unknown,
+  field: string,
+  max: number,
+): number {
+  if (value === undefined || value === null || value === "") {
+    throw new ValidationError(`${field} is required.`);
+  }
+  return asOptionalNonNegativeNumber(value, field, max) as number;
 }
 
 /**
@@ -613,7 +631,8 @@ async function shapeCreate(
 
   const comments = asOptionalString(payload.comments, "comments");
 
-  const estimate_hours = asOptionalNonNegativeNumber(
+  // Required — drives the auto-calculated due date (lib/tasks/schedule.ts).
+  const estimate_hours = asRequiredNonNegativeNumber(
     payload.estimate_hours,
     "estimate_hours",
     999,
@@ -780,6 +799,21 @@ async function shapeUpdate(
       999,
     );
   }
+  // Required going forward, enforced on write rather than backfilled: a
+  // task created before this field was required can still be `null` at
+  // rest, but the moment someone saves ANY change to it, a value must be
+  // supplied. An update that doesn't touch `estimate_hours` on a task
+  // that already has one is unaffected (the merged final value is still
+  // non-null).
+  const finalEstimate =
+    payload.estimate_hours !== undefined
+      ? patch.estimate_hours
+      : existing.estimate_hours;
+  if (finalEstimate == null) {
+    throw new ValidationError(
+      "estimate_hours is required before this task can be updated.",
+    );
+  }
   if (payload.dependencies !== undefined) {
     // selfTaskId = existing.task_id so the validator can run the
     // self-reference and cycle checks. The cycle check substitutes
@@ -892,6 +926,18 @@ export async function createTask(
       err,
     );
   });
+
+  // A task created with predecessors joins the project's dependency graph
+  // immediately — recompute due dates (lib/tasks/schedule.ts) so its own
+  // date (and anything already depending on it) reflects the new edge.
+  if (task.dependencies.length > 0) {
+    await rescheduleProjectTasks(task.project_id).catch((err) => {
+      console.warn(
+        `[tasks] reschedule after create failed for project ${task.project_id}:`,
+        err,
+      );
+    });
+  }
 
   await audit({
     actorId: ctx.createdBy,
@@ -1050,6 +1096,28 @@ export async function updateTask(
     await releaseFsDependentTasks(id, ctx).catch((err) => {
       console.warn(
         `[tasks] FS-dependency release cascade failed for ${id}:`,
+        err,
+      );
+    });
+  }
+
+  // Estimate, dependency, or due-date changes shift the derived schedule —
+  // recompute due dates across the project's dependency graph
+  // (lib/tasks/schedule.ts). A direct edit to a root task's own due date
+  // (no predecessors) cascades through its dependents (respected via
+  // `respectCurrentRootDates`, the default); editing a task that itself
+  // has predecessors gets re-derived from them on this same pass, same as
+  // any other field (the "hand-editable, recompute follows" rule). Never
+  // blocks the response on failure; one task's bad data shouldn't prevent
+  // this update from succeeding.
+  if (
+    patch.estimate_hours !== undefined ||
+    patch.dependencies !== undefined ||
+    patch.target_date !== undefined
+  ) {
+    await rescheduleProjectTasks(updated.project_id).catch((err) => {
+      console.warn(
+        `[tasks] reschedule after update failed for project ${updated.project_id}:`,
         err,
       );
     });
@@ -1234,6 +1302,101 @@ async function releaseFsDependentTasks(
       );
     }
   }
+}
+
+/**
+ * Recompute due dates across one project's task dependency graph
+ * (`lib/tasks/schedule.ts`) and persist whatever changed. Called whenever
+ * an input to the schedule moves: a task's `estimate_hours` or
+ * `dependencies`, or the project's `roadmap_timeline_start`.
+ *
+ * Writes go straight through `TaskRepository.update` (bypassing
+ * `updateTask`) — same pattern as `unblockDependentTasks` /
+ * `releaseFsDependentTasks` above — so this never re-enters `shapeUpdate`
+ * and re-triggers itself. Only applies a date when the scheduler actually
+ * produced one: a `null` result ("can't say" — no project start date yet,
+ * or an unresolved/cyclic predecessor) never overwrites an existing
+ * `target_date`. Best-effort per task, matching the other cascades here.
+ */
+export async function rescheduleProjectTasks(
+  projectId: ProjectId,
+  options: { respectCurrentRootDates?: boolean } = {},
+): Promise<void> {
+  // Default true: most callers are task-level edits (a new dependency, a
+  // changed estimate, a directly-edited due date), where a root task's
+  // existing date should cascade to its dependents rather than snap back
+  // to a fresh project-start-derived value. The project-start-change path
+  // in lib/projects/service.ts passes false explicitly, since moving the
+  // project's start date is meant to shift every root task.
+  const { respectCurrentRootDates = true } = options;
+
+  const [project, tasks] = await Promise.all([
+    ProjectRepository.getById(projectId),
+    TaskRepository.getByProjectId(projectId),
+  ]);
+  if (!project || tasks.length === 0) return;
+
+  const schedule = scheduleTaskDates(
+    project.roadmap_timeline_start,
+    tasks.map((t) => ({
+      task_id: t.task_id,
+      estimate_hours: t.estimate_hours,
+      dependencies: t.dependencies,
+      friday_anchor: t.friday_anchor,
+      fixed_lag_business_days_after: t.fixed_lag_business_days_after,
+      current_target_date: t.target_date,
+    })),
+    { respectCurrentRootDates },
+  );
+
+  for (const t of tasks) {
+    const due = schedule.get(t.task_id);
+    if (due != null && due !== t.target_date) {
+      try {
+        await TaskRepository.update(t.task_id, { target_date: due });
+      } catch (err) {
+        console.warn(
+          `[tasks] reschedule write failed for ${t.task_id}:`,
+          err,
+        );
+      }
+    }
+
+    // Whichever date the task ends up with this pass — freshly computed
+    // above, or already stored and unchanged — push it onto the project
+    // if this task drives one of its deployment-date fields. Runs every
+    // pass (not just when the task's own date just changed) so enabling
+    // `drives_project_date` on an already-dated task takes effect on the
+    // very next reschedule, not only on its next date change.
+    if (t.drives_project_date) {
+      const finalDue = due ?? t.target_date;
+      if (finalDue != null) {
+        await syncProjectDateFromTask(projectId, t.drives_project_date, finalDue).catch(
+          (err) => {
+            console.warn(
+              `[tasks] project-date sync failed for ${t.task_id} -> ${t.drives_project_date}:`,
+              err,
+            );
+          },
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Push a task's due date onto the named field of its parent project —
+ * see `Task.drives_project_date`. Always writes (no "already equal"
+ * short-circuit): called once per task per reschedule pass, so avoiding
+ * a stale in-memory project snapshot from suppressing a second field's
+ * write is worth more than skipping a harmless, idempotent write.
+ */
+async function syncProjectDateFromTask(
+  projectId: ProjectId,
+  field: "target_date" | "target_executable_deployment_date",
+  due: string,
+): Promise<void> {
+  await ProjectRepository.update(projectId, { [field]: due });
 }
 
 /**
@@ -1512,6 +1675,15 @@ export async function instantiateTemplate(
   const created: Task[] = [];
   const idByLocal = new Map<string, string>();
   for (const item of template.tasks) {
+    // A project scored at a tier the item overrides (e.g. High-complexity
+    // EDA) uses that duration instead of the template's Medium baseline.
+    // "Very High" and unscored projects fall back to the baseline.
+    const effectiveHours =
+      (project.ai_complexity_score &&
+        item.complexity_estimate_hours?.[
+          project.ai_complexity_score as "Low" | "High"
+        ]) ??
+      item.estimate_hours;
     const task = await TaskRepository.create({
       project_id: projectId,
       task_name: item.name,
@@ -1536,13 +1708,53 @@ export async function instantiateTemplate(
       comments: "",
       document_links: [],
       template_id: templateId,
-      estimate_hours: item.estimate_hours,
+      estimate_hours: effectiveHours,
+      friday_anchor: item.friday_anchor ?? false,
+      drives_project_date: item.drives_project_date ?? null,
     });
     created.push(task);
     idByLocal.set(item.local_id, task.task_id);
     // No TaskAssigned notification here: template tasks are created
     // unassigned, so there's no owner to notify.
   }
+
+  // Resolve each item's fixed-lag reference (if any) to a real task_id —
+  // needs every local_id collected above, since the referenced task may
+  // come later in the template's own task order. Persisted directly
+  // (bypassing `updateTask`'s public payload schema, which doesn't expose
+  // this field) before the schedule is computed, so it's part of the same
+  // task state the scheduler and the next reschedule both read.
+  for (let i = 0; i < template.tasks.length; i++) {
+    const lag = template.tasks[i].fixed_lag_business_days_after;
+    if (!lag) continue;
+    const resolved = {
+      task_id: idByLocal.get(lag.predecessor_local_id)!,
+      business_days: lag.business_days,
+    };
+    await TaskRepository.update(created[i].task_id, {
+      fixed_lag_business_days_after: resolved,
+    });
+    created[i] = { ...created[i], fixed_lag_business_days_after: resolved };
+  }
+
+  // Compute the full schedule up front — every real task_id, resolved
+  // dependency, and resolved (complexity-aware) estimate is already known
+  // — so the due dates folded into the second pass below are correct on
+  // first write rather than relying on the per-update reschedule cascade
+  // to converge over N calls.
+  const schedule = scheduleTaskDates(
+    project.roadmap_timeline_start,
+    template.tasks.map((item, i) => ({
+      task_id: created[i].task_id,
+      estimate_hours: created[i].estimate_hours,
+      dependencies: item.dependencies.map((d) => ({
+        predecessor_task_id: idByLocal.get(d.predecessor_local_id)!,
+        type: d.type,
+      })),
+      friday_anchor: created[i].friday_anchor,
+      fixed_lag_business_days_after: created[i].fixed_lag_business_days_after,
+    })),
+  );
 
   // Second pass: rewrite dependencies from template-local IDs to the
   // real task_ids assigned above. Using updateTask (not the bare
@@ -1551,13 +1763,15 @@ export async function instantiateTemplate(
   // Dependency" automatically — exactly what we want.
   for (let i = 0; i < template.tasks.length; i++) {
     const item = template.tasks[i];
-    if (item.dependencies.length === 0) continue;
+    const due = schedule.get(created[i].task_id) ?? null;
+    if (item.dependencies.length === 0 && due === null) continue;
     const realDeps = item.dependencies.map((d) => ({
       predecessor_task_id: idByLocal.get(d.predecessor_local_id)!,
       type: d.type,
     }));
     const updated = await updateTask(created[i].task_id, {
-      dependencies: realDeps,
+      ...(item.dependencies.length > 0 ? { dependencies: realDeps } : {}),
+      ...(due !== null ? { target_date: due } : {}),
     });
     created[i] = updated;
   }

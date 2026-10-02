@@ -549,6 +549,14 @@ export interface TaskDependency {
   type: TaskDependencyType;
 }
 
+/**
+ * The two project deployment-date fields a task can drive — see
+ * `Task.drives_project_date`. A closed set today, but kept as its own
+ * named type (rather than inlined) so a future addition is a one-line
+ * change here, not a hunt through every call site.
+ */
+export type DrivenProjectDateField = "target_date" | "target_executable_deployment_date";
+
 export interface Task {
   /** `YY-NNNN` — auto-incremented. */
   task_id: TaskId;
@@ -612,17 +620,63 @@ export interface Task {
    */
   dependencies: TaskDependency[];
   /**
-   * Optional time estimate in hours. Decimal allowed (0.5 = 30 minutes,
-   * 1.25 = 75 minutes). Null when unset. Surfaced in the Tasks table,
-   * task form, and quick view; deliberately NOT factored into the
-   * Velocity dashboard at this point — task-level estimates aren't yet
-   * a system of record we'd want roll-up reporting against.
+   * Time estimate in hours. Decimal allowed (0.5 = 30 minutes, 1.25 = 75
+   * minutes). Surfaced in the Tasks table, task form, and quick view;
+   * deliberately NOT factored into the Velocity dashboard at this point —
+   * task-level estimates aren't yet a system of record we'd want roll-up
+   * reporting against. Drives the auto-calculated due date
+   * (`lib/tasks/schedule.ts`).
+   *
+   * Required going forward (`lib/tasks/service.ts` rejects a create, or
+   * an update that would leave it unset) but the type stays nullable: no
+   * migration backfilled existing rows, so a legacy task can still be
+   * `null` at rest until the next time someone edits it, at which point
+   * the service forces a value to be supplied.
    *
    * The field is named `estimate_hours` rather than just `hours` so a
    * future `actual_hours` (recorded after the task completes, for
    * estimation-accuracy tracking) has an obvious place to live.
    */
   estimate_hours: number | null;
+  /**
+   * When true, the auto-calculated due date (`lib/tasks/schedule.ts`)
+   * snaps forward to the next Friday if the normal estimate/dependency
+   * calculation doesn't already land on one. For release-calendar
+   * milestone tasks (e.g. executable/application deployment) landing on
+   * the wrong weekday isn't cosmetic — it breaks the release cadence.
+   * Defaults false; today only ever set by template instantiation, not
+   * directly user-editable.
+   */
+  friday_anchor: boolean;
+  /**
+   * When set, this task's due date is computed as exactly
+   * `business_days` business days after the referenced task's own
+   * (possibly Friday-snapped) due date — overriding the normal
+   * dependency-chain calculation for DATE purposes only. The ordinary
+   * `dependencies` array, if any, still drives FS-cascade auto-status
+   * behavior as usual; this field only affects date math. Used to keep
+   * two release-calendar milestones an exact number of business days
+   * apart regardless of how many intermediate tasks sit between them.
+   * Null for ordinary tasks.
+   */
+  fixed_lag_business_days_after: {
+    task_id: TaskId;
+    business_days: number;
+  } | null;
+  /**
+   * When set, this task's due date drives the named field on its parent
+   * project — kept in sync automatically (`lib/tasks/service.ts`'s
+   * `syncProjectDateFromTask`) whenever the task's due date is set or
+   * changes, whether from a manual edit or a schedule recompute. Only
+   * syncs while the task has a due date; never clears the project field.
+   *
+   * This is deliberately a plain, per-task tag rather than anything
+   * track-specific in code: each track's template tags whichever task
+   * represents that milestone (e.g. Track A's "Application deployed"),
+   * so a future track's equivalent task just needs the same tag set via
+   * the Templates Admin editor — no code change required.
+   */
+  drives_project_date: DrivenProjectDateField | null;
   /** Set when the task was instantiated from a TaskTemplate. */
   template_id: TemplateId | null;
   created_at: IsoTimestamp;
@@ -728,8 +782,43 @@ export interface TaskTemplateItem {
    * rather than being left unassigned.
    */
   default_responsible: string | null;
-  /** Optional time estimate in hours, mirrors `Task.estimate_hours`. */
-  estimate_hours: number | null;
+  /**
+   * Time estimate in hours, mirrors `Task.estimate_hours`. Required here
+   * (unlike the runtime `Task` field, which stays optional for legacy
+   * rows) — templates are a small, admin-curated set with no backfill
+   * burden, and this value drives the instantiated task's due-date
+   * calculation (`lib/tasks/schedule.ts`), so it can't be left blank.
+   * Represents the Medium-complexity duration; see
+   * `complexity_estimate_hours` for tasks that vary by tier.
+   */
+  estimate_hours: number;
+  /**
+   * Per-complexity-tier overrides for a task whose duration genuinely
+   * scales with project complexity (reference: the EDA task in the
+   * Visualization template — Low 4 / Medium 9 / High 19 working days).
+   * `estimate_hours` above is always the Medium-complexity value; a
+   * project scored at a tier present here uses that value instead.
+   * "Very High" and unscored projects fall back to `estimate_hours`.
+   * Absent/empty for the common case where duration doesn't vary by
+   * complexity.
+   */
+  complexity_estimate_hours?: Partial<Record<"Low" | "High", number>> | null;
+  /**
+   * Mirrors `Task.friday_anchor` — carried onto the instantiated task
+   * as-is. Absent/false for the common case.
+   */
+  friday_anchor?: boolean;
+  /**
+   * Mirrors `Task.fixed_lag_business_days_after`, but points at another
+   * task in the SAME template by `predecessor_local_id` (resolved to a
+   * real `task_id` at instantiation, same convention as `dependencies`).
+   */
+  fixed_lag_business_days_after?: {
+    predecessor_local_id: string;
+    business_days: number;
+  } | null;
+  /** Mirrors `Task.drives_project_date` — carried onto the instantiated task as-is. */
+  drives_project_date?: DrivenProjectDateField | null;
   /** Predecessor relationships against other tasks in the SAME template. */
   dependencies: TemplateDependency[];
 }

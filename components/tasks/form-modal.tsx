@@ -734,10 +734,11 @@ export function TaskFormModal({
               />
             </Field>
 
-            <Field id="task-estimate" label="Estimate (hours)">
+            <Field id="task-estimate" label="Estimate (hours)" required>
               <input
                 id="task-estimate"
                 type="number"
+                required
                 value={state.estimate_hours}
                 onChange={(e) => update("estimate_hours", e.target.value)}
                 disabled={locked}
@@ -980,7 +981,11 @@ export function TaskFormModal({
             <button
               type="submit"
               disabled={
-                saving || !state.task_name || !state.project_id || !state.stage
+                saving ||
+                !state.task_name ||
+                !state.project_id ||
+                !state.stage ||
+                !state.estimate_hours.trim()
               }
               className="pol-btn pol-btn-primary"
             >
