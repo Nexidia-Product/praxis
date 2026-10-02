@@ -70,6 +70,16 @@ import { audit, summarizeChanges } from "@/lib/audit/service";
 import { todayIso } from "@/lib/db/store";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { estimateComplexity as runAiEstimate } from "@/lib/ai/estimate";
+import { isFriday, subtractBusinessDays } from "@/lib/projects/milestones";
+import { rescheduleProjectTasks } from "@/lib/tasks/service";
+
+/**
+ * Minimum business-day gap required between the two deployment dates —
+ * "the executable release for a visualization must be complete one week
+ * before the Application deployment date." 5 business days = a full
+ * work week.
+ */
+const MIN_EXECUTABLE_LEAD_BUSINESS_DAYS = 5;
 
 // ---------------------------------------------------------------------------
 // Constants — Status / Priority remain local because the service still
@@ -276,6 +286,42 @@ function asNullableDate(value: unknown, field: string): string | null {
   return trimmed.slice(0, 10);
 }
 
+/**
+ * The two deployment dates must each land on a Friday (the release
+ * calendar's cadence), and the executable must be at least
+ * `MIN_EXECUTABLE_LEAD_BUSINESS_DAYS` business days ahead of the
+ * application date ("the executable release ... complete one week
+ * before the Application deployment date"). Each check only runs
+ * against a date that's actually set — a null field isn't an error,
+ * it's just not scheduled yet.
+ */
+function validateDeploymentDates(
+  targetDate: string | null,
+  targetExecutableDate: string | null,
+): void {
+  if (targetDate && !isFriday(targetDate)) {
+    throw new ValidationError(
+      `target_date (${targetDate}) must fall on a Friday.`,
+    );
+  }
+  if (targetExecutableDate && !isFriday(targetExecutableDate)) {
+    throw new ValidationError(
+      `target_executable_deployment_date (${targetExecutableDate}) must fall on a Friday.`,
+    );
+  }
+  if (targetDate && targetExecutableDate) {
+    const latestAllowed = subtractBusinessDays(
+      targetDate,
+      MIN_EXECUTABLE_LEAD_BUSINESS_DAYS,
+    );
+    if (targetExecutableDate > latestAllowed) {
+      throw new ValidationError(
+        `target_executable_deployment_date (${targetExecutableDate}) must be at least ${MIN_EXECUTABLE_LEAD_BUSINESS_DAYS} business days before target_date (${targetDate}).`,
+      );
+    }
+  }
+}
+
 function asEnum<T extends string>(
   value: unknown,
   allowed: readonly T[],
@@ -474,6 +520,7 @@ async function validateAndShape(
     payload.target_executable_deployment_date,
     "target_executable_deployment_date",
   );
+  validateDeploymentDates(target_date, target_executable_deployment_date);
   // New projects park in the "Unplaced" lane of the Now/Next/Later
   // roadmap by default, so every new project is an explicit triage item
   // an admin drags onto a horizon — rather than being auto-suggested
@@ -1238,7 +1285,71 @@ export async function updateProject(
     );
   }
 
+  // Friday + minimum-lead-time checks (see `validateDeploymentDates` on
+  // create). Scoped to fields this payload actually touches — an edit to
+  // an unrelated field on an old project whose stored dates predate this
+  // rule must not get blocked. The lead-time check still runs against the
+  // merged final values whenever EITHER date is part of this payload,
+  // since changing one can newly violate the relationship against the
+  // other's existing, untouched value.
+  if (payload.target_date !== undefined && patch.target_date) {
+    if (!isFriday(patch.target_date)) {
+      throw new ValidationError(
+        `target_date (${patch.target_date}) must fall on a Friday.`,
+      );
+    }
+  }
+  if (
+    payload.target_executable_deployment_date !== undefined &&
+    patch.target_executable_deployment_date
+  ) {
+    if (!isFriday(patch.target_executable_deployment_date)) {
+      throw new ValidationError(
+        `target_executable_deployment_date (${patch.target_executable_deployment_date}) must fall on a Friday.`,
+      );
+    }
+  }
+  if (
+    payload.target_date !== undefined ||
+    payload.target_executable_deployment_date !== undefined
+  ) {
+    const finalTargetDate =
+      patch.target_date !== undefined ? patch.target_date : existing.target_date;
+    const finalExecutable =
+      patch.target_executable_deployment_date !== undefined
+        ? patch.target_executable_deployment_date
+        : existing.target_executable_deployment_date;
+    if (finalTargetDate && finalExecutable) {
+      const latestAllowed = subtractBusinessDays(
+        finalTargetDate,
+        MIN_EXECUTABLE_LEAD_BUSINESS_DAYS,
+      );
+      if (finalExecutable > latestAllowed) {
+        throw new ValidationError(
+          `target_executable_deployment_date (${finalExecutable}) must be at least ${MIN_EXECUTABLE_LEAD_BUSINESS_DAYS} business days before target_date (${finalTargetDate}).`,
+        );
+      }
+    }
+  }
+
   const updated = await ProjectRepository.update(id, patch);
+
+  // The schedule is anchored at the project's start date — recompute
+  // every task's due date (lib/tasks/schedule.ts) whenever it moves,
+  // whether from an explicit edit or the auto-set-on-first-active-status
+  // path above. Best-effort: a scheduling hiccup must not fail the
+  // project save that triggered it.
+  if (
+    patch.roadmap_timeline_start !== undefined &&
+    patch.roadmap_timeline_start !== existing.roadmap_timeline_start
+  ) {
+    await rescheduleProjectTasks(id).catch((err) => {
+      console.warn(
+        `[projects] reschedule after start-date change failed for ${id}:`,
+        err,
+      );
+    });
+  }
 
   // Cancel cascade: if this update flipped the project to Canceled,
   // every open task on the project should follow it. Completed tasks

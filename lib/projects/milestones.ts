@@ -48,6 +48,30 @@ export function subtractBusinessDays(iso: IsoDate, days: number): IsoDate {
 }
 
 /**
+ * Add `days` business days (Monday–Friday; no holiday calendar) to `iso`,
+ * landing on a business day. Same UTC convention as `subtractBusinessDays`.
+ */
+export function addBusinessDays(iso: IsoDate, days: number): IsoDate {
+  const d = new Date(`${iso}T00:00:00Z`);
+  let remaining = days;
+  while (remaining > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) remaining--;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Whether `iso` falls on a Friday. First reusable day-of-week predicate in
+ * the codebase — every other `getUTCDay()` use (velocity metrics, roadmap
+ * dates, resource roster) is a private, differently-purposed local calc.
+ */
+export function isFriday(iso: IsoDate): boolean {
+  return new Date(`${iso}T00:00:00Z`).getUTCDay() === 5;
+}
+
+/**
  * Derive the four handoff milestones from a project's two deployment
  * dates. Either input may be `null` (source date not set yet); the
  * milestones that depend on it come back `null` too.

@@ -62,12 +62,22 @@ interface TemplatesAdminProps {
   userOptions: string[];
 }
 
+/**
+ * Draft shape for a task row in the editor. `estimate_hours` is nullable
+ * here even though the saved `TaskTemplateItem` requires it — the editor
+ * needs to represent "not filled in yet" while the admin is still typing;
+ * `handleSave` validates it's non-null before the request goes out.
+ */
+type DraftTaskItem = Omit<TaskTemplateItem, "estimate_hours"> & {
+  estimate_hours: number | null;
+};
+
 interface DraftTemplate {
   /** null = unsaved draft, will POST on save. */
   template_id: string | null;
   template_name: string;
   tracks: string[];
-  tasks: TaskTemplateItem[];
+  tasks: DraftTaskItem[];
 }
 
 function templateToDraft(t: TaskTemplate): DraftTemplate {
@@ -86,6 +96,7 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
       stage: i.stage ?? "",
       default_responsible: i.default_responsible ?? null,
       estimate_hours: i.estimate_hours ?? null,
+      complexity_estimate_hours: i.complexity_estimate_hours ?? null,
       dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
     })),
   };
@@ -105,6 +116,7 @@ function newDraft(trackOptions: EnumOption[]): DraftTemplate {
         stage: "",
         default_responsible: null,
         estimate_hours: null,
+        complexity_estimate_hours: null,
         dependencies: [],
       },
     ],
@@ -170,7 +182,7 @@ export function TemplatesAdmin({
 
   function updateTaskItem(
     index: number,
-    patch: Partial<TaskTemplateItem>,
+    patch: Partial<DraftTaskItem>,
   ) {
     setDraft((prev) => {
       if (!prev) return prev;
@@ -196,6 +208,7 @@ export function TemplatesAdmin({
                 stage: "",
                 default_responsible: null,
                 estimate_hours: null,
+                complexity_estimate_hours: null,
                 dependencies: [],
               },
             ],
@@ -311,6 +324,10 @@ export function TemplatesAdmin({
         setError(`Task ${i + 1}: stage is required.`);
         return;
       }
+      if (t.estimate_hours == null) {
+        setError(`Task ${i + 1}: estimate (hours) is required.`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -328,6 +345,7 @@ export function TemplatesAdmin({
         default_responsible: t.default_responsible,
         default_priority: t.default_priority,
         estimate_hours: t.estimate_hours,
+        complexity_estimate_hours: t.complexity_estimate_hours,
         dependencies: t.dependencies,
       })),
     };
@@ -621,12 +639,13 @@ export function TemplatesAdmin({
                         </select>
                         <input
                           type="number"
+                          required
                           inputMode="decimal"
                           step="0.25"
                           min={0}
                           max={999}
-                          aria-label={`Task ${i + 1} estimate in hours`}
-                          placeholder="Hours"
+                          aria-label={`Task ${i + 1} estimate in hours (required)`}
+                          placeholder="Hours *"
                           // Render null/0 as an empty string so the
                           // placeholder is visible. The controlled value
                           // only becomes a number when the admin types
@@ -642,6 +661,14 @@ export function TemplatesAdmin({
                           className={baseInput}
                         />
                       </div>
+                      <ComplexityOverrides
+                        taskIndex={i}
+                        value={item.complexity_estimate_hours ?? null}
+                        onChange={(next) =>
+                          updateTaskItem(i, { complexity_estimate_hours: next })
+                        }
+                        disabled={saving}
+                      />
                       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <div>
                           <select
@@ -894,6 +921,95 @@ function Field({
         {required ? <span className="ml-0.5 text-red-600">*</span> : null}
       </label>
       <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+type ComplexityOverrideValue = Partial<Record<"Low" | "High", number>> | null;
+
+/**
+ * Optional per-task disclosure for a duration that genuinely varies by
+ * project complexity (e.g. EDA: Low 4d / Medium 9d / High 19d). The task's
+ * main Estimate field above is always the Medium value; this reveals two
+ * extra number inputs that override it for Low/High-complexity projects
+ * (`lib/tasks/service.ts`'s `instantiateTemplate` picks the matching one).
+ * Collapsed by default; clearing both inputs removes the override object
+ * entirely rather than leaving `{}` on the record.
+ */
+function ComplexityOverrides({
+  taskIndex,
+  value,
+  onChange,
+  disabled,
+}: {
+  taskIndex: number;
+  value: ComplexityOverrideValue;
+  onChange: (next: ComplexityOverrideValue) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(value != null);
+
+  function set(tier: "Low" | "High", n: number | null) {
+    const next = { ...(value ?? {}) };
+    if (n == null) delete next[tier];
+    else next[tier] = n;
+    onChange(Object.keys(next).length > 0 ? next : null);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        className="mt-1 text-[11px] font-medium text-gray-600 hover:underline disabled:opacity-50"
+      >
+        + Vary by complexity
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-600">
+      <span>Overrides — Low:</span>
+      <input
+        type="number"
+        min={0}
+        max={999}
+        step="0.25"
+        aria-label={`Task ${taskIndex + 1} Low-complexity estimate override`}
+        value={value?.Low ?? ""}
+        onChange={(e) =>
+          set("Low", e.target.value === "" ? null : Number(e.target.value))
+        }
+        disabled={disabled}
+        className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+      />
+      <span>High:</span>
+      <input
+        type="number"
+        min={0}
+        max={999}
+        step="0.25"
+        aria-label={`Task ${taskIndex + 1} High-complexity estimate override`}
+        value={value?.High ?? ""}
+        onChange={(e) =>
+          set("High", e.target.value === "" ? null : Number(e.target.value))
+        }
+        disabled={disabled}
+        className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          onChange(null);
+          setOpen(false);
+        }}
+        disabled={disabled}
+        className="text-gray-500 hover:underline disabled:opacity-50"
+      >
+        Remove
+      </button>
     </div>
   );
 }

@@ -157,6 +157,10 @@ function validate(
     localIds.add(local_id);
 
     const estimate_hours = parseEstimateHours(item.estimate_hours, i);
+    const complexity_estimate_hours = parseComplexityOverrides(
+      item.complexity_estimate_hours,
+      i,
+    );
 
     rawDependencyLists.push(item.dependencies);
 
@@ -168,6 +172,7 @@ function validate(
       stage: item.stage,
       default_responsible,
       estimate_hours,
+      complexity_estimate_hours,
       // Filled in by the second pass once every local_id is known.
       dependencies: [],
     });
@@ -194,16 +199,19 @@ function validate(
 }
 
 /**
- * Coerce + validate an `estimate_hours` value. Accepts:
- *   - undefined / null / "" → null (no estimate)
- *   - number (must be finite, >= 0, <= 999)
- *   - numeric string (parsed; same bounds)
+ * Coerce + validate a required `estimate_hours` value. Accepts a number or
+ * numeric string, >= 0, <= 999. Unlike the runtime `Task` field, a template
+ * task's estimate has no legacy-data exception — it drives the
+ * instantiated task's due-date calculation (`lib/tasks/schedule.ts`), so
+ * it can't be left blank.
  *
- * Mirrors `asOptionalNonNegativeNumber` in `lib/tasks/service.ts`. Duplicated
- * here so this validator stays self-contained.
+ * Bounds mirror `asOptionalNonNegativeNumber` in `lib/tasks/service.ts`.
+ * Duplicated here so this validator stays self-contained.
  */
-function parseEstimateHours(value: unknown, taskIndex: number): number | null {
-  if (value === undefined || value === null || value === "") return null;
+function parseEstimateHours(value: unknown, taskIndex: number): number {
+  if (value === undefined || value === null || value === "") {
+    throw new ValidationError(`tasks[${taskIndex}].estimate_hours is required.`);
+  }
   let n: number;
   if (typeof value === "number") {
     n = value;
@@ -211,7 +219,7 @@ function parseEstimateHours(value: unknown, taskIndex: number): number | null {
     n = Number(value);
   } else {
     throw new ValidationError(
-      `tasks[${taskIndex}].estimate_hours must be a number or null.`,
+      `tasks[${taskIndex}].estimate_hours must be a number.`,
     );
   }
   if (!Number.isFinite(n) || n < 0 || n > ESTIMATE_HOURS_MAX) {
@@ -220,6 +228,54 @@ function parseEstimateHours(value: unknown, taskIndex: number): number | null {
     );
   }
   return n;
+}
+
+const COMPLEXITY_TIERS = ["Low", "High"] as const;
+
+/**
+ * Coerce + validate the optional per-complexity-tier override map. Absent/
+ * null → `null` (no overrides, the common case). Only `Low`/`High` keys are
+ * recognized — `estimate_hours` itself already represents the Medium
+ * value, so there's no separate "Medium override" to store.
+ */
+function parseComplexityOverrides(
+  value: unknown,
+  taskIndex: number,
+): Partial<Record<"Low" | "High", number>> | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].complexity_estimate_hours must be an object.`,
+    );
+  }
+  const raw = value as Record<string, unknown>;
+  const out: Partial<Record<"Low" | "High", number>> = {};
+  for (const key of Object.keys(raw)) {
+    if (!(COMPLEXITY_TIERS as readonly string[]).includes(key)) {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours key "${key}" must be one of: ${COMPLEXITY_TIERS.join(", ")}.`,
+      );
+    }
+    const raw_v = raw[key];
+    if (raw_v === undefined || raw_v === null || raw_v === "") continue;
+    let n: number;
+    if (typeof raw_v === "number") {
+      n = raw_v;
+    } else if (typeof raw_v === "string") {
+      n = Number(raw_v);
+    } else {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours.${key} must be a number.`,
+      );
+    }
+    if (!Number.isFinite(n) || n < 0 || n > ESTIMATE_HOURS_MAX) {
+      throw new ValidationError(
+        `tasks[${taskIndex}].complexity_estimate_hours.${key} must be between 0 and ${ESTIMATE_HOURS_MAX}.`,
+      );
+    }
+    out[key as "Low" | "High"] = n;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /**

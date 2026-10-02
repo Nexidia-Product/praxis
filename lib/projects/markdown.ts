@@ -33,7 +33,7 @@
  *     direction was to drop them rather than ship a static placeholder.
  */
 
-import { subtractBusinessDays } from "./milestones";
+import { addBusinessDays, subtractBusinessDays } from "./milestones";
 import type { Project, ProjectId } from "@/lib/db";
 
 /**
@@ -99,17 +99,6 @@ interface ExportMilestones {
   executable_deployed: string | null;
   final_input_files_handoff: string | null;
   application_deployment: string | null;
-}
-
-function addBusinessDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  let remaining = days;
-  while (remaining > 0) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) remaining--;
-  }
-  return d.toISOString().slice(0, 10);
 }
 
 function computeExportMilestones(project: Project): ExportMilestones {

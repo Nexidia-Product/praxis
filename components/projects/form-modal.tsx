@@ -1005,6 +1005,10 @@ export function ProjectFormModal({
                 disabled={saving}
                 className={baseInput}
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Must fall on a Friday; should be at least a business week
+                ahead of the Application deployment date.
+              </p>
             </Field>
           </div>
 

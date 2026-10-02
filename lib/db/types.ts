@@ -612,11 +612,18 @@ export interface Task {
    */
   dependencies: TaskDependency[];
   /**
-   * Optional time estimate in hours. Decimal allowed (0.5 = 30 minutes,
-   * 1.25 = 75 minutes). Null when unset. Surfaced in the Tasks table,
-   * task form, and quick view; deliberately NOT factored into the
-   * Velocity dashboard at this point — task-level estimates aren't yet
-   * a system of record we'd want roll-up reporting against.
+   * Time estimate in hours. Decimal allowed (0.5 = 30 minutes, 1.25 = 75
+   * minutes). Surfaced in the Tasks table, task form, and quick view;
+   * deliberately NOT factored into the Velocity dashboard at this point —
+   * task-level estimates aren't yet a system of record we'd want roll-up
+   * reporting against. Drives the auto-calculated due date
+   * (`lib/tasks/schedule.ts`).
+   *
+   * Required going forward (`lib/tasks/service.ts` rejects a create, or
+   * an update that would leave it unset) but the type stays nullable: no
+   * migration backfilled existing rows, so a legacy task can still be
+   * `null` at rest until the next time someone edits it, at which point
+   * the service forces a value to be supplied.
    *
    * The field is named `estimate_hours` rather than just `hours` so a
    * future `actual_hours` (recorded after the task completes, for
@@ -728,8 +735,27 @@ export interface TaskTemplateItem {
    * rather than being left unassigned.
    */
   default_responsible: string | null;
-  /** Optional time estimate in hours, mirrors `Task.estimate_hours`. */
-  estimate_hours: number | null;
+  /**
+   * Time estimate in hours, mirrors `Task.estimate_hours`. Required here
+   * (unlike the runtime `Task` field, which stays optional for legacy
+   * rows) — templates are a small, admin-curated set with no backfill
+   * burden, and this value drives the instantiated task's due-date
+   * calculation (`lib/tasks/schedule.ts`), so it can't be left blank.
+   * Represents the Medium-complexity duration; see
+   * `complexity_estimate_hours` for tasks that vary by tier.
+   */
+  estimate_hours: number;
+  /**
+   * Per-complexity-tier overrides for a task whose duration genuinely
+   * scales with project complexity (reference: the EDA task in the
+   * Visualization template — Low 4 / Medium 9 / High 19 working days).
+   * `estimate_hours` above is always the Medium-complexity value; a
+   * project scored at a tier present here uses that value instead.
+   * "Very High" and unscored projects fall back to `estimate_hours`.
+   * Absent/empty for the common case where duration doesn't vary by
+   * complexity.
+   */
+  complexity_estimate_hours?: Partial<Record<"Low" | "High", number>> | null;
   /** Predecessor relationships against other tasks in the SAME template. */
   dependencies: TemplateDependency[];
 }

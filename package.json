@@ -22,6 +22,7 @@
     "smoke:ideas": "tsx scripts/smoke-ideas.ts",
     "smoke:fetch-links": "tsx scripts/smoke-fetch-links.ts",
     "smoke:template": "tsx scripts/smoke-template.ts",
+    "smoke:schedule": "tsx scripts/smoke-schedule.ts",
     "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
     "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",
     "migrate:auth-users": "tsx --env-file=.env.local scripts/migrate-users-to-auth.ts",
@@ -32,6 +33,7 @@
     "admin:bulk-create": "tsx --env-file=.env.local scripts/bulk-create-users.ts",
     "ai:list-models": "tsx --env-file=.env.local scripts/ai-list-models.ts",
     "seed:document-skills": "tsx --env-file=.env.local scripts/seed-document-skills.ts",
+    "seed:visualization-template": "tsx --env-file=.env.local scripts/seed-visualization-template.ts",
     "prepare:branding": "tsx scripts/prepare-branding.ts"
   },
   "dependencies": {
