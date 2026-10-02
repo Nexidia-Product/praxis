@@ -1351,16 +1351,52 @@ export async function rescheduleProjectTasks(
 
   for (const t of tasks) {
     const due = schedule.get(t.task_id);
-    if (due == null || due === t.target_date) continue;
-    try {
-      await TaskRepository.update(t.task_id, { target_date: due });
-    } catch (err) {
-      console.warn(
-        `[tasks] reschedule write failed for ${t.task_id}:`,
-        err,
-      );
+    if (due != null && due !== t.target_date) {
+      try {
+        await TaskRepository.update(t.task_id, { target_date: due });
+      } catch (err) {
+        console.warn(
+          `[tasks] reschedule write failed for ${t.task_id}:`,
+          err,
+        );
+      }
+    }
+
+    // Whichever date the task ends up with this pass — freshly computed
+    // above, or already stored and unchanged — push it onto the project
+    // if this task drives one of its deployment-date fields. Runs every
+    // pass (not just when the task's own date just changed) so enabling
+    // `drives_project_date` on an already-dated task takes effect on the
+    // very next reschedule, not only on its next date change.
+    if (t.drives_project_date) {
+      const finalDue = due ?? t.target_date;
+      if (finalDue != null) {
+        await syncProjectDateFromTask(projectId, t.drives_project_date, finalDue).catch(
+          (err) => {
+            console.warn(
+              `[tasks] project-date sync failed for ${t.task_id} -> ${t.drives_project_date}:`,
+              err,
+            );
+          },
+        );
+      }
     }
   }
+}
+
+/**
+ * Push a task's due date onto the named field of its parent project —
+ * see `Task.drives_project_date`. Always writes (no "already equal"
+ * short-circuit): called once per task per reschedule pass, so avoiding
+ * a stale in-memory project snapshot from suppressing a second field's
+ * write is worth more than skipping a harmless, idempotent write.
+ */
+async function syncProjectDateFromTask(
+  projectId: ProjectId,
+  field: "target_date" | "target_executable_deployment_date",
+  due: string,
+): Promise<void> {
+  await ProjectRepository.update(projectId, { [field]: due });
 }
 
 /**
@@ -1674,6 +1710,7 @@ export async function instantiateTemplate(
       template_id: templateId,
       estimate_hours: effectiveHours,
       friday_anchor: item.friday_anchor ?? false,
+      drives_project_date: item.drives_project_date ?? null,
     });
     created.push(task);
     idByLocal.set(item.local_id, task.task_id);

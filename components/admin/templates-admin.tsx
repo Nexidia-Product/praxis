@@ -24,6 +24,7 @@
 import { useState } from "react";
 
 import type {
+  DrivenProjectDateField,
   Priority,
   TaskDependencyType,
   TaskTemplate,
@@ -99,6 +100,7 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
       complexity_estimate_hours: i.complexity_estimate_hours ?? null,
       friday_anchor: i.friday_anchor ?? false,
       fixed_lag_business_days_after: i.fixed_lag_business_days_after ?? null,
+      drives_project_date: i.drives_project_date ?? null,
       dependencies: (i.dependencies ?? []).map((d) => ({ ...d })),
     })),
   };
@@ -121,6 +123,7 @@ function newDraft(trackOptions: EnumOption[]): DraftTemplate {
         complexity_estimate_hours: null,
         friday_anchor: false,
         fixed_lag_business_days_after: null,
+        drives_project_date: null,
         dependencies: [],
       },
     ],
@@ -215,6 +218,7 @@ export function TemplatesAdmin({
                 complexity_estimate_hours: null,
                 friday_anchor: false,
                 fixed_lag_business_days_after: null,
+                drives_project_date: null,
                 dependencies: [],
               },
             ],
@@ -358,6 +362,7 @@ export function TemplatesAdmin({
         complexity_estimate_hours: t.complexity_estimate_hours,
         friday_anchor: t.friday_anchor,
         fixed_lag_business_days_after: t.fixed_lag_business_days_after,
+        drives_project_date: t.drives_project_date,
         dependencies: t.dependencies,
       })),
     };
@@ -692,6 +697,10 @@ export function TemplatesAdmin({
                         fixedLag={item.fixed_lag_business_days_after ?? null}
                         onFixedLagChange={(next) =>
                           updateTaskItem(i, { fixed_lag_business_days_after: next })
+                        }
+                        drivesProjectDate={item.drives_project_date ?? null}
+                        onDrivesProjectDateChange={(next) =>
+                          updateTaskItem(i, { drives_project_date: next })
                         }
                         disabled={saving}
                       />
@@ -1043,12 +1052,30 @@ function ComplexityOverrides({
 type FixedLagValue = { predecessor_local_id: string; business_days: number } | null;
 
 /**
+ * Display labels for `DrivenProjectDateField` — kept as its own map
+ * (rather than inlined in the `<select>`) so a future addition to the
+ * type is a one-line change here, matching how the type itself is
+ * documented in lib/db/types.ts.
+ */
+const DRIVEN_PROJECT_DATE_LABELS: Record<DrivenProjectDateField, string> = {
+  target_date: "Target Application Deployment Date",
+  target_executable_deployment_date: "Target Executable Deployment Date",
+};
+
+/**
  * Release-calendar scheduling anchors (`lib/tasks/schedule.ts`) for tasks
  * that represent a real deployment milestone — e.g. "must land on a
  * Friday," optionally "and exactly N business days after another task,"
  * overriding the normal estimate/dependency-chain date computation for
- * that one task. Rare — most tasks need neither — so the fixed-lag half
- * is a collapsed disclosure, same pattern as `ComplexityOverrides`.
+ * that one task, and optionally "this task's due date IS the project's
+ * Target Application/Executable Deployment Date" (`drives_project_date`
+ * — kept in sync automatically by `lib/tasks/service.ts`'s
+ * `syncProjectDateFromTask` whenever the task's date is set or changes).
+ * Track-specific: each track's template tags whichever task represents
+ * that milestone, so a future track's equivalent task is just the same
+ * tag via this editor — no code change needed. Rare — most tasks need
+ * none of this — so the fixed-lag half is a collapsed disclosure, same
+ * pattern as `ComplexityOverrides`.
  */
 function ScheduleAnchorControls({
   taskIndex,
@@ -1058,6 +1085,8 @@ function ScheduleAnchorControls({
   onFridayAnchorChange,
   fixedLag,
   onFixedLagChange,
+  drivesProjectDate,
+  onDrivesProjectDateChange,
   disabled,
 }: {
   taskIndex: number;
@@ -1067,6 +1096,8 @@ function ScheduleAnchorControls({
   onFridayAnchorChange: (next: boolean) => void;
   fixedLag: FixedLagValue;
   onFixedLagChange: (next: FixedLagValue) => void;
+  drivesProjectDate: DrivenProjectDateField | null;
+  onDrivesProjectDateChange: (next: DrivenProjectDateField | null) => void;
   disabled: boolean;
 }) {
   const [lagOpen, setLagOpen] = useState(fixedLag != null);
@@ -1083,6 +1114,28 @@ function ScheduleAnchorControls({
           className="h-3 w-3"
         />
         Must land on a Friday (release-calendar anchor)
+      </label>
+
+      <label className="inline-flex items-center gap-1.5">
+        Drives project date:
+        <select
+          aria-label={`Task ${taskIndex + 1} drives project date`}
+          value={drivesProjectDate ?? ""}
+          onChange={(e) =>
+            onDrivesProjectDateChange(
+              e.target.value === "" ? null : (e.target.value as DrivenProjectDateField),
+            )
+          }
+          disabled={disabled}
+          className="rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-xs shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100"
+        >
+          <option value="">— None —</option>
+          {(Object.keys(DRIVEN_PROJECT_DATE_LABELS) as DrivenProjectDateField[]).map((f) => (
+            <option key={f} value={f}>
+              {DRIVEN_PROJECT_DATE_LABELS[f]}
+            </option>
+          ))}
+        </select>
       </label>
 
       {!lagOpen ? (

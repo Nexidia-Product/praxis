@@ -27,6 +27,7 @@ export type CreateTaskInput = Omit<
   | "dependencies"
   | "friday_anchor"
   | "fixed_lag_business_days_after"
+  | "drives_project_date"
 > &
   Partial<
     Pick<
@@ -37,6 +38,7 @@ export type CreateTaskInput = Omit<
       | "dependencies"
       | "friday_anchor"
       | "fixed_lag_business_days_after"
+      | "drives_project_date"
     >
   >;
 
@@ -99,6 +101,7 @@ export const TaskRepository = {
         estimate_hours: input.estimate_hours ?? null,
         friday_anchor: input.friday_anchor ?? false,
         fixed_lag_business_days_after: input.fixed_lag_business_days_after ?? null,
+        drives_project_date: input.drives_project_date ?? null,
         // task_id, created_at, updated_at are filled by Postgres defaults
       })
       .select()

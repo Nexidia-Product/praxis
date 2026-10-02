@@ -43,7 +43,12 @@
  * 19 with a 5-business-day lag, so it's always exactly one business week
  * after the executable deployment regardless of how the ordinary
  * dependency chain through tasks 26/28/29/30 computes dates for the
- * tasks in between (see lib/tasks/schedule.ts).
+ * tasks in between (see lib/tasks/schedule.ts). Both also carry
+ * `drives_project_date`, so once instantiated their due dates keep the
+ * project's Target Executable/Application Deployment Date fields in
+ * sync automatically (`syncProjectDateFromTask` in lib/tasks/service.ts)
+ * — a future track's equivalent milestone tasks just need the same tag,
+ * set via the Templates Admin editor, no code change required.
  *
  * Re-running this script UPDATES the existing "Visualization Template" /
  * Track A template in place (by name + track) rather than creating a
@@ -71,6 +76,7 @@ interface RawTask {
   complexity_estimate_hours?: Partial<Record<"Low" | "High", number>>;
   friday_anchor?: boolean;
   fixed_lag_business_days_after?: { predecessor_local_id: string; business_days: number };
+  drives_project_date?: "target_date" | "target_executable_deployment_date";
   dependencies: { predecessor_local_id: string; type: "FS" | "SS" }[];
 }
 
@@ -278,8 +284,10 @@ const TASKS: RawTask[] = [
     stage: "Integration",
     default_responsible: "Josh",
     estimate_hours: days(1),
-    // Executable deployment — must land on the release calendar's Friday.
+    // Executable deployment — must land on the release calendar's Friday,
+    // and its due date IS the project's Target Executable Deployment Date.
     friday_anchor: true,
+    drives_project_date: "target_executable_deployment_date",
     dependencies: [{ predecessor_local_id: "t18", type: "FS" }],
   },
   {
@@ -395,6 +403,8 @@ const TASKS: RawTask[] = [
     // 26/28/29/30 would otherwise compute.
     friday_anchor: true,
     fixed_lag_business_days_after: { predecessor_local_id: "t19", business_days: 5 },
+    // Its due date IS the project's Target Application Deployment Date.
+    drives_project_date: "target_date",
     dependencies: [
       { predecessor_local_id: "t27", type: "FS" },
       { predecessor_local_id: "t30", type: "FS" },

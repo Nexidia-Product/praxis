@@ -29,7 +29,9 @@ async function main() {
 
   const nameById = new Map(tasks.map((t) => [t.task_id, t.task_name]));
 
-  console.log(`Project ${projectId} — roadmap_timeline_start (Start date): ${project.roadmap_timeline_start ?? "(not set)"}\n`);
+  console.log(`Project ${projectId} — roadmap_timeline_start (Start date): ${project.roadmap_timeline_start ?? "(not set)"}`);
+  console.log(`  target_date (Target Application Deployment Date): ${project.target_date ?? "(not set)"}`);
+  console.log(`  target_executable_deployment_date: ${project.target_executable_deployment_date ?? "(not set)"}\n`);
 
   const recomputed = scheduleTaskDates(
     project.roadmap_timeline_start,
@@ -62,6 +64,7 @@ async function main() {
     console.log(`  estimate_hours: ${t.estimate_hours ?? "(none)"}  duration: ${duration ?? "(n/a)"}d`);
     console.log(`  dependencies: ${deps}`);
     console.log(`  friday_anchor: ${t.friday_anchor}  fixed_lag_business_days_after: ${lag}`);
+    console.log(`  drives_project_date: ${t.drives_project_date ?? "(none)"}`);
     console.log(`  stored target_date: ${t.target_date ?? "(none)"}`);
     console.log(
       `  engine would compute right now: ${computed === undefined ? "(excluded — isolated)" : computed ?? "(null — unresolved)"}${mismatch ? "  <-- DIFFERS FROM STORED" : ""}`,

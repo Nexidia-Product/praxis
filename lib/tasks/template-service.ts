@@ -13,6 +13,7 @@
 
 import {
   TemplateRepository,
+  type DrivenProjectDateField,
   type Priority,
   type TaskDependencyType,
   type TaskTemplate,
@@ -26,6 +27,10 @@ import { getEnumOptions } from "@/lib/projects/enum-options";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 const TASK_DEPENDENCY_TYPES: TaskDependencyType[] = ["FS", "SS", "FF", "SF"];
+const DRIVEN_PROJECT_DATE_FIELDS: DrivenProjectDateField[] = [
+  "target_date",
+  "target_executable_deployment_date",
+];
 
 /** Cap on estimate_hours — matches the runtime task validator. 999h ≈ 6 months. */
 const ESTIMATE_HOURS_MAX = 999;
@@ -164,6 +169,7 @@ function validate(
     );
     const friday_anchor =
       item.friday_anchor === undefined ? false : asBoolean(item.friday_anchor, i);
+    const drives_project_date = parseDrivesProjectDate(item.drives_project_date, i);
 
     rawDependencyLists.push(item.dependencies);
     rawFixedLags.push(item.fixed_lag_business_days_after);
@@ -178,6 +184,7 @@ function validate(
       estimate_hours,
       complexity_estimate_hours,
       friday_anchor,
+      drives_project_date,
       // Filled in by the second pass once every local_id is known.
       fixed_lag_business_days_after: null,
       dependencies: [],
@@ -361,6 +368,22 @@ function parseDependencies(
 function asBoolean(value: unknown, taskIndex: number): boolean {
   if (typeof value === "boolean") return value;
   throw new ValidationError(`tasks[${taskIndex}].friday_anchor must be a boolean.`);
+}
+
+function parseDrivesProjectDate(
+  value: unknown,
+  taskIndex: number,
+): DrivenProjectDateField | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (
+    typeof value !== "string" ||
+    !(DRIVEN_PROJECT_DATE_FIELDS as readonly string[]).includes(value)
+  ) {
+    throw new ValidationError(
+      `tasks[${taskIndex}].drives_project_date must be one of: ${DRIVEN_PROJECT_DATE_FIELDS.join(", ")}, or null.`,
+    );
+  }
+  return value as DrivenProjectDateField;
 }
 
 /**

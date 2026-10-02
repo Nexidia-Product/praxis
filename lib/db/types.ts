@@ -549,6 +549,14 @@ export interface TaskDependency {
   type: TaskDependencyType;
 }
 
+/**
+ * The two project deployment-date fields a task can drive — see
+ * `Task.drives_project_date`. A closed set today, but kept as its own
+ * named type (rather than inlined) so a future addition is a one-line
+ * change here, not a hunt through every call site.
+ */
+export type DrivenProjectDateField = "target_date" | "target_executable_deployment_date";
+
 export interface Task {
   /** `YY-NNNN` — auto-incremented. */
   task_id: TaskId;
@@ -655,6 +663,20 @@ export interface Task {
     task_id: TaskId;
     business_days: number;
   } | null;
+  /**
+   * When set, this task's due date drives the named field on its parent
+   * project — kept in sync automatically (`lib/tasks/service.ts`'s
+   * `syncProjectDateFromTask`) whenever the task's due date is set or
+   * changes, whether from a manual edit or a schedule recompute. Only
+   * syncs while the task has a due date; never clears the project field.
+   *
+   * This is deliberately a plain, per-task tag rather than anything
+   * track-specific in code: each track's template tags whichever task
+   * represents that milestone (e.g. Track A's "Application deployed"),
+   * so a future track's equivalent task just needs the same tag set via
+   * the Templates Admin editor — no code change required.
+   */
+  drives_project_date: DrivenProjectDateField | null;
   /** Set when the task was instantiated from a TaskTemplate. */
   template_id: TemplateId | null;
   created_at: IsoTimestamp;
@@ -795,6 +817,8 @@ export interface TaskTemplateItem {
     predecessor_local_id: string;
     business_days: number;
   } | null;
+  /** Mirrors `Task.drives_project_date` — carried onto the instantiated task as-is. */
+  drives_project_date?: DrivenProjectDateField | null;
   /** Predecessor relationships against other tasks in the SAME template. */
   dependencies: TemplateDependency[];
 }

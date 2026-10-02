@@ -209,6 +209,7 @@ async function main() {
       dependencies: [],
       friday_anchor: false,
       fixed_lag_business_days_after: null,
+      drives_project_date: null,
       template_id: null,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-04-15T00:00:00Z",

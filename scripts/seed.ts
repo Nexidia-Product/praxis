@@ -536,6 +536,7 @@ function transformTasks(
       dependencies: [],
       friday_anchor: false,
       fixed_lag_business_days_after: null,
+      drives_project_date: null,
       template_id: null,
       created_at: SEED_TIMESTAMP,
       updated_at: SEED_TIMESTAMP,
