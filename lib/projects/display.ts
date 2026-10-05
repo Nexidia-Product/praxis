@@ -232,8 +232,8 @@ export const SYSTEM_PROGRAMS: string[] = [
 ];
 
 /**
- * Track ships with three built-in values — the identified delivery tracks
- * as of Section 5.1's follow-up. `settings.enum_extensions.track` are
+ * Track ships with seven built-in values (Tracks A-G) — the identified
+ * delivery tracks. `settings.enum_extensions.track` are
  * merged on top via `mergeEnumOptions(...)`, same mechanism as `program`.
  * The id and label are the same string (no separate short code), matching
  * how the values are referred to elsewhere.
@@ -242,6 +242,10 @@ export const SYSTEM_TRACKS: string[] = [
   "Track A - Dashboard/visualization",
   "Track B - Cognigy bot inputs",
   "Track C - WFM/mid-shift reskilling",
+  "Track D - UI/Application",
+  "Track E - TopicAI",
+  "Track F - Complaints",
+  "Track G - Other",
 ];
 
 // ---------------------------------------------------------------------------
