@@ -780,6 +780,8 @@ export interface UseCase {
   use_case_id: UseCaseId;
   name: string;
   description: string;
+  /** Free-form notes on limitations, assumptions or exceptions. */
+  caveats: string;
   /**
    * Primary objective, from `OBJECTIVES` (lib/projects/display.ts).
    * Required going forward; nullable for rows migrated without one.
