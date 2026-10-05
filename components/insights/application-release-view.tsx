@@ -123,12 +123,20 @@ export function ApplicationReleaseView({
               No projects are aligned to this release date.
             </p>
           ) : (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]">
+            <div className="space-y-2">
+              <div
+                className={`hidden gap-3 px-3 text-[10px] font-medium uppercase tracking-wide text-gray-400 ${ROW_COLS}`}
+              >
+                <span>Project</span>
+                <span>Stage &amp; alignment</span>
+                <span>Planned dates</span>
+                <span>Progress</span>
+                <span>Risk, blockers &amp; status</span>
+              </div>
               {report.entries.map((entry) => (
-                <ReleaseCard
+                <ReleaseRow
                   key={entry.project.project_id}
                   entry={entry}
-                  today={today}
                 />
               ))}
             </div>
@@ -164,95 +172,67 @@ function Summary({
   );
 }
 
-function ReleaseCard({
-  entry,
-  today,
-}: {
-  entry: ReleaseProjectEntry;
-  today: string;
-}) {
+/** Column template shared by the header and every row (desktop only). */
+const ROW_COLS =
+  "lg:grid lg:[grid-template-columns:230px_190px_220px_150px_minmax(0,1fr)]";
+
+function ReleaseRow({ entry }: { entry: ReleaseProjectEntry }) {
   const { project, stats } = entry;
   const statusSummary = latestStatusSummary(project.status_history);
 
   return (
     <div
-      className={`flex flex-col gap-3 rounded-md border bg-white p-3 shadow-sm ${
+      className={`flex flex-col gap-3 rounded-md border bg-white p-3 shadow-sm ${ROW_COLS} ${
         entry.atRisk || entry.missedDelivery
           ? "border-rose-300"
           : "border-gray-200"
       }`}
     >
-      {/* Identity + health */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[11px] text-gray-500">
-              {project.project_id}
-            </span>
-            <span
-              className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${priorityBadgeClass(project.priority)}`}
-            >
-              {project.priority}
-            </span>
-            {project.is_key_capability ? (
-              <span
-                className="inline-flex rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200"
-                title="Designated key capability"
-              >
-                Key capability
-                {project.key_capability_quarter
-                  ? ` · ${formatQuarter(project.key_capability_quarter)}`
-                  : ""}
-              </span>
-            ) : null}
-          </div>
-          <h3 className="mt-0.5 text-sm font-semibold text-gray-900">
-            {project.name}
-          </h3>
-        </div>
-        {project.health_score ? (
-          <span
-            className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${HEALTH_BADGE[project.health_score]}`}
-            title={HEALTH_TOOLTIP[project.health_score]}
-          >
-            <span
-              className={`inline-block h-1.5 w-1.5 rounded-full ${HEALTH_DOT[project.health_score]}`}
-            />
-            {project.health_score}
+      {/* Project identity + health */}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-mono text-[11px] text-gray-500">
+            {project.project_id}
           </span>
-        ) : (
-          <span className="shrink-0 text-[11px] text-gray-400">No health</span>
-        )}
+          <span
+            className={`inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${priorityBadgeClass(project.priority)}`}
+          >
+            {project.priority}
+          </span>
+          {project.health_score ? (
+            <span
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${HEALTH_BADGE[project.health_score]}`}
+              title={HEALTH_TOOLTIP[project.health_score]}
+            >
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${HEALTH_DOT[project.health_score]}`}
+              />
+              {project.health_score}
+            </span>
+          ) : null}
+        </div>
+        <h3 className="mt-0.5 text-sm font-semibold leading-snug text-gray-900">
+          {project.name}
+        </h3>
+        {project.is_key_capability ? (
+          <span
+            className="mt-1 inline-flex rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200"
+            title="Designated key capability"
+          >
+            Key capability
+            {project.key_capability_quarter
+              ? ` · ${formatQuarter(project.key_capability_quarter)}`
+              : ""}
+          </span>
+        ) : null}
+        <div className="mt-1 text-[11px] text-gray-500">
+          Lead: {entry.leadName || "—"}
+        </div>
+        <div className="text-[11px] text-gray-500">{project.track || "—"}</div>
       </div>
 
-      {/* At-risk banner */}
-      {entry.delivered ? (
-        <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
-          Delivered — reached {project.stage} after the {project.target_date}{" "}
-          release.
-        </div>
-      ) : null}
-
-      {entry.atRisk ? (
-        <div
-          role="alert"
-          className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-inset ring-rose-200"
-        >
-          <div className="font-semibold">
-            {entry.missedDelivery
-              ? `Missed delivery — ${project.target_date} release`
-              : `At risk of missing the ${project.target_date} release`}
-          </div>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4">
-            {entry.riskReasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {/* Classification */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+      {/* Stage + alignment */}
+      <dl className="space-y-1.5 text-[11px]">
         <Fact label="Stage">
           {project.stage || "—"}
           {entry.stageIndex > 0
@@ -266,52 +246,58 @@ function ReleaseCard({
         <Fact label="Use case">
           {entry.useCaseNames.length > 0 ? entry.useCaseNames.join(", ") : "—"}
         </Fact>
-        <Fact label="Track">{project.track || "—"}</Fact>
-        <Fact label="Lead">{entry.leadName || "—"}</Fact>
-        <Fact label="Application deployment">
-          {project.target_date || "—"}
-        </Fact>
-        <Fact label="Executable deployment">
-          {project.target_executable_deployment_date || "—"}
-        </Fact>
       </dl>
 
       {/* Planned dates */}
-      {entry.milestones.length > 0 ? (
-        <div className="text-[11px]">
-          <div className="font-medium uppercase tracking-wide text-gray-400">
-            Planned dates
-          </div>
-          <ul className="mt-0.5 space-y-0.5">
-            {entry.milestones.map((m) => (
-              <li
-                key={m.label}
-                className={`flex justify-between gap-2 ${
-                  m.passed ? "text-gray-400" : "text-gray-600"
-                }`}
-              >
-                <span>
-                  {m.label}
-                  {m.passed ? " (passed)" : ""}
-                </span>
-                <span className="font-mono">{m.date}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <div className="text-[11px]">
+        <ul className="space-y-0.5 text-gray-700">
+          <li className="flex justify-between gap-2 font-medium">
+            <span>Application deploy</span>
+            <span className="font-mono">{project.target_date || "—"}</span>
+          </li>
+          <li className="flex justify-between gap-2 font-medium">
+            <span>Executable deploy</span>
+            <span className="font-mono">
+              {project.target_executable_deployment_date || "—"}
+            </span>
+          </li>
+          {entry.milestones.map((m) => (
+            <li
+              key={m.label}
+              className={`flex justify-between gap-2 ${
+                m.passed ? "text-gray-400" : "text-gray-600"
+              }`}
+              title={m.passed ? "Date has passed" : undefined}
+            >
+              <span className="truncate">
+                {m.label}
+                {m.passed ? " ✓" : ""}
+              </span>
+              <span className="shrink-0 font-mono">{m.date}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {/* Task progress */}
-      <div className="grid grid-cols-4 gap-2 border-t border-gray-100 pt-2">
-        <MiniStat label="Open" value={stats.open} />
-        <MiniStat label="Past due" value={stats.pastDue} danger={stats.pastDue > 0} />
-        <MiniStat label="Blocked" value={stats.blocked} danger={stats.blocked > 0} />
-        <MiniStat label="Done" value={stats.completed} />
-      </div>
       <div>
-        <div className="flex items-center justify-between text-[11px] text-gray-500">
+        <div className="grid grid-cols-4 gap-1">
+          <MiniStat label="Open" value={stats.open} />
+          <MiniStat
+            label="Late"
+            value={stats.pastDue}
+            danger={stats.pastDue > 0}
+          />
+          <MiniStat
+            label="Blkd"
+            value={stats.blocked}
+            danger={stats.blocked > 0}
+          />
+          <MiniStat label="Done" value={stats.completed} />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-gray-500">
           <span>
-            {stats.completed}/{stats.total} tasks complete
+            {stats.completed}/{stats.total} tasks
           </span>
           <span className="font-medium text-gray-700">{stats.pctComplete}%</span>
         </div>
@@ -323,39 +309,65 @@ function ReleaseCard({
         </div>
       </div>
 
-      {/* Blockers */}
-      {entry.blockers.length > 0 ? (
-        <div className="rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-900 ring-1 ring-inset ring-amber-200">
-          <div className="font-semibold uppercase tracking-wide">
-            Blocked ({entry.blockers.length})
+      {/* Risk, blockers, status */}
+      <div className="min-w-0 space-y-2 text-[11px]">
+        {entry.delivered ? (
+          <div className="rounded-md bg-emerald-50 px-2.5 py-1.5 font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
+            Delivered — reached {project.stage} after the {project.target_date}{" "}
+            release.
           </div>
-          <ul className="mt-1 space-y-1">
-            {entry.blockers.map((b, i) => (
-              <li key={`${b.subject}-${i}`}>
-                <span className="font-medium">
-                  {b.scope === "task" ? "Task " : ""}
-                  {b.subject}:
-                </span>{" "}
-                {b.reason}
-              </li>
-            ))}
-          </ul>
+        ) : null}
+
+        {entry.atRisk ? (
+          <div
+            role="alert"
+            className="rounded-md bg-rose-50 px-2.5 py-1.5 text-rose-800 ring-1 ring-inset ring-rose-200"
+          >
+            <div className="font-semibold">
+              {entry.missedDelivery
+                ? `Missed delivery — ${project.target_date} release`
+                : `At risk of missing the ${project.target_date} release`}
+            </div>
+            <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+              {entry.riskReasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {entry.blockers.length > 0 ? (
+          <div className="rounded-md bg-amber-50 px-2.5 py-1.5 text-amber-900 ring-1 ring-inset ring-amber-200">
+            <div className="font-semibold uppercase tracking-wide">
+              Blocked ({entry.blockers.length})
+            </div>
+            <ul className="mt-0.5 space-y-0.5">
+              {entry.blockers.map((b, i) => (
+                <li key={`${b.subject}-${i}`}>
+                  <span className="font-medium">
+                    {b.scope === "task" ? "Task " : ""}
+                    {b.subject}:
+                  </span>{" "}
+                  {b.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="leading-snug">
+          <span className="font-medium uppercase tracking-wide text-gray-400">
+            Status
+          </span>{" "}
+          {statusSummary ? (
+            <span className="text-gray-600">{statusSummary}</span>
+          ) : (
+            <span className="italic text-gray-400">—</span>
+          )}
         </div>
-      ) : null}
 
-      {/* Latest status note */}
-      <div className="text-[11px] leading-snug">
-        <span className="font-medium uppercase tracking-wide text-gray-400">
-          Status
-        </span>
-        {statusSummary ? (
-          <p className="mt-0.5 text-gray-600">{statusSummary}</p>
-        ) : (
-          <p className="mt-0.5 italic text-gray-400">—</p>
-        )}
+        <OutcomesList outcomes={project.outcomes} />
       </div>
-
-      <OutcomesList outcomes={project.outcomes} />
     </div>
   );
 }
@@ -370,7 +382,7 @@ function Fact({
   return (
     <div className="min-w-0">
       <dt className="uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className="truncate text-gray-700" title={typeof children === "string" ? children : undefined}>
+      <dd className="text-gray-700">
         {children}
       </dd>
     </div>
