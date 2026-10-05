@@ -1416,6 +1416,9 @@ export function ProjectsTable({
           outcomeTypes={outcomeTypes}
           canEditStage={canEditStage}
           canEditObjectives={canEditObjectives}
+          objectivesInheritedFrom={
+            useCasesByProject.get(modalProject.project_id)?.[0]?.name
+          }
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdated(p);

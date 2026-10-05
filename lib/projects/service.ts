@@ -45,6 +45,7 @@ import {
   type UpdateProjectInput,
   type UserId,
 } from "@/lib/db";
+import { UseCaseRepository } from "@/lib/db";
 import {
   DependencyValidationError,
   findCycle,
@@ -1195,6 +1196,33 @@ export async function updateProject(
     ) {
       patch.roadmap_timeline_start = todayIso();
     }
+  }
+
+  // Objectives are inherited from the project's use case. A save may
+  // resend the current (or the use case's) values untouched, but changing
+  // them away from the use case is rejected; any drift is healed to the
+  // use case's values.
+  const [owningUseCase] = await UseCaseRepository.getForProject(id);
+  if (owningUseCase?.primary_objective) {
+    const ucPrimary = owningUseCase.primary_objective;
+    const ucSecondary = owningUseCase.secondary_objectives;
+    const sameSet = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((x) => b.includes(x));
+    const primaryDiverges =
+      patch.primary_objective !== undefined &&
+      patch.primary_objective !== ucPrimary &&
+      patch.primary_objective !== existing.primary_objective;
+    const secondaryDiverges =
+      patch.secondary_objectives !== undefined &&
+      !sameSet(patch.secondary_objectives, ucSecondary) &&
+      !sameSet(patch.secondary_objectives, existing.secondary_objectives);
+    if (primaryDiverges || secondaryDiverges) {
+      throw new ValidationError(
+        `Objectives are inherited from the use case "${owningUseCase.name}" and can't be changed on the project. Change them on the use case instead.`,
+      );
+    }
+    patch.primary_objective = ucPrimary;
+    patch.secondary_objectives = [...ucSecondary];
   }
 
   // Required going forward, enforced on write rather than backfilled —

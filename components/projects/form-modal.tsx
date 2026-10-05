@@ -112,6 +112,11 @@ interface ProjectFormModalProps {
    * been threaded through yet doesn't regress.
    */
   canEditObjectives?: boolean;
+  /**
+   * Name of the use case this project belongs to. When set, the
+   * objectives are inherited from it and shown read-only here.
+   */
+  objectivesInheritedFrom?: string;
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -426,6 +431,7 @@ export function ProjectFormModal({
   outcomeTypes = [],
   canEditStage = true,
   canEditObjectives = true,
+  objectivesInheritedFrom,
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
@@ -909,7 +915,7 @@ export function ProjectFormModal({
                     ),
                   }));
                 }}
-                disabled={saving || !canEditObjectives}
+                disabled={saving || !canEditObjectives || Boolean(objectivesInheritedFrom)}
                 className={baseInput}
               >
                 <option value="" disabled>
@@ -921,7 +927,12 @@ export function ProjectFormModal({
                   </option>
                 ))}
               </select>
-              {!canEditObjectives ? (
+              {objectivesInheritedFrom ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Inherited from the use case “{objectivesInheritedFrom}”.
+                  Change them on the use case.
+                </p>
+              ) : !canEditObjectives ? (
                 <p className="mt-1 text-xs text-gray-500">
                   You don't have permission to change objectives.
                 </p>
@@ -961,7 +972,7 @@ export function ProjectFormModal({
                                 ),
                           )
                         }
-                        disabled={saving || !canEditObjectives}
+                        disabled={saving || !canEditObjectives || Boolean(objectivesInheritedFrom)}
                         className="h-3 w-3"
                       />
                       {o}

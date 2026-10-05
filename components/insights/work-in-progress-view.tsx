@@ -819,6 +819,9 @@ export function WorkInProgressView({
           aiEnabled={aiEnabled}
           canEditStage={canEditProjectStage}
           canEditObjectives={canEditProjectObjectives}
+          objectivesInheritedFrom={
+            useCasesByProject.get(modalProject.project_id)?.[0]?.name
+          }
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdatedProject(p);
