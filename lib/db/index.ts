@@ -46,6 +46,9 @@ export type {
   UpdateProjectGroupInput,
 } from "./project-groups";
 
+export { UseCaseRepository } from "./use-cases";
+export type { CreateUseCaseInput, UpdateUseCaseInput } from "./use-cases";
+
 export { AuditLogRepository } from "./audit-log";
 export type { CreateAuditEntryInput, RecentAuditQuery } from "./audit-log";
 

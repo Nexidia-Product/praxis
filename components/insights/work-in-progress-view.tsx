@@ -56,6 +56,7 @@ import type {
   Priority,
   Project,
   ProjectGroup,
+  UseCase,
   ProjectStatus,
   Task,
   TaskStatus,
@@ -102,6 +103,7 @@ interface Props {
   enumOptions: EnumOptionSet;
   templates: TaskTemplate[];
   groups: ProjectGroup[];
+  useCases: UseCase[];
   quadrantLabels: PortfolioQuadrantLabels;
   aiEnabled: boolean;
   activeUserNames: string[];
@@ -123,6 +125,7 @@ export function WorkInProgressView({
   enumOptions,
   templates,
   groups,
+  useCases,
   quadrantLabels,
   aiEnabled,
   activeUserNames,
@@ -217,6 +220,18 @@ export function WorkInProgressView({
     for (const p of projects) m.set(p.project_id, p);
     return m;
   }, [projects]);
+
+  const useCasesByProject = useMemo(() => {
+    const m = new Map<string, UseCase[]>();
+    for (const u of useCases) {
+      for (const pid of u.member_project_ids) {
+        const list = m.get(pid) ?? [];
+        list.push(u);
+        m.set(pid, list);
+      }
+    }
+    return m;
+  }, [useCases]);
 
   const groupsByProject = useMemo(() => {
     const m = new Map<string, ProjectGroup[]>();
@@ -765,6 +780,9 @@ export function WorkInProgressView({
           priorityOptions={enumOptions.priority}
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
+          }
+          useCasesForProject={
+            useCasesByProject.get(quickViewProject.project_id) ?? []
           }
           mentionableUsers={mentionableUsers}
           onClose={() => setQuickViewId(null)}

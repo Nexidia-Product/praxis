@@ -43,6 +43,7 @@ export type NotificationId = string;
 export type DecisionEntryId = string;
 export type AuditEntryId = string;
 export type ProjectGroupId = string;
+export type UseCaseId = string;
 
 /** ISO 8601 timestamp string (e.g. `2026-04-23T14:30:00Z`). */
 export type IsoTimestamp = string;
@@ -761,6 +762,36 @@ export interface ProjectGroup {
   /** Projects in this group, by `YYYY-NNN` ID. Order is preserved. */
   member_project_ids: ProjectId[];
   /** UserId who created the group. `null` for legacy / system seeds. */
+  created_by: UserId | null;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Use cases
+// ---------------------------------------------------------------------------
+//
+// A top-level, admin-defined use case: name + description, associated with
+// one or more organizational objectives (the `OBJECTIVES` taxonomy projects
+// use for primary/secondary objective), with individually selected member
+// projects. Many-to-many with projects. Entirely separate from ProjectGroup.
+
+export interface UseCase {
+  use_case_id: UseCaseId;
+  name: string;
+  description: string;
+  /**
+   * Primary objective, from `OBJECTIVES` (lib/projects/display.ts).
+   * Required going forward; nullable for rows migrated without one.
+   */
+  primary_objective: string | null;
+  /**
+   * Additional objectives, from `SECONDARY_OBJECTIVE_OPTIONS`. Never
+   * duplicates the primary.
+   */
+  secondary_objectives: string[];
+  /** Projects in this use case, by `YYYY-NNN` ID. Order is preserved. */
+  member_project_ids: ProjectId[];
   created_by: UserId | null;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
