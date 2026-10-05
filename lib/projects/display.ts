@@ -147,7 +147,21 @@ export const OBJECTIVES: string[] = [
   "Compliance",
   "Customer Experience",
   "Agent Experience",
+  "Complaints",
+  "Other",
 ];
+
+/**
+ * "Complaints" and "Other" are catch-all classifications — they only
+ * make sense as a project's one PRIMARY objective, never stacked on top
+ * of a more specific primary as a secondary one. Every other objective
+ * is eligible as a secondary. Used for both the secondary-objectives
+ * select's option list and its server-side validation
+ * (`lib/projects/service.ts`).
+ */
+export const SECONDARY_OBJECTIVE_OPTIONS: string[] = OBJECTIVES.filter(
+  (o) => o !== "Complaints" && o !== "Other",
+);
 
 /**
  * Application/Product values that ship as built-in defaults. Admin-added

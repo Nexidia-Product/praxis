@@ -53,6 +53,7 @@ import {
 } from "@/lib/projects/dependencies";
 import {
   OBJECTIVES,
+  SECONDARY_OBJECTIVE_OPTIONS,
   PROJECT_TYPES,
   VISUALIZATION_TYPES,
   stagesForTrack,
@@ -545,7 +546,7 @@ async function validateAndShape(
   // we're actually guarding against.
   const secondary_objectives = asEnumArray(
     payload.secondary_objectives,
-    OBJECTIVES,
+    SECONDARY_OBJECTIVE_OPTIONS,
     "secondary_objectives",
   ).filter((o) => o !== primary_objective);
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
@@ -1054,7 +1055,7 @@ export async function updateProject(
   if (payload.secondary_objectives !== undefined) {
     patch.secondary_objectives = asEnumArray(
       payload.secondary_objectives,
-      OBJECTIVES,
+      SECONDARY_OBJECTIVE_OPTIONS,
       "secondary_objectives",
     );
   }

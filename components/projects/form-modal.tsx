@@ -23,6 +23,7 @@ import Link from "next/link";
 
 import {
   OBJECTIVES,
+  SECONDARY_OBJECTIVE_OPTIONS,
   PRIORITIES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
@@ -921,39 +922,39 @@ export function ProjectFormModal({
                 aria-label="Secondary Objectives"
                 className="flex flex-wrap gap-2 rounded-md border border-gray-300 bg-white p-2"
               >
-                {OBJECTIVES.filter((o) => o !== state.primary_objective).map(
-                  (o) => {
-                    const checked = state.secondary_objectives.includes(o);
-                    return (
-                      <label
-                        key={o}
-                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
-                          checked
-                            ? "border-[var(--brand)] bg-blue-50 text-blue-900"
-                            : "border-gray-300 bg-white text-gray-800"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) =>
-                            update(
-                              "secondary_objectives",
-                              e.target.checked
-                                ? [...state.secondary_objectives, o]
-                                : state.secondary_objectives.filter(
-                                    (x) => x !== o,
-                                  ),
-                            )
-                          }
-                          disabled={saving}
-                          className="h-3 w-3"
-                        />
-                        {o}
-                      </label>
-                    );
-                  },
-                )}
+                {SECONDARY_OBJECTIVE_OPTIONS.filter(
+                  (o) => o !== state.primary_objective,
+                ).map((o) => {
+                  const checked = state.secondary_objectives.includes(o);
+                  return (
+                    <label
+                      key={o}
+                      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                        checked
+                          ? "border-[var(--brand)] bg-blue-50 text-blue-900"
+                          : "border-gray-300 bg-white text-gray-800"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          update(
+                            "secondary_objectives",
+                            e.target.checked
+                              ? [...state.secondary_objectives, o]
+                              : state.secondary_objectives.filter(
+                                  (x) => x !== o,
+                                ),
+                          )
+                        }
+                        disabled={saving}
+                        className="h-3 w-3"
+                      />
+                      {o}
+                    </label>
+                  );
+                })}
               </div>
               <p className="mt-1 text-xs text-gray-500">
                 Any other objectives this project also serves, besides its
