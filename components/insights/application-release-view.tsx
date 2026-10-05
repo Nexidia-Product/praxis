@@ -11,6 +11,7 @@
  * re-renders.
  */
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -32,6 +33,8 @@ interface Props {
   selectedDate: string | null;
   today: string;
   report: ReleaseReport | null;
+  /** Whether the viewer may add/edit/delete release caveats. */
+  canEditCaveats: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -50,6 +53,7 @@ export function ApplicationReleaseView({
   selectedDate,
   today,
   report,
+  canEditCaveats,
 }: Props) {
   const router = useRouter();
 
@@ -137,6 +141,8 @@ export function ApplicationReleaseView({
                 <ReleaseRow
                   key={entry.project.project_id}
                   entry={entry}
+                  releaseDate={report.date}
+                  canEditCaveats={canEditCaveats}
                 />
               ))}
             </div>
@@ -176,7 +182,15 @@ function Summary({
 const ROW_COLS =
   "lg:grid lg:[grid-template-columns:230px_190px_220px_150px_minmax(0,1fr)]";
 
-function ReleaseRow({ entry }: { entry: ReleaseProjectEntry }) {
+function ReleaseRow({
+  entry,
+  releaseDate,
+  canEditCaveats,
+}: {
+  entry: ReleaseProjectEntry;
+  releaseDate: string;
+  canEditCaveats: boolean;
+}) {
   const { project, stats } = entry;
   const statusSummary = latestStatusSummary(project.status_history);
 
@@ -367,7 +381,227 @@ function ReleaseRow({ entry }: { entry: ReleaseProjectEntry }) {
         </div>
 
         <OutcomesList outcomes={project.outcomes} />
+
+        <CaveatsPanel
+          projectId={project.project_id}
+          releaseDate={releaseDate}
+          caveats={entry.caveats}
+          canEdit={canEditCaveats}
+        />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Release caveats for one project: a running record of limitations,
+ * assumptions or exceptions for this release, each with author and date.
+ * Editors can add, edit and delete; everyone else reads. Mutations hit
+ * /api/release-caveats and then refresh the server data.
+ */
+function CaveatsPanel({
+  projectId,
+  releaseDate,
+  caveats,
+  canEdit,
+}: {
+  projectId: string;
+  releaseDate: string;
+  caveats: ReleaseProjectEntry["caveats"];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function call(
+    url: string,
+    method: "POST" | "PUT" | "DELETE",
+    body?: Record<string, unknown>,
+  ): Promise<boolean> {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(data.error ?? `HTTP ${res.status}`);
+        return false;
+      }
+      router.refresh();
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function add() {
+    const ok = await call("/api/release-caveats", "POST", {
+      release_date: releaseDate,
+      project_id: projectId,
+      caveat: draft,
+    });
+    if (ok) {
+      setDraft("");
+      setAdding(false);
+    }
+  }
+
+  async function saveEdit(id: string) {
+    const ok = await call(`/api/release-caveats/${id}`, "PUT", {
+      caveat: editText,
+    });
+    if (ok) setEditingId(null);
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Delete this caveat?")) return;
+    await call(`/api/release-caveats/${id}`, "DELETE");
+  }
+
+  if (caveats.length === 0 && !canEdit) return null;
+
+  return (
+    <div className="rounded-md bg-gray-50 px-2.5 py-1.5 ring-1 ring-inset ring-gray-200">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold uppercase tracking-wide text-gray-500">
+          Caveats ({caveats.length})
+        </span>
+        {canEdit && !adding ? (
+          <button
+            type="button"
+            className="text-[11px] font-medium text-blue-700 hover:underline"
+            onClick={() => setAdding(true)}
+          >
+            + Add caveat
+          </button>
+        ) : null}
+      </div>
+
+      {caveats.length === 0 && !adding ? (
+        <p className="mt-0.5 italic text-gray-400">None recorded.</p>
+      ) : null}
+
+      <ul className="mt-1 space-y-1.5">
+        {caveats.map((c) => (
+          <li key={c.caveat_id} className="text-gray-700">
+            {editingId === c.caveat_id ? (
+              <div className="space-y-1">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  disabled={busy}
+                  className="w-full rounded-md border border-gray-300 px-2 py-1 text-[11px]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="pol-btn pol-btn-primary pol-btn-sm"
+                    disabled={busy || editText.trim() === ""}
+                    onClick={() => saveEdit(c.caveat_id)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="pol-btn pol-btn-ghost pol-btn-sm"
+                    disabled={busy}
+                    onClick={() => setEditingId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="whitespace-pre-wrap">{c.caveat}</p>
+                <p className="text-[10px] text-gray-400">
+                  {c.created_by_name || "Unknown"} ·{" "}
+                  {c.created_at.slice(0, 10)}
+                  {c.updated_at.slice(0, 19) !== c.created_at.slice(0, 19)
+                    ? " (edited)"
+                    : ""}
+                  {canEdit ? (
+                    <>
+                      {" · "}
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => {
+                          setEditingId(c.caveat_id);
+                          setEditText(c.caveat);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      {" · "}
+                      <button
+                        type="button"
+                        className="text-rose-700 hover:underline"
+                        onClick={() => remove(c.caveat_id)}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  ) : null}
+                </p>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {adding ? (
+        <div className="mt-1.5 space-y-1">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            disabled={busy}
+            autoFocus
+            placeholder="Limitations, assumptions, or exceptions for this project in this release"
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-[11px]"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="pol-btn pol-btn-primary pol-btn-sm"
+              disabled={busy || draft.trim() === ""}
+              onClick={add}
+            >
+              {busy ? "Saving…" : "Add"}
+            </button>
+            <button
+              type="button"
+              className="pol-btn pol-btn-ghost pol-btn-sm"
+              disabled={busy}
+              onClick={() => {
+                setAdding(false);
+                setDraft("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="mt-1 text-rose-700">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

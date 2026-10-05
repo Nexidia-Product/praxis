@@ -30,6 +30,7 @@ import type {
   ExternalDependency,
   IsoDate,
   Project,
+  ReleaseCaveat,
   Task,
   UseCase,
 } from "@/lib/db";
@@ -70,6 +71,8 @@ export interface ReleaseProjectEntry {
   stageIndex: number;
   stageCount: number;
   milestones: MilestoneEntry[];
+  /** Caveats recorded against this project for this release. */
+  caveats: ReleaseCaveat[];
   blockers: BlockerItem[];
   atRisk: boolean;
   riskReasons: string[];
@@ -98,6 +101,8 @@ export interface ReleaseReportInput {
   /** Every task, used to resolve blocking / predecessor tasks. */
   allTasks: Task[];
   useCases: UseCase[];
+  /** Caveats recorded for this release date (any project). */
+  caveats: ReleaseCaveat[];
   userNamesById: Record<string, string>;
 }
 
@@ -291,6 +296,9 @@ export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
         stageIndex: idx >= 0 ? idx + 1 : 0,
         stageCount: stages.length,
         milestones,
+        caveats: input.caveats.filter(
+          (c) => c.project_id === project.project_id,
+        ),
         blockers,
         atRisk: riskReasons.length > 0,
         riskReasons,

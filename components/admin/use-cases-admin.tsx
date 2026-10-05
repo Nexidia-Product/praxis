@@ -24,7 +24,6 @@ interface Props {
 interface UseCasePayload {
   name: string;
   description: string;
-  caveats: string;
   primary_objective: string;
   secondary_objectives: string[];
   member_project_ids: ProjectId[];
@@ -283,21 +282,6 @@ export function UseCasesAdmin({
                   >
                     {uc.description || "No description."}
                   </p>
-                  {uc.caveats ? (
-                    <div
-                      style={{
-                        fontSize: "var(--fs-sm)",
-                        background: "var(--hover)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--pol-radius)",
-                        padding: "8px 12px",
-                        margin: "0 0 10px",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      <strong>Caveats:</strong> {uc.caveats}
-                    </div>
-                  ) : null}
                   {uc.member_project_ids.length === 0 ? (
                     <div
                       style={{ fontSize: "var(--fs-sm)", color: "var(--tm)" }}
@@ -398,7 +382,6 @@ function UseCaseFormModal({
 }: FormModalProps) {
   const [name, setName] = useState(useCase?.name ?? "");
   const [description, setDescription] = useState(useCase?.description ?? "");
-  const [caveats, setCaveats] = useState(useCase?.caveats ?? "");
   const [primary, setPrimary] = useState<string>(
     useCase?.primary_objective ?? "",
   );
@@ -468,7 +451,6 @@ function UseCaseFormModal({
       await onSubmit({
         name: name.trim(),
         description: description.trim(),
-        caveats: caveats.trim(),
         primary_objective: primary,
         secondary_objectives: secondary,
         member_project_ids: memberIds,
@@ -537,23 +519,6 @@ function UseCaseFormModal({
               disabled={busy}
               rows={4}
               maxLength={4000}
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="uc-caveats" style={LABEL_STYLE}>
-              Caveats
-            </label>
-            <textarea
-              id="uc-caveats"
-              className="pol-input"
-              value={caveats}
-              onChange={(e) => setCaveats(e.target.value)}
-              disabled={busy}
-              rows={3}
-              maxLength={4000}
-              placeholder="Limitations, assumptions, or exceptions that apply to this use case."
               style={{ width: "100%" }}
             />
           </div>

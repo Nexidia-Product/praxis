@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/permissions";
 import {
   ProjectRepository,
+  ReleaseCaveatRepository,
   TaskRepository,
   UseCaseRepository,
   UserRepository,
@@ -83,6 +84,10 @@ export default async function ApplicationReleasePage({
   const userNamesById: Record<string, string> = {};
   for (const u of users) userNamesById[u.user_id] = u.name;
 
+  const caveats = selected
+    ? await ReleaseCaveatRepository.getForRelease(selected)
+    : [];
+
   const report = selected
     ? buildReleaseReport({
         date: selected,
@@ -91,6 +96,7 @@ export default async function ApplicationReleasePage({
         allProjects,
         allTasks,
         useCases,
+        caveats,
         userNamesById,
       })
     : null;
@@ -111,6 +117,7 @@ export default async function ApplicationReleasePage({
         selectedDate={selected}
         today={today}
         report={report}
+        canEditCaveats={permissions["projects.edit"] === true}
       />
     </PolarisShell>
   );

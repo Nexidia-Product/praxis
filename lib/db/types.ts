@@ -44,6 +44,7 @@ export type DecisionEntryId = string;
 export type AuditEntryId = string;
 export type ProjectGroupId = string;
 export type UseCaseId = string;
+export type ReleaseCaveatId = string;
 
 /** ISO 8601 timestamp string (e.g. `2026-04-23T14:30:00Z`). */
 export type IsoTimestamp = string;
@@ -780,8 +781,6 @@ export interface UseCase {
   use_case_id: UseCaseId;
   name: string;
   description: string;
-  /** Free-form notes on limitations, assumptions or exceptions. */
-  caveats: string;
   /**
    * Primary objective, from `OBJECTIVES` (lib/projects/display.ts).
    * Required going forward; nullable for rows migrated without one.
@@ -795,6 +794,28 @@ export interface UseCase {
   /** Projects in this use case, by `YYYY-NNN` ID. Order is preserved. */
   member_project_ids: ProjectId[];
   created_by: UserId | null;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Release caveats
+// ---------------------------------------------------------------------------
+
+/**
+ * A note on one project, recorded against a specific Application Release
+ * (`release_date`, the project's Target Application Deployment Date when
+ * written). Documents limitations, assumptions or exceptions so there is a
+ * record to refer back to. Several per project+release; each carries its
+ * author and timestamps.
+ */
+export interface ReleaseCaveat {
+  caveat_id: ReleaseCaveatId;
+  release_date: IsoDate;
+  project_id: ProjectId;
+  caveat: string;
+  created_by: UserId | null;
+  created_by_name: string;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }

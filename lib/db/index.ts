@@ -46,6 +46,9 @@ export type {
   UpdateProjectGroupInput,
 } from "./project-groups";
 
+export { ReleaseCaveatRepository } from "./release-caveats";
+export type { CreateReleaseCaveatInput } from "./release-caveats";
+
 export { UseCaseRepository } from "./use-cases";
 export type { CreateUseCaseInput, UpdateUseCaseInput } from "./use-cases";
 

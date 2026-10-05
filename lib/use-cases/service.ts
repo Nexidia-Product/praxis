@@ -39,7 +39,6 @@ export class NotFoundError extends Error {
 export interface UseCasePayload {
   name?: unknown;
   description?: unknown;
-  caveats?: unknown;
   primary_objective?: unknown;
   secondary_objectives?: unknown;
   member_project_ids?: unknown;
@@ -62,7 +61,6 @@ export async function createUseCase(
 ): Promise<UseCase> {
   const name = validateName(payload.name);
   const description = validateDescription(payload.description);
-  const caveats = validateCaveats(payload.caveats);
   const primary = validatePrimary(payload.primary_objective, true);
   const secondary = validateSecondary(payload.secondary_objectives, primary);
   const move = payload.move_projects === true;
@@ -71,7 +69,6 @@ export async function createUseCase(
   const created = await UseCaseRepository.create({
     name,
     description,
-    caveats,
     primary_objective: primary,
     secondary_objectives: secondary,
     member_project_ids: members,
@@ -104,9 +101,6 @@ export async function updateUseCase(
   if (payload.name !== undefined) patch.name = validateName(payload.name);
   if (payload.description !== undefined) {
     patch.description = validateDescription(payload.description);
-  }
-  if (payload.caveats !== undefined) {
-    patch.caveats = validateCaveats(payload.caveats);
   }
   // Primary/secondary are validated together against the resulting
   // values, so changing the primary to something already in the stored
@@ -191,20 +185,6 @@ function validateName(raw: unknown): string {
   if (trimmed === "") throw new ValidationError("name is required.");
   if (trimmed.length > MAX_NAME_LEN) {
     throw new ValidationError(`name must be ${MAX_NAME_LEN} characters or fewer.`);
-  }
-  return trimmed;
-}
-
-function validateCaveats(raw: unknown): string {
-  if (raw === undefined || raw === null) return "";
-  if (typeof raw !== "string") {
-    throw new ValidationError("caveats must be a string.");
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length > MAX_DESCRIPTION_LEN) {
-    throw new ValidationError(
-      `caveats must be ${MAX_DESCRIPTION_LEN} characters or fewer.`,
-    );
   }
   return trimmed;
 }
@@ -349,7 +329,6 @@ function summarizeChange(before: UseCase, after: UseCase): string {
     parts.push(`name: "${before.name}" → "${after.name}"`);
   }
   if (before.description !== after.description) parts.push("description updated");
-  if (before.caveats !== after.caveats) parts.push("caveats updated");
   if (before.primary_objective !== after.primary_objective) {
     parts.push(
       `primary objective: ${before.primary_objective ?? "none"} → ${after.primary_objective ?? "none"}`,

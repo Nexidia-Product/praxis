@@ -95,6 +95,20 @@ const report = buildReleaseReport({
       member_project_ids: ["2026-001"],
     } as never,
   ],
+  caveats: [
+    {
+      caveat_id: "c1",
+      release_date: "2026-10-09",
+      project_id: "2026-001",
+      caveat: "Vendor API may slip",
+    } as never,
+    {
+      caveat_id: "c2",
+      release_date: "2026-10-09",
+      project_id: "2026-999",
+      caveat: "Other project",
+    } as never,
+  ],
   userNamesById: { u1: "Pat" },
 });
 
@@ -109,6 +123,10 @@ assert.equal(e.missedDelivery, false);
 assert.ok(e.blockers.some((b) => b.reason.includes("26-0001")));
 assert.ok(e.blockers.some((b) => b.subject === "External dependency"));
 assert.ok(e.stageIndex > 0);
+assert.deepEqual(
+  e.caveats.map((c) => c.caveat_id),
+  ["c1"],
+);
 
 // Release passed + stage not Productization => missed delivery, even if
 // the project status says Completed (status is not the delivery signal).
@@ -120,6 +138,7 @@ const r2 = buildReleaseReport({
   allProjects: [late],
   allTasks: [],
   useCases: [],
+  caveats: [],
   userNamesById: {},
 });
 assert.equal(r2.entries[0].missedDelivery, true);
@@ -135,6 +154,7 @@ const r3 = buildReleaseReport({
   allProjects: [shipped],
   allTasks: [task({ task_id: "26-0009", target_date: "2026-10-20" })],
   useCases: [],
+  caveats: [],
   userNamesById: {},
 });
 assert.equal(r3.entries[0].delivered, true);
