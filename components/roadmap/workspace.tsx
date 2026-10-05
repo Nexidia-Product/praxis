@@ -179,6 +179,10 @@ export function RoadmapWorkspace({
   const canEditStage = permissions
     ? permissions["projects.edit_stage"] === true
     : currentUserRole === "Admin";
+  // Same treatment for organizational Objective changes.
+  const canEditObjectives = permissions
+    ? permissions["projects.edit_objectives"] === true
+    : currentUserRole === "Admin";
 
   // Lead and application/product option lists for the filter bar.
   // Derived from the projects we actually have, deduplicated and sorted.
@@ -558,6 +562,7 @@ export function RoadmapWorkspace({
           allProjects={projects}
           aiEnabled={aiEnabled}
           canEditStage={canEditStage}
+          canEditObjectives={canEditObjectives}
           onClose={() => setEditingProject(null)}
           onSaved={(updated) => {
             setProjects((prev) =>

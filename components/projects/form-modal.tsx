@@ -105,6 +105,13 @@ interface ProjectFormModalProps {
    * it explicitly.
    */
   canEditStage?: boolean;
+  /**
+   * Whether the Primary/Secondary Objective fields are editable — gated
+   * by the narrower `projects.edit_objectives` permission rather than
+   * general project editing. Defaults to true so a caller that hasn't
+   * been threaded through yet doesn't regress.
+   */
+  canEditObjectives?: boolean;
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -418,6 +425,7 @@ export function ProjectFormModal({
   outcomeProducts = [],
   outcomeTypes = [],
   canEditStage = true,
+  canEditObjectives = true,
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
@@ -901,7 +909,7 @@ export function ProjectFormModal({
                     ),
                   }));
                 }}
-                disabled={saving}
+                disabled={saving || !canEditObjectives}
                 className={baseInput}
               >
                 <option value="" disabled>
@@ -913,6 +921,11 @@ export function ProjectFormModal({
                   </option>
                 ))}
               </select>
+              {!canEditObjectives ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  You don't have permission to change objectives.
+                </p>
+              ) : null}
             </Field>
 
             <Field id="proj-secondary-objectives" label="Secondary Objectives">
@@ -948,7 +961,7 @@ export function ProjectFormModal({
                                 ),
                           )
                         }
-                        disabled={saving}
+                        disabled={saving || !canEditObjectives}
                         className="h-3 w-3"
                       />
                       {o}

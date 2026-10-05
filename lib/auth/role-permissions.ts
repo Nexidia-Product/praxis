@@ -44,6 +44,7 @@ export type PermissionKey =
   | "projects.edit"
   | "projects.delete"
   | "projects.edit_stage"
+  | "projects.edit_objectives"
   // Tasks
   | "tasks.view"
   | "tasks.create"
@@ -130,6 +131,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     label: "Change project stage",
     description:
       "Manually change a project's Stage (project form, quick view, or Kanban drag), separate from general project editing. Stages otherwise only advance automatically as a stage's tasks are completed.",
+    category: "Projects",
+  },
+  {
+    key: "projects.edit_objectives",
+    label: "Change project objectives",
+    description:
+      "Change a project's Primary/Secondary organizational Objective in the project form, separate from general project editing.",
     category: "Projects",
   },
 

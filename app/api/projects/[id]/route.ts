@@ -43,6 +43,21 @@ async function isVisible(session: Session, project: Project): Promise<boolean> {
   return allowed === "all" || allowed.includes(project.program);
 }
 
+/**
+ * Order-independent equality check for `secondary_objectives` — used to
+ * tell "the form resent the same set" from "this payload actually
+ * changes it" without caring about array order. A malformed payload
+ * value (not an array) counts as "changing," so it falls through to the
+ * permission check / validator rather than being silently treated as a
+ * no-op.
+ */
+function sameObjectiveSet(payloadValue: unknown, existingValue: string[]): boolean {
+  if (!Array.isArray(payloadValue)) return false;
+  if (payloadValue.length !== existingValue.length) return false;
+  const existingSet = new Set(existingValue);
+  return payloadValue.every((v) => typeof v === "string" && existingSet.has(v));
+}
+
 export const GET = withAuth(async (_request: Request, ctx: RouteContext) => {
   const session = await requireSession();
   const { id } = await ctx.params;
@@ -81,6 +96,17 @@ export const PATCH = withAuth(async (request: Request, ctx: RouteContext) => {
   // permission for every save that touches the form at all).
   if (body.stage !== undefined && body.stage !== existing.stage) {
     await requirePermission("projects.edit_stage");
+  }
+
+  // Same narrower-permission-than-general-editing treatment for the
+  // organizational Objective fields.
+  const objectivesChanging =
+    (body.primary_objective !== undefined &&
+      body.primary_objective !== existing.primary_objective) ||
+    (body.secondary_objectives !== undefined &&
+      !sameObjectiveSet(body.secondary_objectives, existing.secondary_objectives));
+  if (objectivesChanging) {
+    await requirePermission("projects.edit_objectives");
   }
 
   try {
