@@ -425,6 +425,8 @@ function transformProjects(
       // projects default to the first visualization type and get
       // reclassified by hand later.
       visualization_type: "Data Only",
+      primary_objective: "Cost-to-Serve",
+      secondary_objectives: [],
       date_added: dateAdded,
       priority,
       status,

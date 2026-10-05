@@ -52,6 +52,7 @@ import {
   validateDependencies,
 } from "@/lib/projects/dependencies";
 import {
+  OBJECTIVES,
   PROJECT_TYPES,
   VISUALIZATION_TYPES,
   stagesForTrack,
@@ -147,6 +148,8 @@ export interface ProjectCreatePayload {
   track?: unknown;
   project_type?: unknown;
   visualization_type?: unknown;
+  primary_objective?: unknown;
+  secondary_objectives?: unknown;
   priority?: unknown;
   status?: unknown;
   stage?: unknown;
@@ -350,6 +353,36 @@ function asStringArray(value: unknown, field: string): string[] {
 }
 
 /**
+ * Like `asStringArray`, but every entry must be one of `allowed` — used
+ * for `secondary_objectives` (a selectable-only list, not free text).
+ * Duplicates collapse to one entry.
+ */
+function asEnumArray<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  field: string,
+): T[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new ValidationError(`${field} must be an array.`);
+  }
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (let i = 0; i < value.length; i++) {
+    const v = value[i];
+    if (typeof v !== "string" || !(allowed as readonly string[]).includes(v)) {
+      throw new ValidationError(
+        `${field}[${i}] must be one of: ${allowed.join(", ")}.`,
+      );
+    }
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v as T);
+  }
+  return out;
+}
+
+/**
  * Validate the values supplied for admin-defined custom fields against the
  * registered definitions. Unknown keys are dropped silently — a definition
  * could have been removed since the project was last edited, and we don't
@@ -500,6 +533,21 @@ async function validateAndShape(
     VISUALIZATION_TYPES,
     "visualization_type",
   );
+  // Required — every project ties back to one organizational objective.
+  const primary_objective = asEnum(
+    payload.primary_objective,
+    OBJECTIVES,
+    "primary_objective",
+  );
+  // The primary value is dropped from secondary if duplicated there,
+  // rather than rejected — a UI slip shouldn't block the whole save, and
+  // double-counting the same objective in a rollup view is the thing
+  // we're actually guarding against.
+  const secondary_objectives = asEnumArray(
+    payload.secondary_objectives,
+    OBJECTIVES,
+    "secondary_objectives",
+  ).filter((o) => o !== primary_objective);
   const priority = asEnum(payload.priority, PRIORITIES, "priority");
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
   const stage = asEnum(payload.stage, stagesForTrack(track), "stage");
@@ -603,6 +651,8 @@ async function validateAndShape(
     track,
     project_type,
     visualization_type,
+    primary_objective,
+    secondary_objectives,
     priority,
     status,
     stage: effectiveStage,
@@ -994,6 +1044,20 @@ export async function updateProject(
       "visualization_type",
     );
   }
+  if (payload.primary_objective !== undefined) {
+    patch.primary_objective = asEnum(
+      payload.primary_objective,
+      OBJECTIVES,
+      "primary_objective",
+    );
+  }
+  if (payload.secondary_objectives !== undefined) {
+    patch.secondary_objectives = asEnumArray(
+      payload.secondary_objectives,
+      OBJECTIVES,
+      "secondary_objectives",
+    );
+  }
   if (payload.priority !== undefined) {
     patch.priority = asEnum(payload.priority, PRIORITIES, "priority");
   }
@@ -1130,6 +1194,27 @@ export async function updateProject(
     ) {
       patch.roadmap_timeline_start = todayIso();
     }
+  }
+
+  // Required going forward, enforced on write rather than backfilled —
+  // same convention as Task.estimate_hours: a legacy project can stay
+  // null at rest, but the moment someone saves ANY change to it, a
+  // primary objective must be supplied.
+  const finalPrimaryObjective =
+    patch.primary_objective !== undefined
+      ? patch.primary_objective
+      : existing.primary_objective;
+  if (finalPrimaryObjective == null) {
+    throw new ValidationError(
+      "primary_objective is required before this project can be updated.",
+    );
+  }
+  // Drop the primary value out of secondary if duplicated there, same as
+  // on create — avoids double-counting the same objective in a rollup.
+  if (patch.secondary_objectives !== undefined) {
+    patch.secondary_objectives = patch.secondary_objectives.filter(
+      (o) => o !== finalPrimaryObjective,
+    );
   }
 
   // Project-status gate: "Completed" is only valid when every task

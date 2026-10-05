@@ -128,6 +128,27 @@ export const VISUALIZATION_TYPES: VisualizationType[] = [
   "New Cognigy Build",
 ];
 
+// ---------------------------------------------------------------------------
+// Organizational Objective
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixed list of organizational objectives every project ties back to —
+ * one primary, optionally several secondary (`Project.primary_objective`
+ * / `secondary_objectives`). Deliberately NOT admin-extensible like
+ * Track/Program: this is a stable, product-level taxonomy rather than a
+ * per-deployment customization point. If that ever needs to change, the
+ * `mergeEnumOptions` mechanism in `lib/projects/enum-options.ts` is
+ * there to fold this in the same way without disrupting callers.
+ */
+export const OBJECTIVES: string[] = [
+  "Cost-to-Serve",
+  "Revenue",
+  "Compliance",
+  "Customer Experience",
+  "Agent Experience",
+];
+
 /**
  * Application/Product values that ship as built-in defaults. Admin-added
  * extensions in `settings.enum_extensions.application_product` are merged

@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import {
+  OBJECTIVES,
   PRIORITIES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
@@ -130,6 +131,8 @@ interface FormState {
   track: string;
   project_type: ProjectType;
   visualization_type: VisualizationType;
+  primary_objective: string;
+  secondary_objectives: string[];
   priority: Priority;
   status: ProjectStatus;
   stage: string;
@@ -193,6 +196,8 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     track: "Track A - Dashboard/visualization",
     project_type: "New Feature",
     visualization_type: "Data Only",
+    primary_objective: "",
+    secondary_objectives: [],
     priority: "Medium",
     status: "Not Started",
     stage: "Qualification",
@@ -273,6 +278,8 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     track: p.track,
     project_type: p.project_type,
     visualization_type: p.visualization_type,
+    primary_objective: p.primary_objective ?? "",
+    secondary_objectives: [...p.secondary_objectives],
     priority: p.priority,
     status: p.status,
     stage: p.stage,
@@ -316,6 +323,8 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     track: s.track.trim(),
     project_type: s.project_type,
     visualization_type: s.visualization_type,
+    primary_objective: s.primary_objective,
+    secondary_objectives: s.secondary_objectives,
     priority: s.priority,
     status: s.status,
     stage: s.stage,
@@ -869,6 +878,89 @@ export function ProjectFormModal({
               </select>
             </Field>
 
+            <Field
+              id="proj-primary-objective"
+              label="Primary Objective"
+              required
+            >
+              <select
+                id="proj-primary-objective"
+                required
+                value={state.primary_objective}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setState((prev) => ({
+                    ...prev,
+                    primary_objective: next,
+                    // Keep primary and secondary from overlapping —
+                    // mirrors how changing track clears an
+                    // incompatible stage.
+                    secondary_objectives: prev.secondary_objectives.filter(
+                      (o) => o !== next,
+                    ),
+                  }));
+                }}
+                disabled={saving}
+                className={baseInput}
+              >
+                <option value="" disabled>
+                  — Select an objective —
+                </option>
+                {OBJECTIVES.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field id="proj-secondary-objectives" label="Secondary Objectives">
+              <div
+                id="proj-secondary-objectives"
+                role="group"
+                aria-label="Secondary Objectives"
+                className="flex flex-wrap gap-2 rounded-md border border-gray-300 bg-white p-2"
+              >
+                {OBJECTIVES.filter((o) => o !== state.primary_objective).map(
+                  (o) => {
+                    const checked = state.secondary_objectives.includes(o);
+                    return (
+                      <label
+                        key={o}
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                          checked
+                            ? "border-[var(--brand)] bg-blue-50 text-blue-900"
+                            : "border-gray-300 bg-white text-gray-800"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            update(
+                              "secondary_objectives",
+                              e.target.checked
+                                ? [...state.secondary_objectives, o]
+                                : state.secondary_objectives.filter(
+                                    (x) => x !== o,
+                                  ),
+                            )
+                          }
+                          disabled={saving}
+                          className="h-3 w-3"
+                        />
+                        {o}
+                      </label>
+                    );
+                  },
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Any other objectives this project also serves, besides its
+                primary one.
+              </p>
+            </Field>
+
             <Field id="proj-priority" label="Priority" required>
               <select
                 id="proj-priority"
@@ -1244,7 +1336,12 @@ export function ProjectFormModal({
           </button>
           <button
             type="submit"
-            disabled={saving || !state.name || !state.application_product}
+            disabled={
+              saving ||
+              !state.name ||
+              !state.application_product ||
+              !state.primary_objective
+            }
             className="pol-btn pol-btn-primary"
           >
             {saving ? "Saving…" : isEdit ? "Save changes" : "Create project"}

@@ -83,6 +83,8 @@ async function main() {
       track: "Track A - Dashboard/visualization",
       project_type: "New Feature",
       visualization_type: "Data Only",
+      primary_objective: "Cost-to-Serve",
+      secondary_objectives: [],
       date_added: "2026-01-15",
       priority: "Medium",
       status: "In Progress",

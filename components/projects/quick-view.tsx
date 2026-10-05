@@ -473,6 +473,18 @@ export function ProjectQuickView({
                     {project.visualization_type || "—"}
                   </span>
                 </Field>
+                <Field label="Primary Objective">
+                  <span className="text-sm text-gray-900">
+                    {project.primary_objective || "—"}
+                  </span>
+                </Field>
+                {project.secondary_objectives.length > 0 ? (
+                  <Field label="Secondary Objectives">
+                    <span className="text-sm text-gray-900">
+                      {project.secondary_objectives.join(", ")}
+                    </span>
+                  </Field>
+                ) : null}
                 <Field label="Health">
                   {project.health_score ? (
                     <span
