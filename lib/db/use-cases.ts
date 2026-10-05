@@ -59,6 +59,7 @@ export const UseCaseRepository = {
       .insert({
         name: input.name,
         description: input.description,
+        caveats: input.caveats,
         primary_objective: input.primary_objective,
         secondary_objectives: input.secondary_objectives,
         member_project_ids: input.member_project_ids,
