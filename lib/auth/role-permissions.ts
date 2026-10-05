@@ -43,6 +43,7 @@ export type PermissionKey =
   | "projects.create"
   | "projects.edit"
   | "projects.delete"
+  | "projects.edit_stage"
   // Tasks
   | "tasks.view"
   | "tasks.create"
@@ -122,6 +123,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     key: "projects.delete",
     label: "Delete projects",
     description: "Permanently remove projects. (Cancellation is a status, not a delete.)",
+    category: "Projects",
+  },
+  {
+    key: "projects.edit_stage",
+    label: "Change project stage",
+    description:
+      "Manually change a project's Stage (project form, quick view, or Kanban drag), separate from general project editing. Stages otherwise only advance automatically as a stage's tasks are completed.",
     category: "Projects",
   },
 

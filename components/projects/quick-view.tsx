@@ -69,6 +69,13 @@ interface ProjectQuickViewProps {
   customFields: CustomFieldDefinition[];
   canEdit: boolean;
   /**
+   * Whether the inline Stage select is editable — gated by the narrower
+   * `projects.edit_stage` permission rather than general project
+   * editing. Defaults to `canEdit`'s value when omitted so existing
+   * callers that haven't been threaded through yet don't regress.
+   */
+  canEditStage?: boolean;
+  /**
    * Step 6: full project list. Required for the Dependencies tab and the
    * upstream-status warning banner. Pass the same list the table is
    * rendering so chips show the most up-to-date upstream status.
@@ -168,6 +175,7 @@ export function ProjectQuickView({
   project,
   customFields,
   canEdit,
+  canEditStage = canEdit,
   allProjects,
   statusOptions,
   priorityOptions,
@@ -400,7 +408,7 @@ export function ProjectQuickView({
                   )}
                 </Field>
                 <Field label="Stage">
-                  {canEdit ? (
+                  {canEdit && canEditStage ? (
                     <select
                       value={project.stage}
                       onChange={(e) => onStageChange(e.target.value)}

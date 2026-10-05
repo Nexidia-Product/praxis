@@ -342,6 +342,13 @@ export function ProjectsTable({
   const canDelete = permissions
     ? permissions["projects.delete"] === true
     : currentUserRole === "Admin";
+  // Narrower than canEdit — stage changes are an admin-opted-in grant
+  // for Project Lead/Team Member, not bundled into general project
+  // editing. No historical role behavior to fall back to, so the
+  // fallback is Admin-only.
+  const canEditStage = permissions
+    ? permissions["projects.edit_stage"] === true
+    : currentUserRole === "Admin";
 
   // ---- Derived option lists for the filter bar / form datalists. ----
   // leadOptions is the project-derived list — used by the filter bar
@@ -1304,6 +1311,7 @@ export function ProjectsTable({
           project={quickViewProject}
           customFields={customFields}
           canEdit={canEdit}
+          canEditStage={canEditStage}
           allProjects={projects}
           statusOptions={enumOptions?.status}
           priorityOptions={enumOptions?.priority}
@@ -1383,6 +1391,7 @@ export function ProjectsTable({
           aiEnabled={aiEnabled}
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
+          canEditStage={canEditStage}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdated(p);

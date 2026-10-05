@@ -45,7 +45,8 @@ import {
 import { invalidateVelocityCache } from "@/lib/velocity/cache";
 import { audit, summarizeChanges } from "@/lib/audit/service";
 import { ForbiddenError } from "@/lib/auth/permissions";
-import { stagesForTrack } from "@/lib/projects/display";
+import { stagesForTrack, stageTransitionSetsStartDate } from "@/lib/projects/display";
+import { todayIso } from "@/lib/db/store";
 import { scheduleTaskDates } from "@/lib/tasks/schedule";
 import { sanitizeKeyFindingHtml } from "./key-findings";
 import { randomUUID } from "node:crypto";
@@ -1101,6 +1102,26 @@ export async function updateTask(
     });
   }
 
+  // Stage auto-advance: a Canceled task "clears" a stage the same way a
+  // Complete one does (it's no longer pending work), even though it
+  // doesn't participate in the unblock/FS-release cascades above (those
+  // are specifically about work finishing successfully). Transition-only,
+  // same idiom as `completedNow`.
+  const isTerminalTaskStatus = (s: TaskStatus) =>
+    s === "Complete" || s === "Canceled";
+  const stageTaskTerminalNow =
+    patch.status !== undefined &&
+    isTerminalTaskStatus(patch.status) &&
+    !isTerminalTaskStatus(existing.status);
+  if (stageTaskTerminalNow) {
+    await advanceStageIfComplete(updated.project_id, ctx).catch((err) => {
+      console.warn(
+        `[tasks] stage auto-advance check failed for project ${updated.project_id}:`,
+        err,
+      );
+    });
+  }
+
   // Estimate, dependency, or due-date changes shift the derived schedule —
   // recompute due dates across the project's dependency graph
   // (lib/tasks/schedule.ts). A direct edit to a root task's own due date
@@ -1397,6 +1418,81 @@ async function syncProjectDateFromTask(
   due: string,
 ): Promise<void> {
   await ProjectRepository.update(projectId, { [field]: due });
+}
+
+/**
+ * When every task in a project's CURRENT stage has reached a terminal
+ * status (Complete or Canceled), advance the project to the next stage
+ * in its track's list (`stagesForTrack`). A stage with no tasks never
+ * auto-advances — there's no completion event to react to, and a human
+ * with `projects.edit_stage` can still move it by hand. Only ever
+ * advances one stage per call; a project already at the last stage
+ * (`Productization`), or whose status is already closed
+ * (Completed/Canceled), is left alone.
+ *
+ * Writes via `ProjectRepository` directly rather than `updateProject`
+ * (`lib/projects/service.ts`) — that module already imports
+ * `rescheduleProjectTasks` from this one, so calling back into it here
+ * would create a circular import. Same reasoning, and the same
+ * direct-repository-plus-explicit-audit shape, as the existing
+ * `unblockDependentTasks`/`releaseFsDependentTasks` cascades above.
+ */
+async function advanceStageIfComplete(
+  projectId: ProjectId,
+  ctx: { userId: UserId; userName?: string | null },
+): Promise<void> {
+  const project = await ProjectRepository.getById(projectId);
+  if (!project) return;
+  if (project.status === "Completed" || project.status === "Canceled") return;
+
+  const tasks = await TaskRepository.getByProjectId(projectId);
+  const stageTasks = tasks.filter((t) => t.stage === project.stage);
+  if (stageTasks.length === 0) return;
+  const isTerminal = (s: TaskStatus) => s === "Complete" || s === "Canceled";
+  if (!stageTasks.every((t) => isTerminal(t.status))) return;
+
+  const order = stagesForTrack(project.track);
+  const currentIndex = order.indexOf(project.stage);
+  // A stage value that's no longer in this track's current list (e.g. a
+  // retired phase preserved from before a stage renumbering) has no
+  // well-defined "next" — don't guess by treating indexOf's -1 as index 0.
+  if (currentIndex === -1) return;
+  const next = order[currentIndex + 1];
+  if (!next) return; // already at the last stage
+
+  const patch: { stage: string; roadmap_timeline_start?: string } = {
+    stage: next,
+  };
+  const setsStartDate =
+    stageTransitionSetsStartDate(project.stage, next) &&
+    project.roadmap_timeline_start === null;
+  if (setsStartDate) {
+    patch.roadmap_timeline_start = todayIso();
+  }
+
+  await ProjectRepository.update(projectId, patch);
+  await audit({
+    actorId: ctx.userId,
+    actorName: ctx.userName,
+    entityType: "Project",
+    entityId: projectId,
+    entityLabel: project.name,
+    action: "update",
+    summary: setsStartDate
+      ? `Stage auto-advanced: ${project.stage} → ${next} (all stage tasks complete). Start date set to ${patch.roadmap_timeline_start}.`
+      : `Stage auto-advanced: ${project.stage} → ${next} (all stage tasks complete).`,
+  });
+
+  if (setsStartDate) {
+    await rescheduleProjectTasks(projectId, { respectCurrentRootDates: false }).catch(
+      (err) => {
+        console.warn(
+          `[tasks] reschedule after stage-advance start-date set failed for ${projectId}:`,
+          err,
+        );
+      },
+    );
+  }
 }
 
 /**

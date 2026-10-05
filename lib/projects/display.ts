@@ -255,6 +255,29 @@ export function stagesForTrack(track: string): string[] {
   ];
 }
 
+/**
+ * Whether a stage transition should auto-populate the project's Start
+ * date (`roadmap_timeline_start`) with today's date — true for
+ * Prioritization → Kickoff specifically (today only reachable on Track
+ * A, since no other track has "Kickoff" in its stage list, but this is
+ * deliberately keyed on the stage names rather than the track so a
+ * future track reusing them gets the same behavior for free).
+ *
+ * Pure and dependency-free on purpose: both `lib/projects/service.ts`
+ * (a human manually changing stage) and `lib/tasks/service.ts` (the
+ * task-completion auto-advance) need this same decision, and those two
+ * modules already have a one-way import relationship
+ * (`projects/service.ts` imports `rescheduleProjectTasks` from
+ * `tasks/service.ts`) — putting the rule here, rather than in either
+ * service module, avoids turning that into a circular import.
+ */
+export function stageTransitionSetsStartDate(
+  fromStage: string,
+  toStage: string,
+): boolean {
+  return fromStage === STAGE_SECOND && toStage === "Kickoff";
+}
+
 // ---------------------------------------------------------------------------
 // Health score (Section 5.13). Step 8 will populate values; today they
 // render as "—" when null. Badge styling is defined here so Step 8 just
