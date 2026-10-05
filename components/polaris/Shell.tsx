@@ -126,6 +126,13 @@ const NAV_SECTIONS: NavSection[] = [
         permission: "projects.view",
       },
       {
+        key: "application-release",
+        label: "Application release",
+        href: "/insights/application-release",
+        icon: "⚑",
+        permission: "projects.view",
+      },
+      {
         key: "key-findings",
         label: "Key findings",
         href: "/insights/key-findings",
@@ -137,13 +144,6 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Key capabilities",
         href: "/dashboard/key-capabilities",
         icon: "◆",
-        permission: "projects.view",
-      },
-      {
-        key: "application-release",
-        label: "Application release",
-        href: "/insights/application-release",
-        icon: "⚑",
         permission: "projects.view",
       },
       {
