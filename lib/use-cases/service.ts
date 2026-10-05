@@ -76,6 +76,7 @@ export async function createUseCase(
   });
 
   if (move) await detachFromOthers(members, created, actor);
+  await syncMemberObjectives(created, actor);
 
   await audit({
     actorId: actor.userId,
@@ -138,6 +139,8 @@ export async function updateUseCase(
   if (payload.move_projects === true && patch.member_project_ids) {
     await detachFromOthers(after.member_project_ids, after, actor);
   }
+  // Objectives (or membership) may have changed: bring every member in line.
+  await syncMemberObjectives(after, actor);
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -290,6 +293,45 @@ async function validateMembers(
     );
   }
   return ids;
+}
+
+/**
+ * Projects inherit their objectives from their use case: copy the use
+ * case's primary/secondary objectives onto every member whose stored
+ * values differ. Removing a project from a use case leaves its last
+ * objectives in place (nothing reverts), and `lib/projects/service.ts`
+ * blocks edits that diverge while it is a member.
+ */
+export async function syncMemberObjectives(
+  useCase: UseCase,
+  actor: ActorCtx,
+): Promise<void> {
+  if (!useCase.primary_objective) return;
+  const primary = useCase.primary_objective;
+  const secondary = useCase.secondary_objectives;
+
+  for (const pid of useCase.member_project_ids) {
+    const project = await ProjectRepository.getById(pid);
+    if (!project) continue;
+    const sameSecondary =
+      project.secondary_objectives.length === secondary.length &&
+      secondary.every((o) => project.secondary_objectives.includes(o));
+    if (project.primary_objective === primary && sameSecondary) continue;
+
+    await ProjectRepository.update(pid, {
+      primary_objective: primary,
+      secondary_objectives: [...secondary],
+    });
+    await audit({
+      actorId: actor.userId,
+      actorName: actor.userName,
+      entityType: "Project",
+      entityId: pid,
+      entityLabel: project.name,
+      action: "update",
+      summary: `Objectives inherited from use case "${useCase.name}": primary ${project.primary_objective ?? "none"} → ${primary}; secondary [${project.secondary_objectives.join(", ")}] → [${secondary.join(", ")}]`,
+    });
+  }
 }
 
 /**
