@@ -27,6 +27,8 @@ interface UseCasePayload {
   primary_objective: string;
   secondary_objectives: string[];
   member_project_ids: ProjectId[];
+  /** Move selected projects out of any other use case they are in. */
+  move_projects: boolean;
 }
 
 const LABEL_STYLE = {
@@ -73,10 +75,28 @@ export function UseCasesAdmin({
     return data.useCase;
   }
 
+  // After a move, drop the moved projects from every other use case in
+  // local state so the list matches what the server now holds.
+  function stripMoved(list: UseCase[], dest: UseCase): UseCase[] {
+    const moved = new Set(dest.member_project_ids);
+    return list.map((u) =>
+      u.use_case_id === dest.use_case_id
+        ? u
+        : {
+            ...u,
+            member_project_ids: u.member_project_ids.filter(
+              (pid) => !moved.has(pid),
+            ),
+          },
+    );
+  }
+
   async function handleCreate(payload: UseCasePayload) {
     const created = await save("/api/use-cases", "POST", payload);
     setUseCases((prev) =>
-      [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
+      stripMoved(prev, created).concat(created).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
     );
     setCreating(false);
   }
@@ -84,7 +104,7 @@ export function UseCasesAdmin({
   async function handleUpdate(id: string, payload: UseCasePayload) {
     const updated = await save(`/api/use-cases/${id}`, "PUT", payload);
     setUseCases((prev) =>
-      prev
+      stripMoved(prev, updated)
         .map((u) => (u.use_case_id === id ? updated : u))
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
@@ -389,6 +409,9 @@ function UseCaseFormModal({
     return m;
   }, [useCases, useCase]);
 
+  // Selected projects currently held by another use case; saving moves them.
+  const movingIds = memberIds.filter((id) => assignedElsewhere.has(id));
+
   const candidates = useMemo(() => {
     const q = query.trim().toLowerCase();
     const sorted = projects
@@ -431,6 +454,7 @@ function UseCaseFormModal({
         primary_objective: primary,
         secondary_objectives: secondary,
         member_project_ids: memberIds,
+        move_projects: movingIds.length > 0,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed.");
@@ -568,7 +592,7 @@ function UseCaseFormModal({
                 checked={showAssigned}
                 onChange={(e) => setShowAssigned(e.target.checked)}
               />
-              Also show projects already in another use case (not selectable)
+              Also show projects already in another use case (select to move)
             </label>
             <input
               type="text"
@@ -617,8 +641,8 @@ function UseCaseFormModal({
                         alignItems: "center",
                         padding: "6px 12px",
                         borderBottom: "1px solid var(--border)",
-                        cursor: owner ? "not-allowed" : "pointer",
-                        opacity: owner ? 0.55 : 1,
+                        cursor: "pointer",
+                        opacity: owner && !checked ? 0.7 : 1,
                         fontSize: "var(--fs-sm)",
                         background: checked ? "var(--hover)" : "transparent",
                       }}
@@ -627,7 +651,7 @@ function UseCaseFormModal({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleMember(p.project_id)}
-                        disabled={busy || Boolean(owner)}
+                        disabled={busy}
                         aria-label={`Toggle ${p.project_id} ${p.name}`}
                       />
                       <span
@@ -655,7 +679,11 @@ function UseCaseFormModal({
                           textAlign: "right",
                         }}
                       >
-                        {owner ? `In: ${owner}` : (p.primary_objective ?? "No objective")}
+                        {owner
+                          ? checked
+                            ? `Moving from: ${owner}`
+                            : `In: ${owner}`
+                          : (p.primary_objective ?? "No objective")}
                       </span>
                     </label>
                   );
@@ -663,6 +691,23 @@ function UseCaseFormModal({
               )}
             </div>
           </div>
+
+          {movingIds.length > 0 ? (
+            <div
+              style={{
+                fontSize: "var(--fs-sm)",
+                background: "var(--hover)",
+                border: "1px solid var(--border)",
+                padding: "8px 12px",
+                borderRadius: "var(--pol-radius)",
+              }}
+            >
+              Saving will move {movingIds.length} project
+              {movingIds.length === 1 ? "" : "s"} out of{" "}
+              {movingIds.length === 1 ? "its" : "their"} current use case
+              {movingIds.length === 1 ? "" : "s"}: {movingIds.join(", ")}.
+            </div>
+          ) : null}
 
           {error ? (
             <div

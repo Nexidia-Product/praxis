@@ -42,6 +42,12 @@ export interface UseCasePayload {
   primary_objective?: unknown;
   secondary_objectives?: unknown;
   member_project_ids?: unknown;
+  /**
+   * When true, projects in `member_project_ids` that currently belong to
+   * a different use case are moved here (removed from the old one)
+   * instead of being rejected. Used to correct a wrong assignment.
+   */
+  move_projects?: unknown;
 }
 
 interface ActorCtx {
@@ -57,7 +63,8 @@ export async function createUseCase(
   const description = validateDescription(payload.description);
   const primary = validatePrimary(payload.primary_objective, true);
   const secondary = validateSecondary(payload.secondary_objectives, primary);
-  const members = await validateMembers(payload.member_project_ids, null);
+  const move = payload.move_projects === true;
+  const members = await validateMembers(payload.member_project_ids, null, move);
 
   const created = await UseCaseRepository.create({
     name,
@@ -67,6 +74,8 @@ export async function createUseCase(
     member_project_ids: members,
     created_by: actor.userId,
   });
+
+  if (move) await detachFromOthers(members, created, actor);
 
   await audit({
     actorId: actor.userId,
@@ -117,11 +126,18 @@ export async function updateUseCase(
     patch.member_project_ids = await validateMembers(
       payload.member_project_ids,
       id,
+      payload.move_projects === true,
     );
   }
   if (Object.keys(patch).length === 0) return before;
 
   const after = await UseCaseRepository.update(id, patch);
+  // Write the destination first, then strip the old owners: a failure in
+  // between leaves a project temporarily in two use cases (fixed by
+  // retrying the save) rather than in none.
+  if (payload.move_projects === true && patch.member_project_ids) {
+    await detachFromOthers(after.member_project_ids, after, actor);
+  }
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -230,6 +246,7 @@ function validateSecondary(raw: unknown, primary: string | null): string[] {
 async function validateMembers(
   raw: unknown,
   selfId: UseCaseId | null,
+  allowMove = false,
 ): Promise<ProjectId[]> {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) {
@@ -265,7 +282,7 @@ async function validateMembers(
     for (const pid of uc.member_project_ids) owners.set(pid, uc.name);
   }
   const taken = ids.filter((id) => owners.has(id));
-  if (taken.length > 0) {
+  if (taken.length > 0 && !allowMove) {
     throw new ValidationError(
       `A project can belong to only one use case. Already assigned: ${taken
         .map((id) => `${id} (${owners.get(id)})`)
@@ -273,6 +290,37 @@ async function validateMembers(
     );
   }
   return ids;
+}
+
+/**
+ * Remove `ids` from every use case other than `dest`, auditing each
+ * source use case that lost projects.
+ */
+async function detachFromOthers(
+  ids: ProjectId[],
+  dest: UseCase,
+  actor: ActorCtx,
+): Promise<void> {
+  const moving = new Set(ids);
+  for (const uc of await UseCaseRepository.getAll()) {
+    if (uc.use_case_id === dest.use_case_id) continue;
+    const lost = uc.member_project_ids.filter((pid) => moving.has(pid));
+    if (lost.length === 0) continue;
+    await UseCaseRepository.update(uc.use_case_id, {
+      member_project_ids: uc.member_project_ids.filter(
+        (pid) => !moving.has(pid),
+      ),
+    });
+    await audit({
+      actorId: actor.userId,
+      actorName: actor.userName,
+      entityType: "Settings",
+      entityId: uc.use_case_id,
+      entityLabel: `Use case: ${uc.name}`,
+      action: "update",
+      summary: `projects moved to "${dest.name}": ${lost.join(", ")}`,
+    });
+  }
 }
 
 function summarizeChange(before: UseCase, after: UseCase): string {
