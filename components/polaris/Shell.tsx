@@ -50,6 +50,7 @@ export type NavKey =
   | "admin-resources"
   | "admin-configuration"
   | "admin-templates"
+  | "admin-use-cases"
   | "admin-notifications"
   | "admin-audit-log"
   | "profile-notifications";
@@ -178,6 +179,13 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/admin/templates",
         icon: "❐",
         permission: "admin.templates.manage",
+      },
+      {
+        key: "admin-use-cases",
+        label: "Use cases",
+        href: "/admin/use-cases",
+        icon: "◈",
+        permission: "usecases.manage",
       },
       {
         key: "admin-notifications",

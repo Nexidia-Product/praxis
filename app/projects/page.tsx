@@ -25,6 +25,7 @@ import {
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
+  UseCaseRepository,
   UserRepository,
 } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
@@ -37,11 +38,12 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings, templates, groups, users] = await Promise.all([
+  const [allProjects, settings, templates, groups, useCases, users] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     ProjectGroupRepository.getAll(),
+    UseCaseRepository.getAll(),
     UserRepository.getAll(),
   ]);
 
@@ -115,6 +117,7 @@ export default async function ProjectsPage() {
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         groups={groups}
+        useCases={useCases}
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}
         outcomeProducts={settings.outcome_products}

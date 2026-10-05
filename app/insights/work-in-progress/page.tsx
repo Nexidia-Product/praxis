@@ -29,6 +29,7 @@ import {
   SettingsRepository,
   TaskRepository,
   TemplateRepository,
+  UseCaseRepository,
   UserRepository,
 } from "@/lib/db";
 import { mergeEnumOptions } from "@/lib/projects/enum-options";
@@ -47,13 +48,14 @@ export default async function WorkInProgressPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [allProjects, allTasks, settings, templates, groups, users] =
+  const [allProjects, allTasks, settings, templates, groups, useCases, users] =
     await Promise.all([
       ProjectRepository.getAll(),
       TaskRepository.getAll(),
       SettingsRepository.get(),
       TemplateRepository.getAll(),
       ProjectGroupRepository.getAll(),
+      UseCaseRepository.getAll(),
       UserRepository.getAll(),
     ]);
 
@@ -123,6 +125,7 @@ export default async function WorkInProgressPage() {
         enumOptions={enumOptions}
         templates={templates}
         groups={groups}
+        useCases={useCases}
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}

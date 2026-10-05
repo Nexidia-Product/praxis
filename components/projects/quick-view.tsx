@@ -51,6 +51,7 @@ import type {
   Priority,
   Project,
   ProjectGroup,
+  UseCase,
   ProjectId,
   ProjectStatus,
   StatusHistoryEntry,
@@ -96,6 +97,11 @@ interface ProjectQuickViewProps {
    * but with an empty state.
    */
   groupsForProject?: ProjectGroup[];
+  /**
+   * Use cases this project belongs to. Read-only here; use cases are
+   * managed on Admin -> Use cases.
+   */
+  useCasesForProject?: UseCase[];
   /**
    * `{user_id, name}` pairs for every active user, threaded into the
    * Status tab's summary field so its `@`-mention picker can insert a
@@ -180,6 +186,7 @@ export function ProjectQuickView({
   statusOptions,
   priorityOptions,
   groupsForProject = [],
+  useCasesForProject = [],
   mentionableUsers = [],
   initialTab,
   aiEnabled = false,
@@ -485,6 +492,13 @@ export function ProjectQuickView({
                     </span>
                   </Field>
                 ) : null}
+                <Field label="Use Case">
+                  <span className="text-sm text-gray-900">
+                    {useCasesForProject.length > 0
+                      ? useCasesForProject.map((u) => u.name).join(", ")
+                      : "—"}
+                  </span>
+                </Field>
                 <Field label="Health">
                   {project.health_score ? (
                     <span

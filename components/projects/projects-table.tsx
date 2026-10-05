@@ -51,6 +51,7 @@ import type {
   Priority,
   Project,
   ProjectGroup,
+  UseCase,
   ProjectStatus,
   TaskTemplate,
   UserRole,
@@ -244,6 +245,8 @@ interface ProjectsTableProps {
    * means "no indicator, no panel."
    */
   groups?: ProjectGroup[];
+  /** Every use case; indexed per project for the quick view's read-only Use Case field. */
+  useCases?: UseCase[];
   /**
    * Names of every active user in the system. Threaded into the
    * project form modal's Project lead dropdown so a brand-new
@@ -274,6 +277,7 @@ export function ProjectsTable({
   quadrantLabels,
   aiEnabled,
   groups = [],
+  useCases = [],
   activeUserNames = [],
   mentionableUsers = [],
   outcomeProducts = [],
@@ -293,6 +297,17 @@ export function ProjectsTable({
     }
     return m;
   }, [groups]);
+  const useCasesByProject = useMemo(() => {
+    const m = new Map<string, UseCase[]>();
+    for (const u of useCases) {
+      for (const pid of u.member_project_ids) {
+        const list = m.get(pid) ?? [];
+        list.push(u);
+        m.set(pid, list);
+      }
+    }
+    return m;
+  }, [useCases]);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [filters, setFilters] = useState<ProjectFilters>(EMPTY_FILTERS);
   const [statusGroup, setStatusGroup] = useState<StatusGroup>("open");
@@ -1322,6 +1337,9 @@ export function ProjectsTable({
           priorityOptions={enumOptions?.priority}
           groupsForProject={
             groupsByProject.get(quickViewProject.project_id) ?? []
+          }
+          useCasesForProject={
+            useCasesByProject.get(quickViewProject.project_id) ?? []
           }
           mentionableUsers={mentionableUsers}
           initialTab={quickViewInitialTab}

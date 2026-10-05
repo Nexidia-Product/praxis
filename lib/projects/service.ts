@@ -1654,6 +1654,20 @@ export async function deleteProject(
     );
   }
 
+  // Use cases store membership the same way (text[] on the use case
+  // row), so prune the deleted project from them too. Best-effort.
+  try {
+    const { pruneProjectFromUseCases } = await import(
+      "@/lib/use-cases/service"
+    );
+    await pruneProjectFromUseCases(id);
+  } catch (err) {
+    console.warn(
+      `[use-cases] pruneProjectFromUseCases failed for ${id}:`,
+      err,
+    );
+  }
+
   for (const downId of formerDownstreams) {
     try {
       await fireProjectHealthRecalc(downId);

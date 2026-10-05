@@ -79,7 +79,8 @@ export type PermissionKey =
   | "admin.portfolio_quadrants.manage"
   | "admin.ai.manage"
   | "admin.notifications.run_sweep"
-  | "admin.audit_log.view";
+  | "admin.audit_log.view"
+  | "usecases.manage";
 
 // ---------------------------------------------------------------------------
 // Catalog entries — the read-only metadata for each permission
@@ -315,6 +316,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     label: "View audit log",
     description:
       "Open the Admin → Audit Log page that shows recent create/update/delete activity across projects, tasks, ideas, decisions, and user management.",
+    category: "Administration",
+  },
+  {
+    key: "usecases.manage",
+    label: "Manage use cases",
+    description:
+      "Create, edit, and delete top-level use cases, including their objectives and associated projects. Admin-only by default.",
     category: "Administration",
   },
 ] as const;
