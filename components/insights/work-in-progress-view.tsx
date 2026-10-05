@@ -185,6 +185,11 @@ export function WorkInProgressView({
     permissions["projects.edit_stage"] === true ||
     (permissions["projects.edit_stage"] === undefined &&
       currentUserRole === "Admin");
+  // Same treatment for organizational Objective changes.
+  const canEditProjectObjectives =
+    permissions["projects.edit_objectives"] === true ||
+    (permissions["projects.edit_objectives"] === undefined &&
+      currentUserRole === "Admin");
   const canEditTask =
     permissions["tasks.edit"] === true ||
     (permissions["tasks.edit"] === undefined &&
@@ -795,6 +800,7 @@ export function WorkInProgressView({
           allProjects={projects}
           aiEnabled={aiEnabled}
           canEditStage={canEditProjectStage}
+          canEditObjectives={canEditProjectObjectives}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdatedProject(p);

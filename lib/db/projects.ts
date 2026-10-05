@@ -84,6 +84,8 @@ export const ProjectRepository = {
         track: input.track ?? "Track A - Dashboard/visualization",
         project_type: input.project_type,
         visualization_type: input.visualization_type,
+        primary_objective: input.primary_objective,
+        secondary_objectives: input.secondary_objectives,
         priority: input.priority,
         status: input.status,
         stage: input.stage,

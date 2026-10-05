@@ -349,6 +349,11 @@ export function ProjectsTable({
   const canEditStage = permissions
     ? permissions["projects.edit_stage"] === true
     : currentUserRole === "Admin";
+  // Same treatment for organizational Objective changes — admin-only by
+  // default, no historical role behavior to fall back to.
+  const canEditObjectives = permissions
+    ? permissions["projects.edit_objectives"] === true
+    : currentUserRole === "Admin";
 
   // ---- Derived option lists for the filter bar / form datalists. ----
   // leadOptions is the project-derived list — used by the filter bar
@@ -1392,6 +1397,7 @@ export function ProjectsTable({
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
           canEditStage={canEditStage}
+          canEditObjectives={canEditObjectives}
           onClose={() => setModalProject(null)}
           onSaved={(p) => {
             applyUpdated(p);

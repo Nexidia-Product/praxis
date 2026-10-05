@@ -73,6 +73,8 @@ async function main() {
     application_product: "Insights",
     project_type: "New Capability" as const,
     visualization_type: "Data Only" as const,
+    primary_objective: "Cost-to-Serve" as const,
+    secondary_objectives: [],
     priority: "High" as const,
     status: "Not Started" as const,
     stage: "Qualification" as const,

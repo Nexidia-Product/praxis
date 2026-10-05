@@ -393,6 +393,27 @@ export interface Project {
   project_type: ProjectType;
   /** What kind of visualization deliverable this project involves. Required. */
   visualization_type: VisualizationType;
+  /**
+   * Which of the five organizational objectives (`OBJECTIVES` in
+   * `lib/projects/display.ts`) this project primarily serves. Required
+   * going forward (`lib/projects/service.ts` rejects a create, or an
+   * update that would leave it unset) but the type stays nullable: no
+   * migration backfilled existing rows, so a legacy project can still be
+   * `null` at rest until the next time someone edits it — same
+   * convention as `Task.estimate_hours`.
+   *
+   * Unlike Track/Program, this is a fixed, non-admin-extensible list —
+   * the five objectives are a stable taxonomy, not a per-deployment
+   * customization point.
+   */
+  primary_objective: string | null;
+  /**
+   * Additional objectives this project also serves, beyond the primary
+   * one. Optional; the service layer drops the primary value from this
+   * list if it's ever duplicated here, so a project's impact isn't
+   * double-counted against the same objective in a rollup view.
+   */
+  secondary_objectives: string[];
   date_added: IsoDate;
   priority: Priority;
   status: ProjectStatus;
