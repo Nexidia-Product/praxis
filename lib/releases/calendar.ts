@@ -55,13 +55,19 @@ export function buildReleaseDates(
   projectDates: IsoDate[],
   today: IsoDate,
 ): ReleaseDateOption[] {
+  // Releases before the anchor were all off-cycle, so they are not part
+  // of the release calendar at all: dropped from the list, and any
+  // project dated before the anchor is ignored here.
   const counts = new Map<IsoDate, number>();
-  for (const d of projectDates) counts.set(d, (counts.get(d) ?? 0) + 1);
+  for (const d of projectDates) {
+    if (d < RELEASE_ANCHOR_DATE) continue;
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
 
   let start = addCalendarDays(today, -84);
+  if (start < RELEASE_ANCHOR_DATE) start = RELEASE_ANCHOR_DATE;
   let end = addCalendarDays(today, 182);
   for (const d of counts.keys()) {
-    if (d < start) start = d;
     if (d > end) end = d;
   }
 
@@ -86,20 +92,17 @@ export function buildReleaseDates(
 }
 
 /**
- * Which date to show when none is requested: the soonest release on or
- * after today that has projects, else the soonest upcoming one, else the
- * most recent one that has projects.
+ * Which date to show when none is requested: the upcoming scheduled
+ * release, i.e. the first on-schedule date on or after today — whether or
+ * not it has projects yet. On a release day itself that release is still
+ * "upcoming"; the day after, the default moves to the next one. Falls back
+ * to the most recent date in the list if none is upcoming.
  */
 export function defaultReleaseDate(
   options: ReleaseDateOption[],
   today: IsoDate,
 ): IsoDate | null {
-  const upcomingWithProjects = options.find(
-    (o) => o.date >= today && o.projectCount > 0,
-  );
-  if (upcomingWithProjects) return upcomingWithProjects.date;
-  const upcoming = options.find((o) => o.date >= today);
+  const upcoming = options.find((o) => !o.offCycle && o.date >= today);
   if (upcoming) return upcoming.date;
-  const past = [...options].reverse().find((o) => o.projectCount > 0);
-  return past?.date ?? options[options.length - 1]?.date ?? null;
+  return options[options.length - 1]?.date ?? null;
 }
