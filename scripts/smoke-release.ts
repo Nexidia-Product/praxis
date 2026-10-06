@@ -26,8 +26,16 @@ assert.equal(byDate.get("2026-10-23")?.offCycle, false);
 assert.equal(byDate.get("2026-10-16")?.offCycle, true);
 // Cadence is every other Friday.
 assert.ok(byDate.has("2026-11-06") && !byDate.has("2026-10-30"));
-assert.ok(byDate.has("2026-09-25") && !byDate.has("2026-09-18"));
+assert.ok(!byDate.has("2026-09-25"));
 assert.equal(defaultReleaseDate(opts, today), "2026-10-09");
+// Nothing before the 10/9/26 anchor appears, even if a project is dated then.
+const early = buildReleaseDates(["2026-09-25", "2026-10-02", "2026-10-09"], today);
+assert.ok(early.every((o) => o.date >= "2026-10-09"));
+assert.equal(early[0].date, "2026-10-09");
+// Default is the upcoming scheduled release by date, regardless of project counts.
+assert.equal(defaultReleaseDate(buildReleaseDates([], "2026-10-06"), "2026-10-06"), "2026-10-09");
+assert.equal(defaultReleaseDate(buildReleaseDates([], "2026-10-09"), "2026-10-09"), "2026-10-09");
+assert.equal(defaultReleaseDate(buildReleaseDates(["2026-10-09"], "2026-10-12"), "2026-10-12"), "2026-10-23");
 
 // ---- Report ----
 const baseProject = {
