@@ -1644,6 +1644,85 @@ export async function deleteTask(
   });
 }
 
+export interface BulkDeleteResult {
+  deleted: TaskId[];
+  /** Requested IDs that no longer exist (or aren't visible to the caller). */
+  notFound: TaskId[];
+}
+
+/** Hard cap per request so one call can't wipe an unbounded set. */
+export const BULK_DELETE_MAX = 500;
+
+/**
+ * Delete many tasks at once. Same side effects as `deleteTask`, batched:
+ * one velocity-cache bust, one health recalc per affected project, and
+ * one audit entry per deleted task so each project's trail still shows
+ * what was removed. `visibleIds` narrows the request to tasks the caller
+ * may see (program scoping); anything outside it is reported as not found.
+ */
+export async function bulkDeleteTasks(
+  ids: unknown,
+  visible: (task: Task) => Promise<boolean> | boolean,
+  ctx: { userId: UserId; userName?: string | null } = { userId: "system" },
+): Promise<BulkDeleteResult> {
+  if (!Array.isArray(ids) || ids.some((i) => typeof i !== "string")) {
+    throw new ValidationError("task_ids must be an array of task IDs.");
+  }
+  const unique = Array.from(new Set(ids as string[]));
+  if (unique.length === 0) {
+    throw new ValidationError("Select at least one task to delete.");
+  }
+  if (unique.length > BULK_DELETE_MAX) {
+    throw new ValidationError(
+      `At most ${BULK_DELETE_MAX} tasks can be deleted at once.`,
+    );
+  }
+
+  const existing: Task[] = [];
+  const notFound: TaskId[] = [];
+  for (const id of unique) {
+    const task = await TaskRepository.getById(id);
+    if (task && (await visible(task))) existing.push(task);
+    else notFound.push(id);
+  }
+
+  invalidateVelocityCache();
+  const deletedIds = new Set(
+    await TaskRepository.deleteMany(existing.map((t) => t.task_id)),
+  );
+  const deletedTasks = existing.filter((t) => deletedIds.has(t.task_id));
+
+  const projectIds = new Set(deletedTasks.map((t) => t.project_id));
+  for (const projectId of projectIds) {
+    await fireHealthRecalc(projectId).catch((err) => {
+      console.warn(
+        `[health] bulkDeleteTasks post-hook failed for project ${projectId}:`,
+        err,
+      );
+    });
+  }
+
+  for (const task of deletedTasks) {
+    await audit({
+      actorId: ctx.userId,
+      actorName: ctx.userName,
+      entityType: "Task",
+      entityId: task.task_id,
+      entityLabel: task.task_name,
+      action: "delete",
+      summary: `Bulk-deleted task "${task.task_name}" from project ${task.project_id} (${deletedTasks.length} task(s) in this action).`,
+    });
+  }
+
+  return {
+    deleted: deletedTasks.map((t) => t.task_id),
+    notFound: [
+      ...notFound,
+      ...existing.filter((t) => !deletedIds.has(t.task_id)).map((t) => t.task_id),
+    ],
+  };
+}
+
 /**
  * Move a task to a different project (e.g. push open tasks from a
  * descoped project into a phase-2 project). This is a distinct,
