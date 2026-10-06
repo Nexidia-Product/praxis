@@ -84,7 +84,6 @@ export function ApplicationReleaseView({
               {o.date === today ? " (today)" : ""}
               {" — "}
               {o.projectCount} project{o.projectCount === 1 ? "" : "s"}
-              {o.offCycle ? " (off-cycle)" : ""}
             </option>
           ))}
         </select>

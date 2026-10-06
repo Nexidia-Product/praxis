@@ -20,10 +20,9 @@ const opts = buildReleaseDates(dates, today);
 const byDate = new Map(opts.map((o) => [o.date, o]));
 
 assert.equal(byDate.get("2026-10-09")?.projectCount, 2);
-assert.equal(byDate.get("2026-10-09")?.offCycle, false);
-assert.equal(byDate.get("2026-10-23")?.offCycle, false);
-// Oct 16 is the off week: still selectable, flagged.
-assert.equal(byDate.get("2026-10-16")?.offCycle, true);
+// Oct 16 is the off week: not a release, so not in the list at all.
+assert.ok(!byDate.has("2026-10-16"));
+assert.ok(opts.every((o) => o.date >= "2026-10-09"));
 // Cadence is every other Friday.
 assert.ok(byDate.has("2026-11-06") && !byDate.has("2026-10-30"));
 assert.ok(!byDate.has("2026-09-25"));
