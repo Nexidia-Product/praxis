@@ -93,6 +93,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}
         enableAdminFilter
+        enableBulkDelete
       />
     </PolarisShell>
   );

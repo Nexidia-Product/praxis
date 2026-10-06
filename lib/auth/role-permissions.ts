@@ -50,6 +50,7 @@ export type PermissionKey =
   | "tasks.create"
   | "tasks.edit"
   | "tasks.delete"
+  | "tasks.bulk_delete"
   | "tasks.move"
   // Ideas (public submissions / review queue)
   | "ideas.view"
@@ -165,6 +166,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     key: "tasks.delete",
     label: "Delete tasks",
     description: "Permanently remove tasks.",
+    category: "Tasks",
+  },
+  {
+    key: "tasks.bulk_delete",
+    label: "Bulk delete tasks",
+    description:
+      "Select many tasks on the Tasks page and permanently delete them in one action. Admin-only by default; separate from deleting a single task.",
     category: "Tasks",
   },
   {

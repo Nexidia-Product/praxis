@@ -220,6 +220,11 @@ interface TasksTableProps {
    */
   onTasksChange?: (tasks: Task[]) => void;
   /**
+   * Show row checkboxes and the bulk-delete bar (Tasks page only). Still
+   * requires the `tasks.bulk_delete` permission; the API enforces it too.
+   */
+  enableBulkDelete?: boolean;
+  /**
    * Initial group-by selection. Defaults to "project" (the /tasks page).
    * My Tasks passes "none" so its default is a single flat list rather
    * than per-project sections.
@@ -246,6 +251,7 @@ export function TasksTable({
   activeUserNames = [],
   mentionableUsers = [],
   enableAdminFilter,
+  enableBulkDelete = false,
   onTasksChange,
   initialGroupBy = "project",
   sortMode = "urgency",
@@ -317,6 +323,12 @@ export function TasksTable({
   const canDelete = permissions
     ? permissions["tasks.delete"] === true
     : currentUserRole === "Admin" || currentUserRole === "Project Lead";
+  // Bulk delete is a separate, narrower permission than single delete.
+  const canBulkDelete =
+    enableBulkDelete &&
+    (permissions
+      ? permissions["tasks.bulk_delete"] === true
+      : currentUserRole === "Admin");
   // Moving a task between projects is restricted to Admin / Project Lead
   // (the `tasks.move` permission) — deliberately tighter than `tasks.edit`,
   // which Team Members also hold.
@@ -528,6 +540,89 @@ export function TasksTable({
 
   function applyDeleted(id: string) {
     setTasks((prev) => prev.filter((t) => t.task_id !== id));
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  // ---- Bulk selection (Admin). ----
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Selection never outlives visibility: if a filter hides a selected
+  // task, drop it, so "Delete selected" can only ever act on rows the
+  // admin can currently see.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(sortedTasks.map((t) => t.task_id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [sortedTasks]);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function setGroupSelected(groupTasks: Task[], selected: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const t of groupTasks) {
+        if (selected) next.add(t.task_id);
+        else next.delete(t.task_id);
+      }
+      return next;
+    });
+  }
+
+  async function bulkDelete() {
+    if (!canBulkDelete || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (
+      !window.confirm(
+        `Permanently delete ${count} task${count === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setGlobalError(null);
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/tasks/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_ids: [...selectedIds] }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        deleted?: string[];
+        notFound?: string[];
+        error?: string;
+      };
+      if (!res.ok || !data.deleted) {
+        setGlobalError(data.error ?? "Could not delete tasks.");
+        return;
+      }
+      const gone = new Set(data.deleted);
+      setTasks((prev) => prev.filter((t) => !gone.has(t.task_id)));
+      setSelectedIds(new Set());
+      const missed = data.notFound?.length ?? 0;
+      setApplyTemplateMsg(
+        `${gone.size} task${gone.size === 1 ? "" : "s"} deleted${
+          missed > 0 ? ` (${missed} could not be found)` : ""
+        }.`,
+      );
+    } finally {
+      setBulkDeleting(false);
+    }
   }
 
   // ---- Inline status update (optimistic with rollback). ----
@@ -742,6 +837,47 @@ export function TasksTable({
         </div>
       ) : null}
 
+      {canBulkDelete ? (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm"
+          role="region"
+          aria-label="Bulk delete"
+        >
+          <span className="text-gray-700">
+            <span className="font-semibold">{selectedIds.size}</span> of{" "}
+            {sortedTasks.length} shown selected
+          </span>
+          <button
+            type="button"
+            className="pol-btn pol-btn-ghost pol-btn-sm"
+            disabled={bulkDeleting || sortedTasks.length === 0}
+            onClick={() =>
+              setSelectedIds(new Set(sortedTasks.map((t) => t.task_id)))
+            }
+          >
+            Select all {sortedTasks.length} shown
+          </button>
+          <button
+            type="button"
+            className="pol-btn pol-btn-ghost pol-btn-sm"
+            disabled={bulkDeleting || selectedIds.size === 0}
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            className="pol-btn pol-btn-sm ml-auto text-rose-700"
+            disabled={bulkDeleting || selectedIds.size === 0}
+            onClick={bulkDelete}
+          >
+            {bulkDeleting
+              ? "Deleting…"
+              : `Delete ${selectedIds.size || ""} selected`.replace("  ", " ")}
+          </button>
+        </div>
+      ) : null}
+
       {/* Task groups */}
       <div className="space-y-6">
         {groups.length === 0 ? (
@@ -770,6 +906,22 @@ export function TasksTable({
                 <table className="min-w-full text-sm">
                   <thead style={{ background: "var(--bg)", borderBottom: "2px solid var(--border)" }}>
                     <tr style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--tm)", textAlign: "left" }}>
+                      {canBulkDelete ? (
+                        <th scope="col" className="w-8 px-3 py-2">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all tasks in this group"
+                            checked={
+                              group.tasks.length > 0 &&
+                              group.tasks.every((t) => selectedIds.has(t.task_id))
+                            }
+                            onChange={(e) =>
+                              setGroupSelected(group.tasks, e.target.checked)
+                            }
+                            disabled={bulkDeleting}
+                          />
+                        </th>
+                      ) : null}
                       <th scope="col" className="w-20 px-3 py-2">
                         ID
                       </th>
@@ -812,6 +964,9 @@ export function TasksTable({
                         project={projectsById.get(t.project_id) ?? null}
                         canEdit={canEdit}
                         canDelete={canDelete}
+                        selectable={canBulkDelete}
+                        selected={selectedIds.has(t.task_id)}
+                        onToggleSelected={() => toggleSelected(t.task_id)}
                         showProject={groupBy !== "project"}
                         showResponsible={!scopeToUser && groupBy !== "responsible"}
                         onStatusChange={(s) => changeStatus(t, s)}
@@ -956,6 +1111,10 @@ interface TaskRowProps {
   project: Project | null;
   canEdit: boolean;
   canDelete: boolean;
+  /** Render a leading selection checkbox (bulk delete). */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: () => void;
   showProject: boolean;
   showResponsible: boolean;
   onStatusChange: (status: TaskStatus) => void;
@@ -971,6 +1130,9 @@ export function TaskRow({
   project,
   canEdit,
   canDelete,
+  selectable = false,
+  selected = false,
+  onToggleSelected,
   showProject,
   showResponsible,
   onStatusChange,
@@ -985,8 +1147,21 @@ export function TaskRow({
       className={`${URGENCY_ROW_CLASS[urgency]} cursor-pointer`}
       onClick={() => onEdit()}
     >
+      {selectable ? (
+        <td
+          className={`w-8 px-3 py-2 ${URGENCY_ACCENT_CLASS[urgency]}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            aria-label={`Select ${task.task_id}`}
+            checked={selected}
+            onChange={() => onToggleSelected?.()}
+          />
+        </td>
+      ) : null}
       <td
-        className={`whitespace-nowrap px-3 py-2 font-mono text-xs text-gray-700 ${URGENCY_ACCENT_CLASS[urgency]}`}
+        className={`whitespace-nowrap px-3 py-2 font-mono text-xs text-gray-700 ${selectable ? "" : URGENCY_ACCENT_CLASS[urgency]}`}
       >
         {task.task_id}
       </td>

@@ -140,6 +140,21 @@ export const TaskRepository = {
     return data as Task;
   },
 
+  /**
+   * Delete many tasks in one statement. Returns the IDs that were
+   * actually deleted (IDs that don't exist are simply absent from it).
+   */
+  async deleteMany(ids: TaskId[]): Promise<TaskId[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await getServiceRoleClient()
+      .from(TABLE)
+      .delete()
+      .in("task_id", ids)
+      .select("task_id");
+    if (error) throw new Error(`tasks.deleteMany failed: ${error.message}`);
+    return (data ?? []).map((r: { task_id: string }) => r.task_id);
+  },
+
   async delete(id: TaskId): Promise<void> {
     const { data, error } = await getServiceRoleClient()
       .from(TABLE)
