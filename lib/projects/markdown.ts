@@ -27,6 +27,10 @@
  *     replacement scheme, scoped ONLY to this export — they do not
  *     replace `computeProjectMilestones` in `lib/projects/milestones.ts`,
  *     which still drives the project quick view.
+ *   - Fields added to projects after the template was written (Program,
+ *     Primary/Secondary Objective, Use Case, Key Capability) are appended
+ *     as extra Overview lines; existing labels and their order are
+ *     unchanged so tooling that looks fields up by label keeps working.
  *   - The template's "Tasks" and "Change Log" sections are intentionally
  *     omitted — both would have been placeholders (no real task-per-
  *     project numbering or change tracking exists yet), and product
@@ -34,7 +38,7 @@
  */
 
 import { addBusinessDays, subtractBusinessDays } from "./milestones";
-import type { Project, ProjectId } from "@/lib/db";
+import type { Project, ProjectId, UseCase } from "@/lib/db";
 
 /**
  * Current UTC date as `YYYY-MM-DD`. Inlined rather than imported from
@@ -167,6 +171,8 @@ const MILESTONE_LABELS: Record<keyof ExportMilestones, string> = {
 export function buildProjectMarkdown(
   project: Project,
   allProjects: Project[] = [],
+  /** Use cases this project belongs to (read-only; normally at most one). */
+  useCases: UseCase[] = [],
 ): string {
   const milestones = computeExportMilestones(project);
   const projectsById = new Map<ProjectId, Project>(
@@ -179,9 +185,19 @@ export function buildProjectMarkdown(
     "## Overview",
     "",
     line("Application/Product", project.application_product),
+    line("Program", project.program),
     line("Type", project.project_type),
     line("Track", project.track),
+    line("Primary Objective", project.primary_objective),
+    line("Secondary Objectives", project.secondary_objectives.join(", ")),
+    line("Use Case", useCases.map((u) => u.name).join(", ")),
     line("Priority", project.priority),
+    line(
+      "Key Capability",
+      project.is_key_capability
+        ? `Yes${project.key_capability_quarter ? ` (${project.key_capability_quarter})` : ""}`
+        : "No",
+    ),
     line("Complexity (Analysis Tier)", project.ai_complexity_score),
     line("Visualization Type", project.visualization_type),
     line("Stage", project.stage),

@@ -253,7 +253,7 @@ export function ProjectQuickView({
   // Client-side only — same Blob/anchor download trick as
   // `downloadMarkdown` in components/insights/key-findings-view.tsx.
   function downloadMarkdown() {
-    const md = buildProjectMarkdown(project, allProjects);
+    const md = buildProjectMarkdown(project, allProjects, useCasesForProject);
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
