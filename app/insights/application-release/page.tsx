@@ -3,8 +3,8 @@
  *
  * Server component. A "release" is the set of projects sharing a Target
  * Application Deployment Date (`target_date`). The viewer picks any
- * scheduled release date (every other Friday, plus any off-cycle date a
- * project already uses) via `?date=YYYY-MM-DD`; the page assembles each
+ * scheduled release date (every other Friday from 10/9/26; off-schedule
+ * dates are not releases) via `?date=YYYY-MM-DD`; the page assembles each
  * project's progress, stage, objective/use case, blockers and schedule
  * risk and hands the lot to the client view.
  *

@@ -6,9 +6,9 @@
  * The schedule is anchored on a known release Friday and steps in
  * 14-day increments in both directions.
  *
- * The selectable list is the schedule UNIONED with every distinct
- * project `target_date`, so a project whose date is off-schedule is
- * never unreachable — it shows up flagged "off-cycle".
+ * The selectable list contains ONLY scheduled release dates. A project
+ * whose `target_date` is not on the schedule belongs to no release, so it
+ * does not appear here (and is not counted).
  *
  * Pure and framework-free, like lib/key-capabilities.ts.
  */
@@ -32,8 +32,6 @@ export interface ReleaseDateOption {
   date: IsoDate;
   /** Number of projects with this Target Application Deployment Date. */
   projectCount: number;
-  /** True when the date is not on the every-other-Friday schedule. */
-  offCycle: boolean;
 }
 
 /** Add `days` calendar days to an ISO date. */
@@ -55,12 +53,11 @@ export function buildReleaseDates(
   projectDates: IsoDate[],
   today: IsoDate,
 ): ReleaseDateOption[] {
-  // Releases before the anchor were all off-cycle, so they are not part
-  // of the release calendar at all: dropped from the list, and any
-  // project dated before the anchor is ignored here.
+  // Only dates on the schedule count: anything before the anchor or off
+  // the every-other-Friday cadence is not a release.
   const counts = new Map<IsoDate, number>();
   for (const d of projectDates) {
-    if (d < RELEASE_ANCHOR_DATE) continue;
+    if (d < RELEASE_ANCHOR_DATE || !isScheduledReleaseDate(d)) continue;
     counts.set(d, (counts.get(d) ?? 0) + 1);
   }
 
@@ -82,12 +79,10 @@ export function buildReleaseDates(
   ) {
     dates.add(d);
   }
-  for (const d of counts.keys()) dates.add(d);
 
   return [...dates].sort().map((date) => ({
     date,
     projectCount: counts.get(date) ?? 0,
-    offCycle: !isScheduledReleaseDate(date),
   }));
 }
 
@@ -102,7 +97,7 @@ export function defaultReleaseDate(
   options: ReleaseDateOption[],
   today: IsoDate,
 ): IsoDate | null {
-  const upcoming = options.find((o) => !o.offCycle && o.date >= today);
+  const upcoming = options.find((o) => o.date >= today);
   if (upcoming) return upcoming.date;
   return options[options.length - 1]?.date ?? null;
 }
