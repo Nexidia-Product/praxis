@@ -43,25 +43,25 @@ import type { SlideCapture } from "./payload";
 export const SLIDE_W = 13.333;
 export const SLIDE_H = 7.5;
 
-const MARGIN = 0.5;
+export const MARGIN = 0.5;
 const HEADER_H = 0.6;
 const HEADER_GAP = 0.2;
 /** Top edge of the body region, below the header band. */
-const BODY_TOP = MARGIN + HEADER_H + HEADER_GAP;
-const BODY_W = SLIDE_W - MARGIN * 2;
-const BODY_H = SLIDE_H - BODY_TOP - MARGIN;
+export const BODY_TOP = MARGIN + HEADER_H + HEADER_GAP;
+export const BODY_W = SLIDE_W - MARGIN * 2;
+export const BODY_H = SLIDE_H - BODY_TOP - MARGIN;
 
 // Neutral palette used everywhere. Branding overrides primary/secondary
 // only — we keep the gray scale fixed so contrast stays readable across
 // brand colors.
-const GRAY_900 = "111827";
-const GRAY_700 = "374151";
-const GRAY_500 = "6B7280";
-const GRAY_300 = "D1D5DB";
-const GRAY_200 = "E5E7EB";
-const GRAY_100 = "F3F4F6";
-const GRAY_50 = "F9FAFB";
-const WHITE = "FFFFFF";
+export const GRAY_900 = "111827";
+export const GRAY_700 = "374151";
+export const GRAY_500 = "6B7280";
+export const GRAY_300 = "D1D5DB";
+export const GRAY_200 = "E5E7EB";
+export const GRAY_100 = "F3F4F6";
+export const GRAY_50 = "F9FAFB";
+export const WHITE = "FFFFFF";
 
 /** Status → background hex. Mirrors `STATUS_BADGE` semantically. */
 const STATUS_FILL: Record<ProjectStatus, string> = {
@@ -98,7 +98,7 @@ const PRIORITY_FILL: Record<string, string> = {
  * accent bar and the body content rendered by the slide builders sit on
  * top without colliding.
  */
-function setContentBackground(
+export function setContentBackground(
   slide: PptxGenJS.Slide,
   branding: ResolvedBranding,
 ): void {
@@ -112,7 +112,7 @@ function setContentBackground(
   }
 }
 
-function addHeader(
+export function addHeader(
   slide: PptxGenJS.Slide,
   branding: ResolvedBranding,
   title: string,
@@ -170,7 +170,7 @@ function addHeader(
  * filtered project list has nothing to show — better than an empty slide
  * the reviewer has to interpret.
  */
-function addEmptyState(
+export function addEmptyState(
   slide: PptxGenJS.Slide,
   branding: ResolvedBranding,
   message: string,

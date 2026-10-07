@@ -28,6 +28,7 @@ import {
   isAdminProject,
 } from "@/lib/projects/display";
 import { quarterOf } from "@/lib/key-capabilities";
+import { buildReleaseDates, defaultReleaseDate } from "@/lib/releases/calendar";
 import type { ReleaseProjectEntry } from "@/lib/releases/report";
 
 export const EXEC_PROGRAM = SYSTEM_PROGRAMS[0]; // "Innovation"
@@ -283,4 +284,59 @@ export function scopeOptions(
     isCurrent: false,
   });
   return opts;
+}
+
+export interface RiskStatus {
+  text: "Missed delivery" | "At risk" | "Delivered" | "On track";
+  tone: "red" | "green";
+}
+
+/** One-word schedule status shared by the page and the deck. */
+export function riskStatus(ep: ExecProject): RiskStatus {
+  if (ep.entry.missedDelivery) return { text: "Missed delivery", tone: "red" };
+  if (ep.entry.atRisk) return { text: "At risk", tone: "red" };
+  if (ep.entry.delivered) return { text: "Delivered", tone: "green" };
+  return { text: "On track", tone: "green" };
+}
+
+export interface UpcomingRelease {
+  date: IsoDate;
+  projects: number;
+  atRisk: number;
+  isNext: boolean;
+  /** Names of the riding projects (for the deck), at-risk first. */
+  items: Array<{ label: string; risk: boolean }>;
+}
+
+/**
+ * The next `count` scheduled releases on or after today, with how many of
+ * the given (eligible) projects ride each and how many are at risk.
+ */
+export function upcomingReleases(
+  entries: ReleaseProjectEntry[],
+  today: IsoDate,
+  count = 3,
+): UpcomingRelease[] {
+  const dates = buildReleaseDates(
+    entries.map((e) => e.project.target_date).filter((d): d is string => !!d),
+    today,
+  )
+    .filter((o) => o.date >= today)
+    .slice(0, count);
+  const next = defaultReleaseDate(dates, today);
+  return dates.map((o) => {
+    const rides = entries.filter((e) => e.project.target_date === o.date);
+    return {
+      date: o.date,
+      projects: rides.length,
+      atRisk: rides.filter((e) => e.atRisk || e.missedDelivery).length,
+      isNext: o.date === next,
+      items: rides
+        .map((e) => ({
+          label: e.project.name,
+          risk: e.atRisk || e.missedDelivery,
+        }))
+        .sort((a, b) => Number(b.risk) - Number(a.risk) || a.label.localeCompare(b.label)),
+    };
+  });
 }

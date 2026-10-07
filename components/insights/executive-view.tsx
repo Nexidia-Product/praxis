@@ -9,24 +9,21 @@
  * to be screen-shared in meetings by someone with Praxis access.
  */
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { HEALTH_BADGE, HEALTH_DOT } from "@/lib/projects/display";
+import { ExecutiveDeckModal } from "@/components/insights/executive-deck-modal";
 import {
   UNSCHEDULED,
   type ExecPillar,
   type ExecProject,
   type ExecutiveView as ExecutiveViewData,
   type ScopeOption,
+  type UpcomingRelease,
+  riskStatus,
 } from "@/lib/executive/portfolio";
-
-export interface UpcomingRelease {
-  date: string;
-  projects: number;
-  atRisk: number;
-  isNext: boolean;
-}
 
 interface Props {
   view: ExecutiveViewData;
@@ -34,6 +31,8 @@ interface Props {
   today: string;
   upcoming: UpcomingRelease[];
   noPillarCount: number;
+  /** Show the Download deck button (needs `roadmap.export`). */
+  canExport?: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -51,8 +50,10 @@ export function ExecutiveView({
   today,
   upcoming,
   noPillarCount,
+  canExport = false,
 }: Props) {
   const router = useRouter();
+  const [deckOpen, setDeckOpen] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -89,7 +90,16 @@ export function ExecutiveView({
             </button>
           );
         })}
-        <span className="ml-auto text-xs text-gray-500">
+        {canExport ? (
+          <button
+            type="button"
+            className="pol-btn pol-btn-secondary ml-auto"
+            onClick={() => setDeckOpen(true)}
+          >
+            Download deck
+          </button>
+        ) : null}
+        <span className={`${canExport ? "" : "ml-auto "}text-xs text-gray-500`}>
           As of {formatDate(today)}
           {view.scope !== UNSCHEDULED && view.scope === options.find((o) => o.isCurrent)?.value
             ? " · includes carried-over work from earlier quarters"
@@ -178,6 +188,14 @@ export function ExecutiveView({
         </p>
       ) : null}
 
+      {deckOpen ? (
+        <ExecutiveDeckModal
+          options={options}
+          initialScope={view.scope}
+          onClose={() => setDeckOpen(false)}
+        />
+      ) : null}
+
       <p className="text-xs text-gray-400">
         Innovation program, five core pillars only — Complaints and Other are
         not shown.
@@ -252,16 +270,9 @@ function Badge({
   );
 }
 
-function riskLabel(ep: ExecProject): { text: string; tone: "red" | "amber" | "green" } {
-  if (ep.entry.missedDelivery) return { text: "Missed delivery", tone: "red" };
-  if (ep.entry.atRisk) return { text: "At risk", tone: "red" };
-  if (ep.entry.delivered) return { text: "Delivered", tone: "green" };
-  return { text: "On track", tone: "green" };
-}
-
 function AttentionRow({ ep }: { ep: ExecProject }) {
   const p = ep.entry.project;
-  const risk = riskLabel(ep);
+  const risk = riskStatus(ep);
   const reason =
     ep.entry.riskReasons[0] ?? ep.entry.blockers[0]?.reason ?? "";
   return (
@@ -321,7 +332,7 @@ function PillarSection({ pillar }: { pillar: ExecPillar }) {
 function ProjectRow({ ep }: { ep: ExecProject }) {
   const { entry } = ep;
   const p = entry.project;
-  const risk = riskLabel(ep);
+  const risk = riskStatus(ep);
   return (
     <li className="grid gap-x-4 gap-y-1 rounded-md border border-gray-100 p-2.5 text-sm lg:[grid-template-columns:minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.6fr)]">
       {/* Identity + stage */}
