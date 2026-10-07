@@ -64,6 +64,7 @@ import { DecisionLogTab } from "./decision-log-tab";
 import { DependencyChainPanel } from "./dependency-chain-panel";
 import { DocumentLinksEditor } from "./document-links-editor";
 import { HealthSparkline } from "./health-sparkline";
+import { ImportMarkdownDialog } from "./import-markdown-dialog";
 
 interface ProjectQuickViewProps {
   project: Project;
@@ -135,6 +136,18 @@ interface ProjectQuickViewProps {
    * built out.
    */
   isAdmin?: boolean;
+  /**
+   * Admin-managed outcome vocabularies, used by "Import from Markdown" to
+   * recognise `(product, type)` tags on outcome lines.
+   */
+  outcomeProducts?: string[];
+  outcomeTypes?: string[];
+  /**
+   * Called with the updated project after a Markdown import succeeds. The
+   * "Import from Markdown" button only appears when this is provided (and
+   * `canEdit` is true), so callers that don't hold project state hide it.
+   */
+  onProjectImported?: (project: Project) => void;
   onClose: () => void;
   onEdit: () => void;
   /**
@@ -191,6 +204,9 @@ export function ProjectQuickView({
   initialTab,
   aiEnabled = false,
   isAdmin = false,
+  outcomeProducts = [],
+  outcomeTypes = [],
+  onProjectImported,
   onSelectRelatedProject,
   onClose,
   onEdit,
@@ -199,6 +215,7 @@ export function ProjectQuickView({
   onPriorityChange,
 }: ProjectQuickViewProps) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "details");
+  const [importOpen, setImportOpen] = useState(false);
 
   // Resolve dropdown sources. Fall back to built-ins when the parent
   // didn't pass merged options. Same pattern as ProjectFormModal.
@@ -883,6 +900,15 @@ export function ProjectQuickView({
               >
                 Export to Markdown
               </button>
+              {canEdit && onProjectImported ? (
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(true)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                >
+                  Import from Markdown
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}
@@ -903,6 +929,16 @@ export function ProjectQuickView({
           </div>
         </footer>
       </aside>
+
+      {importOpen && onProjectImported ? (
+        <ImportMarkdownDialog
+          project={project}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
+          onImported={onProjectImported}
+          onClose={() => setImportOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
