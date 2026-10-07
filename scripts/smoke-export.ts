@@ -189,6 +189,8 @@ async function main() {
       name: p.name ?? "Sample project",
       description: p.description ?? "",
       definition_of_done: p.definition_of_done ?? "",
+      supports: p.supports ?? "",
+      benefits: p.benefits ?? "",
       application_product: p.application_product ?? "Insights",
       program: p.program ?? "Innovation",
       track: p.track ?? "Track A - Dashboard/visualization",

@@ -198,6 +198,8 @@ interface FormState {
    * Details tab. Empty string when unset.
    */
   definition_of_done: string;
+  supports: string;
+  benefits: string;
 }
 
 function emptyState(customFields: CustomFieldDefinition[]): FormState {
@@ -230,6 +232,8 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     ai_complexity_score: null,
     ai_time_estimate: null,
     definition_of_done: "",
+    supports: "",
+    benefits: "",
   };
 }
 
@@ -318,6 +322,8 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     ai_complexity_score: p.ai_complexity_score ?? null,
     ai_time_estimate: p.ai_time_estimate ?? null,
     definition_of_done: p.definition_of_done ?? "",
+    supports: p.supports ?? "",
+    benefits: p.benefits ?? "",
   };
 }
 
@@ -372,6 +378,8 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     ai_complexity_score: s.ai_complexity_score,
     ai_time_estimate: s.ai_time_estimate,
     definition_of_done: s.definition_of_done,
+    supports: s.supports,
+    benefits: s.benefits,
   };
   // Only attach template_id on create, and only when the user picked one.
   // On edit it would be ignored by the service layer anyway, but stripping
@@ -758,6 +766,37 @@ export function ProjectFormModal({
             <p className="mt-1 text-xs text-gray-500">
               The description says what we&apos;re doing; this says how
               we&apos;ll know we&apos;re done. Shown in the project quick view.
+            </p>
+          </Field>
+
+          <Field id="proj-supports" label="Supports">
+            <textarea
+              id="proj-supports"
+              value={state.supports}
+              onChange={(e) => update("supports", e.target.value)}
+              rows={3}
+              disabled={saving}
+              className={baseInput}
+              placeholder="What initiative, goal, or capability does this project support?"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Not required — but best documented before analysis starts.
+            </p>
+          </Field>
+
+          <Field id="proj-benefits" label="Benefits">
+            <textarea
+              id="proj-benefits"
+              value={state.benefits}
+              onChange={(e) => update("benefits", e.target.value)}
+              rows={4}
+              disabled={saving}
+              className={baseInput}
+              placeholder="Who benefits and how? List as many points as you like in this one box."
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Qualitative notes — ROI is calculated per customer in each
+              analysis. Not required; rolls up to the project&apos;s use case.
             </p>
           </Field>
 

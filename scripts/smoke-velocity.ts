@@ -148,6 +148,8 @@ async function main() {
       name: `Project ${overrides.project_id}`,
       description: "test project",
       definition_of_done: "",
+      supports: "",
+      benefits: "",
       application_product: "Automated Insights",
       program: "Innovation",
       track: "Track A - Dashboard/visualization",

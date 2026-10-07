@@ -372,6 +372,18 @@ export interface Project {
    * know we're done". Empty string when the lead hasn't set one yet.
    */
   definition_of_done: string;
+  /**
+   * Free-text block: what this project supports (the initiative, goal or
+   * capability it contributes to). Ideally documented before analysis;
+   * never required. Empty string when unset.
+   */
+  supports: string;
+  /**
+   * Free-text block: the qualitative benefits of this project. May hold
+   * several points in one block. Not a KPI structure — ROI is computed
+   * per customer in each analysis. Rolls up to the use case in the UI.
+   */
+  benefits: string;
   /** e.g. `"Automated Insights"`, `"Complaints"`. Free-form. */
   application_product: string;
   /**
