@@ -1345,6 +1345,9 @@ export function ProjectsTable({
           initialTab={quickViewInitialTab}
           aiEnabled={aiEnabled}
           isAdmin={currentUserRole === "Admin"}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
+          onProjectImported={applyUpdated}
           onClose={() => {
             setQuickViewId(null);
             setQuickViewInitialTab(undefined);

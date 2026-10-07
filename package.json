@@ -14,6 +14,7 @@
     "smoke:tasks": "tsx scripts/smoke-tasks.ts",
     "smoke:roadmap": "tsx scripts/smoke-roadmap.ts",
     "smoke:export": "tsx scripts/smoke-export.ts",
+    "smoke:markdown-import": "tsx scripts/smoke-markdown-import.ts",
     "smoke:decisions": "tsx scripts/smoke-decisions.ts",
     "smoke:notifications": "tsx scripts/smoke-notifications.ts",
     "smoke:health": "tsx scripts/smoke-health.ts",
