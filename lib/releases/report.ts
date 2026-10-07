@@ -114,8 +114,29 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
-  const { date, today, projects, allProjects, allTasks, useCases } = input;
+export interface ProjectEntriesInput {
+  today: IsoDate;
+  /** Projects to build entries for (Canceled ones are skipped). */
+  projects: Project[];
+  allProjects: Project[];
+  allTasks: Task[];
+  useCases: UseCase[];
+  /** Optional: caveats to attach, matched by project_id. */
+  caveats?: ReleaseCaveat[];
+  userNamesById: Record<string, string>;
+}
+
+/**
+ * Per-project rollup (progress, stage, blockers, schedule risk) with each
+ * project judged against ITS OWN `target_date`. Shared by the Application
+ * Release page (which filters to one date first) and the executive view.
+ * A project with no `target_date` has no release to miss, so it can't be
+ * "missed delivery"; its other risk signals still apply.
+ */
+export function buildProjectEntries(
+  input: ProjectEntriesInput,
+): ReleaseProjectEntry[] {
+  const { today, projects, allProjects, allTasks, useCases } = input;
 
   const projectsById = new Map(allProjects.map((p) => [p.project_id, p]));
   const tasksById = new Map(allTasks.map((t) => [t.task_id, t]));
@@ -134,9 +155,10 @@ export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
     }
   }
 
-  const entries: ReleaseProjectEntry[] = projects
-    .filter((p) => p.target_date === date && p.status !== "Canceled")
+  return projects
+    .filter((p) => p.status !== "Canceled")
     .map((project) => {
+      const date = project.target_date;
       const tasks = tasksByProject.get(project.project_id) ?? [];
 
       // ---- Milestones ----
@@ -244,7 +266,7 @@ export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
       // ---- Risk ----
       const riskReasons: string[] = [];
       const reachedFinalStage = project.stage === STAGE_LAST;
-      const released = date < today;
+      const released = date !== null && date < today;
       const missedDelivery = released && !reachedFinalStage;
       const delivered = released && reachedFinalStage;
 
@@ -296,7 +318,7 @@ export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
         stageIndex: idx >= 0 ? idx + 1 : 0,
         stageCount: stages.length,
         milestones,
-        caveats: input.caveats.filter(
+        caveats: (input.caveats ?? []).filter(
           (c) => c.project_id === project.project_id,
         ),
         blockers,
@@ -314,6 +336,14 @@ export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
         Number(b.blockers.length > 0) - Number(a.blockers.length > 0) ||
         a.project.name.localeCompare(b.project.name),
     );
+}
+
+export function buildReleaseReport(input: ReleaseReportInput): ReleaseReport {
+  const { date } = input;
+  const entries = buildProjectEntries({
+    ...input,
+    projects: input.projects.filter((p) => p.target_date === date),
+  });
 
   return {
     date,

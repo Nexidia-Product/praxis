@@ -46,6 +46,7 @@ export type NavKey =
   | "work-in-progress"
   | "key-findings"
   | "key-capabilities"
+  | "executive"
   | "application-release"
   | "ideas"
   | "admin-resources"
@@ -104,6 +105,13 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: "Insights",
     items: [
+      {
+        key: "executive",
+        label: "Executive view",
+        href: "/insights/executive",
+        icon: "▣",
+        permission: "projects.view",
+      },
       {
         key: "velocity",
         label: "Velocity",
