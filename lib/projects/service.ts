@@ -145,6 +145,8 @@ export interface ProjectCreatePayload {
   name?: unknown;
   description?: unknown;
   definition_of_done?: unknown;
+  supports?: unknown;
+  benefits?: unknown;
   application_product?: unknown;
   program?: unknown;
   track?: unknown;
@@ -512,6 +514,8 @@ async function validateAndShape(
     payload.definition_of_done,
     "definition_of_done",
   );
+  const supports = asOptionalString(payload.supports, "supports");
+  const benefits = asOptionalString(payload.benefits, "benefits");
   const application_product = asString(
     payload.application_product,
     "application_product",
@@ -648,6 +652,8 @@ async function validateAndShape(
     name,
     description,
     definition_of_done,
+    supports,
+    benefits,
     application_product,
     program,
     track,
@@ -1020,6 +1026,12 @@ export async function updateProject(
       payload.definition_of_done,
       "definition_of_done",
     );
+  }
+  if (payload.supports !== undefined) {
+    patch.supports = asOptionalString(payload.supports, "supports");
+  }
+  if (payload.benefits !== undefined) {
+    patch.benefits = asOptionalString(payload.benefits, "benefits");
   }
   if (payload.application_product !== undefined) {
     const ap = asString(payload.application_product, "application_product");

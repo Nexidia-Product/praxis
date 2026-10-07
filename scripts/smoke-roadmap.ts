@@ -78,6 +78,8 @@ async function main() {
       name: "Test project",
       description: "Lorem ipsum",
       definition_of_done: "",
+      supports: "",
+      benefits: "",
       application_product: "Insights",
       program: "Innovation",
       track: "Track A - Dashboard/visualization",

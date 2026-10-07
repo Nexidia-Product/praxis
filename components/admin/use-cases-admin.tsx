@@ -319,6 +319,17 @@ export function UseCasesAdmin({
                             <span style={{ color: "var(--tm)" }}>
                               {p?.status ?? ""}
                             </span>
+                            {p?.benefits ? (
+                              <span
+                                style={{
+                                  gridColumn: "2 / -1",
+                                  color: "var(--t2)",
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                <strong>Benefits:</strong> {p.benefits}
+                              </span>
+                            ) : null}
                           </li>
                         );
                       })}

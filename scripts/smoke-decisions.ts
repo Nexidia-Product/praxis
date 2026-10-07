@@ -385,6 +385,8 @@ async function main() {
       name: id,
       description: "",
       definition_of_done: "",
+      supports: "",
+      benefits: "",
       application_product: "Test",
       program: "Innovation",
       track: "Track A - Dashboard/visualization",

@@ -577,6 +577,31 @@ export function ProjectQuickView({
                 </Section>
               ) : null}
 
+              {/* Soft business-case flags: shown even when empty so the
+                  gap is visible, but nothing is ever blocked on them. */}
+              <Section title="Supports">
+                {project.supports ? (
+                  <p className="whitespace-pre-wrap text-sm text-gray-700">
+                    {project.supports}
+                  </p>
+                ) : (
+                  <p className="text-sm italic text-gray-400">
+                    Not documented yet.
+                  </p>
+                )}
+              </Section>
+              <Section title="Benefits">
+                {project.benefits ? (
+                  <p className="whitespace-pre-wrap text-sm text-gray-700">
+                    {project.benefits}
+                  </p>
+                ) : (
+                  <p className="text-sm italic text-gray-400">
+                    Not documented yet.
+                  </p>
+                )}
+              </Section>
+
               {/* Step 8 (Section 5.13): 30-day health-score sparkline.
                   Rendered after Description so the most-scanned content
                   is up top, but before stakeholders so it sits visually

@@ -28,6 +28,8 @@ export type CreateProjectInput = Omit<
   | "health_score_history"
   | "status_history"
   | "definition_of_done"
+  | "supports"
+  | "benefits"
   | "is_key_capability"
   | "key_capability_quarter"
   | "outcomes"
@@ -41,6 +43,8 @@ export type CreateProjectInput = Omit<
       | "health_score_history"
       | "status_history"
       | "definition_of_done"
+      | "supports"
+      | "benefits"
       | "is_key_capability"
       | "key_capability_quarter"
       | "outcomes"
@@ -79,6 +83,7 @@ export const ProjectRepository = {
       .insert({
         name: input.name,
         description: input.description,
+        definition_of_done: input.definition_of_done ?? "",
         application_product: input.application_product,
         program: input.program ?? "Innovation",
         track: input.track ?? "Track A - Dashboard/visualization",
@@ -108,6 +113,8 @@ export const ProjectRepository = {
         document_links: input.document_links,
         custom_fields: input.custom_fields,
         outcomes: input.outcomes ?? [],
+        supports: input.supports ?? "",
+        benefits: input.benefits ?? "",
         created_by: input.created_by,
         health_score: input.health_score ?? null,
         health_score_history: input.health_score_history ?? [],
