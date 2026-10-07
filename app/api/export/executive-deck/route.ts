@@ -25,7 +25,6 @@ import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { SettingsRepository } from "@/lib/db";
 import { loadExecutiveData } from "@/lib/executive/load";
 import {
-  DECK_PRESETS,
   DECK_SECTIONS,
   buildDeckPlan,
   type DeckDetail,
@@ -145,6 +144,3 @@ export const POST = withAuth(async (request: Request) => {
     },
   });
 });
-
-// Re-exported for tests/tools that want the preset defaults next to the route.
-export { DECK_PRESETS };
