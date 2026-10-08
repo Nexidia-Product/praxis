@@ -357,7 +357,20 @@ export interface ProjectOutcome {
   text: string;
   product: string | null;
   type: string | null;
+  /**
+   * Which project delivers this outcome. `{ kind: "self" }` = the project
+   * the outcome sits on; `{ kind: "project", project_id }` = another
+   * project (e.g. a Cognigy build); `null`/absent = not yet planned. Status
+   * of the outcome is read from the delivery project's stage. "self" is a
+   * kind rather than the project's own ID because a new project has no ID
+   * until it's inserted. See `lib/projects/outcome-delivery.ts`.
+   */
+  delivery?: OutcomeDelivery | null;
 }
+
+export type OutcomeDelivery =
+  | { kind: "self" }
+  | { kind: "project"; project_id: ProjectId };
 
 export interface Project {
   /** `YYYY-NNN` — auto-incremented within the year of creation. */

@@ -10,7 +10,7 @@
  * change, matching the DocumentLinksEditor pattern.
  */
 
-import type { ProjectOutcome } from "@/lib/db";
+import type { OutcomeDelivery, Project, ProjectId, ProjectOutcome } from "@/lib/db";
 
 interface OutcomesEditorProps {
   value: ProjectOutcome[];
@@ -19,7 +19,26 @@ interface OutcomesEditorProps {
   products: string[];
   /** Admin-managed type vocabulary. */
   types: string[];
+  /**
+   * Projects an outcome can be delivered by (the "Delivered by" picker).
+   * Omit to hide the picker (callers without a project list).
+   */
+  allProjects?: Project[];
+  /** The project being edited (null while creating); excluded from the picker. */
+  selfId?: ProjectId | null;
   disabled?: boolean;
+}
+
+/** Select value for a delivery: "" = not yet planned, "self", or "p:<id>". */
+function deliveryToValue(d: OutcomeDelivery | null | undefined): string {
+  if (!d) return "";
+  return d.kind === "self" ? "self" : `p:${d.project_id}`;
+}
+
+function valueToDelivery(v: string): OutcomeDelivery | null {
+  if (v === "self") return { kind: "self" };
+  if (v.startsWith("p:")) return { kind: "project", project_id: v.slice(2) };
+  return null;
 }
 
 const inputCls =
@@ -43,10 +62,28 @@ export function OutcomesEditor({
   onChange,
   products,
   types,
+  allProjects,
+  selfId = null,
   disabled,
 }: OutcomesEditorProps) {
+  const otherProjects = (allProjects ?? [])
+    .filter((p) => p.project_id !== selfId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  /** Linked project ID that isn't in the list (e.g. since deleted), else null. */
+  function missingTarget(o: ProjectOutcome): string | null {
+    const d = o.delivery;
+    if (!d || d.kind !== "project") return null;
+    return otherProjects.some((p) => p.project_id === d.project_id)
+      ? null
+      : d.project_id;
+  }
+
   function addRow() {
-    onChange([...value, { id: newId(), text: "", product: null, type: null }]);
+    onChange([
+      ...value,
+      { id: newId(), text: "", product: null, type: null, delivery: null },
+    ]);
   }
   function patch(id: string, next: Partial<ProjectOutcome>) {
     onChange(value.map((o) => (o.id === id ? { ...o, ...next } : o)));
@@ -126,6 +163,33 @@ export function OutcomesEditor({
                     />
                   </svg>
                 </button>
+              ) : null}
+              {allProjects ? (
+                <label className="flex items-center gap-2 text-[11px] text-gray-600 sm:col-span-4">
+                  <span className="shrink-0 font-medium">Delivered by</span>
+                  <select
+                    value={deliveryToValue(o.delivery)}
+                    onChange={(e) =>
+                      patch(o.id, { delivery: valueToDelivery(e.target.value) })
+                    }
+                    disabled={disabled}
+                    className={inputCls}
+                    aria-label="Delivered by"
+                  >
+                    <option value="">Not yet planned</option>
+                    <option value="self">This project</option>
+                    {missingTarget(o) ? (
+                      <option value={`p:${missingTarget(o)}`}>
+                        {missingTarget(o)} (not found)
+                      </option>
+                    ) : null}
+                    {otherProjects.map((p) => (
+                      <option key={p.project_id} value={`p:${p.project_id}`}>
+                        {p.name} ({p.project_id})
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
             </li>
           ))}

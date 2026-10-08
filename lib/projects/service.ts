@@ -63,6 +63,10 @@ import {
 } from "@/lib/projects/display";
 import { randomUUID } from "node:crypto";
 import {
+  collectDeliveryTargetIds,
+  normalizeDelivery,
+} from "@/lib/projects/outcome-delivery";
+import {
   LinkValidationError,
   validateDocumentLinks,
 } from "@/lib/projects/links";
@@ -227,6 +231,7 @@ export interface ProjectUpdatePayload extends ProjectCreatePayload {
 function shapeOutcomes(
   raw: unknown,
   settings: Pick<AppSettings, "outcome_products" | "outcome_types">,
+  delivery: { ownId?: ProjectId; knownProjectIds: ReadonlySet<string> },
 ): ProjectOutcome[] {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) {
@@ -260,13 +265,33 @@ function shapeOutcomes(
       return v;
     };
 
+    const link = normalizeDelivery(o.delivery, delivery.ownId, delivery.knownProjectIds);
+    if (!link.ok) {
+      throw new ValidationError(`outcomes[${i}].${link.error}`);
+    }
+
     return {
       id: typeof o.id === "string" && o.id.trim() ? o.id : randomUUID(),
       text,
       product: tag(o.product, "product", products),
       type: tag(o.type, "type", types),
+      delivery: link.value,
     };
   });
+}
+
+/**
+ * IDs of the projects an outcomes payload links to that actually exist —
+ * resolved up front so `shapeOutcomes` can stay synchronous.
+ */
+async function existingDeliveryTargets(raw: unknown): Promise<Set<string>> {
+  const found = new Set<string>();
+  await Promise.all(
+    collectDeliveryTargetIds(raw).map(async (id) => {
+      if (await ProjectRepository.getById(id)) found.add(id);
+    }),
+  );
+  return found;
 }
 
 function asString(value: unknown, field: string, opts: { trim?: boolean } = {}): string {
@@ -685,7 +710,9 @@ async function validateAndShape(
     external_dependencies,
     document_links,
     custom_fields,
-    outcomes: shapeOutcomes(payload.outcomes, settings),
+    outcomes: shapeOutcomes(payload.outcomes, settings, {
+      knownProjectIds: await existingDeliveryTargets(payload.outcomes),
+    }),
     created_by: ctx.createdBy,
   };
 }
@@ -1132,7 +1159,10 @@ export async function updateProject(
     );
   }
   if (payload.outcomes !== undefined) {
-    patch.outcomes = shapeOutcomes(payload.outcomes, settings);
+    patch.outcomes = shapeOutcomes(payload.outcomes, settings, {
+      ownId: id,
+      knownProjectIds: await existingDeliveryTargets(payload.outcomes),
+    });
   }
 
   if (payload.custom_fields !== undefined) {

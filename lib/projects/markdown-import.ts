@@ -285,11 +285,15 @@ export function buildImportPayload(
         text: o.text,
         product: o.product,
         type: o.type,
+        // Carry the delivery link through — the PATCH rebuilds each outcome
+        // from these fields, so omitting it would reset every link.
+        delivery: o.delivery ?? null,
       })),
       ...plan.outcomes.added.map((o) => ({
         text: o.text,
         product: o.product,
         type: o.type,
+        delivery: null,
       })),
     ];
   }
