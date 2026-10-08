@@ -266,9 +266,9 @@ export const STAGE_LAST = "Productization";
 
 /**
  * Track-specific stages between Prioritization and Productization.
- * Track A's full list was given explicitly; Track B/C (and any future
- * track not listed here) have none yet — `stagesForTrack` falls back to
- * just the three anchors for them.
+ * Tracks A and B have full lists; Track C (and any future track not
+ * listed here) has none yet — `stagesForTrack` falls back to just the
+ * anchors for them.
  */
 const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
   "Track A - Dashboard/visualization": [
@@ -286,18 +286,31 @@ const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
     "Final Visualization",
     "Release",
   ],
+  "Track B - Cognigy bot inputs": [
+    "Development",
+    "Testing",
+    "Signoff",
+    "Integration",
+    "Release",
+  ],
 };
 
 /**
  * Track-specific stages AFTER Productization (e.g. validation and
  * adoption). Productization is the point the functionality ships, so a
  * project in one of these stages has already been delivered; the stages
- * track what happens next. Empty until a track defines them — every
+ * track what happens next. Only Track B defines them so far. Every
  * "has it shipped?" check goes through `hasReachedProductization`, which
  * compares positions in the track's list rather than assuming
  * Productization is last, so adding stages here is safe.
  */
-const TRACK_POST_STAGES: Record<string, string[]> = {};
+const TRACK_POST_STAGES: Record<string, string[]> = {
+  "Track B - Cognigy bot inputs": [
+    "Services Validation",
+    "Services Signoff",
+    "Adoption",
+  ],
+};
 
 /**
  * Full ordered stage list for a track: anchors + its middle stages,

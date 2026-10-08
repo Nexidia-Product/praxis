@@ -32,6 +32,30 @@ assert.equal(hasReachedProductization(trackB, "Productization"), true);
 assert.equal(hasReachedProductization(trackA, "Some Retired Stage"), false, "unknown stage is not reached");
 assert.equal(stagesForTrack(trackA).at(-1), STAGE_LAST);
 
+// Track B: build stages, Productization, then Services stages after it.
+assert.deepEqual(stagesForTrack(trackB), [
+  "Qualification",
+  "Prioritization",
+  "Development",
+  "Testing",
+  "Signoff",
+  "Integration",
+  "Release",
+  "Productization",
+  "Services Validation",
+  "Services Signoff",
+  "Adoption",
+]);
+for (const s of ["Development", "Testing", "Signoff", "Integration", "Release"]) {
+  assert.equal(hasReachedProductization(trackB, s), false, `Track B ${s} is before Productization`);
+}
+for (const s of ["Productization", "Services Validation", "Services Signoff", "Adoption"]) {
+  assert.equal(hasReachedProductization(trackB, s), true, `Track B ${s} counts as shipped`);
+}
+assert.equal(closedOutStage(trackB, "Testing"), "Productization");
+assert.equal(closedOutStage(trackB, "Services Validation"), "Services Validation", "closing out never moves a project backwards");
+assert.equal(closedOutStage(trackB, "Adoption"), "Adoption");
+
 // A track with stages after Productization.
 const withPost = [
   "Qualification",
