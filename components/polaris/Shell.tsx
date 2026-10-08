@@ -47,6 +47,7 @@ export type NavKey =
   | "key-findings"
   | "key-capabilities"
   | "executive"
+  | "program-coverage"
   | "application-release"
   | "ideas"
   | "admin-resources"
@@ -110,6 +111,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Executive view",
         href: "/insights/executive",
         icon: "▣",
+        permission: "projects.view",
+      },
+      {
+        key: "program-coverage",
+        label: "Program coverage",
+        href: "/insights/program-coverage",
+        icon: "▥",
         permission: "projects.view",
       },
       {

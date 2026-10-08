@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 
 import { buildCoverageGraph, bucketOfProject } from "@/lib/coverage/graph";
+import { coverageHref, resolveCoverageSelection } from "@/lib/coverage/select";
 import { countNoPillar } from "@/lib/executive/portfolio";
 import type { Project, ProjectOutcome, UseCase } from "@/lib/db";
 
@@ -200,5 +201,29 @@ const linker = mk({
 });
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan]), 2);
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan, linker]), 1, "linked delivery project is aligned");
+
+// ---- URL selection (drill-down level) ----
+assert.equal(resolveCoverageSelection(graph).level, 1);
+assert.equal(resolveCoverageSelection(graph, "Nope").level, 1, "unknown pillar -> level 1");
+assert.equal(resolveCoverageSelection(graph, "Cost-to-Serve").level, 2);
+assert.equal(
+  resolveCoverageSelection(graph, "Cost-to-Serve", "missing").level,
+  2,
+  "unknown use case -> level 2",
+);
+assert.equal(
+  resolveCoverageSelection(graph, "Revenue", "uc-hold").level,
+  2,
+  "use case from a different pillar -> level 2",
+);
+const sel = resolveCoverageSelection(graph, "Cost-to-Serve", "uc-hold");
+assert.equal(sel.level, 3);
+assert.equal(sel.level === 3 && sel.useCase.name, "Hold Time");
+assert.equal(coverageHref(), "/insights/program-coverage");
+assert.equal(coverageHref("Cost-to-Serve"), "/insights/program-coverage?pillar=Cost-to-Serve");
+assert.equal(
+  coverageHref("Customer Experience", "uc-1"),
+  "/insights/program-coverage?pillar=Customer+Experience&useCase=uc-1",
+);
 
 console.log("smoke-coverage: all assertions passed");
