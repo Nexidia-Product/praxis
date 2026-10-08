@@ -28,6 +28,7 @@ import {
   isAdminProject,
 } from "@/lib/projects/display";
 import { quarterOf } from "@/lib/key-capabilities";
+import { deliveryTargetIds } from "@/lib/projects/outcome-delivery";
 import { buildReleaseDates, defaultReleaseDate } from "@/lib/releases/calendar";
 import type { ReleaseProjectEntry } from "@/lib/releases/report";
 
@@ -125,12 +126,18 @@ export function isExecEligible(p: Project): boolean {
 
 /**
  * Innovation projects that have no pillar at all yet (excludes the ones
- * deliberately classed Complaints/Other, which are out of scope).
+ * deliberately classed Complaints/Other, which are out of scope). A project
+ * that some outcome names as its delivery project is aligned through that
+ * link and isn't counted.
  */
 export function countNoPillar(projects: Project[]): number {
+  const deliveryTargets = deliveryTargetIds(projects);
   return projects.filter(
     (p) =>
-      isExecCandidate(p) && p.status !== "Canceled" && p.primary_objective === null,
+      isExecCandidate(p) &&
+      p.status !== "Canceled" &&
+      p.primary_objective === null &&
+      !deliveryTargets.has(p.project_id),
   ).length;
 }
 

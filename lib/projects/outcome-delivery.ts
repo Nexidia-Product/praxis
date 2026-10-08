@@ -8,7 +8,7 @@
  * carries existing links through unchanged.
  */
 
-import type { OutcomeDelivery, ProjectId, ProjectOutcome } from "@/lib/db";
+import type { OutcomeDelivery, Project, ProjectId, ProjectOutcome } from "@/lib/db";
 
 export type DeliveryResult =
   | { ok: true; value: OutcomeDelivery | null }
@@ -56,6 +56,23 @@ export function collectDeliveryTargetIds(raw: unknown): string[] {
     }
   }
   return [...ids];
+}
+
+/**
+ * IDs of every project that some project's outcome names as its delivery
+ * project. Such a project is aligned through that link, so it shouldn't be
+ * reported as "no pillar" / "no use case" on its own.
+ */
+export function deliveryTargetIds(
+  projects: ReadonlyArray<Pick<Project, "outcomes">>,
+): Set<ProjectId> {
+  const ids = new Set<ProjectId>();
+  for (const p of projects) {
+    for (const o of p.outcomes ?? []) {
+      if (o.delivery?.kind === "project") ids.add(o.delivery.project_id);
+    }
+  }
+  return ids;
 }
 
 /** Outcomes with any link to `projectId` reset to "not yet planned". */
