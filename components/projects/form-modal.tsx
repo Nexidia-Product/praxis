@@ -1356,6 +1356,8 @@ export function ProjectFormModal({
             onChange={(o) => update("outcomes", o)}
             products={outcomeProducts}
             types={outcomeTypes}
+            allProjects={allProjects}
+            selfId={project?.project_id ?? null}
             disabled={saving}
           />
 

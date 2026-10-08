@@ -8,12 +8,13 @@
  * `scripts/migrate-to-supabase.ts`).
  *
  * `delete` prunes references to the deleted project from other
- * projects' `depends_on` and `dependencies` arrays so the dependency
- * graph never dangles. Cascading to tasks and decisions is handled
+ * projects' `depends_on` and `dependencies` arrays, and resets any
+ * outcome `delivery` links to it, so neither graph dangles. Cascading to tasks and decisions is handled
  * by the `ON DELETE CASCADE` foreign keys at the schema layer.
  */
 
-import type { Project, ProjectId } from "./types";
+import type { Project, ProjectId, ProjectOutcome } from "./types";
+import { clearDeliveryTarget } from "@/lib/projects/outcome-delivery";
 import { getServiceRoleClient } from "@/lib/supabase/server";
 
 const TABLE = "projects" as const;
@@ -186,6 +187,26 @@ export const ProjectRepository = {
       if (updErr)
         throw new Error(
           `projects.delete (prune ${row.project_id}) failed: ${updErr.message}`,
+        );
+    }
+
+    // 2b. Outcomes on other projects that name this one as their delivery
+    //     project fall back to "not yet planned". jsonb containment finds
+    //     any outcome in the array with a matching link.
+    const { data: linked, error: linkErr } = await client
+      .from(TABLE)
+      .select("project_id, outcomes")
+      .contains("outcomes", [{ delivery: { kind: "project", project_id: id } }]);
+    if (linkErr)
+      throw new Error(`projects.delete (find outcome links) failed: ${linkErr.message}`);
+    for (const row of linked ?? []) {
+      const { error: outErr } = await client
+        .from(TABLE)
+        .update({ outcomes: clearDeliveryTarget(row.outcomes as ProjectOutcome[], id) })
+        .eq("project_id", row.project_id);
+      if (outErr)
+        throw new Error(
+          `projects.delete (clear outcome links on ${row.project_id}) failed: ${outErr.message}`,
         );
     }
 
