@@ -8,7 +8,12 @@
 
 import assert from "node:assert/strict";
 
-import { buildCoverageGraph, bucketOfProject } from "@/lib/coverage/graph";
+import {
+  COVERAGE_EXCLUDED_TRACKS,
+  buildCoverageGraph,
+  bucketOfProject,
+} from "@/lib/coverage/graph";
+import { SYSTEM_TRACKS } from "@/lib/projects/display";
 import { coverageHref, resolveCoverageSelection } from "@/lib/coverage/select";
 import { countNoPillar } from "@/lib/executive/portfolio";
 import type { Project, ProjectOutcome, UseCase } from "@/lib/db";
@@ -201,6 +206,42 @@ const linker = mk({
 });
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan]), 2);
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan, linker]), 1, "linked delivery project is aligned");
+
+// ---- Tracks D-G are excluded; other tracks (incl. H) are not ----
+const onTrack = (id: string, track: string) =>
+  mk({ project_id: id, name: `On ${track}`, track, outcomes: [out(`o-${id}`, "x", null)] });
+const trackProjects = [
+  onTrack("2026-101", "Track A - Dashboard/visualization"),
+  onTrack("2026-102", "Track B - Cognigy bot inputs"),
+  onTrack("2026-103", "Track C - WFM/mid-shift reskilling"),
+  onTrack("2026-104", "Track D - UI/Application"),
+  onTrack("2026-105", "Track E - TopicAI"),
+  onTrack("2026-106", "Track F - Complaints"),
+  onTrack("2026-107", "Track G - Other"),
+  onTrack("2026-108", "Track H - Services Validation"),
+];
+const byTrack = buildCoverageGraph({
+  projects: [...trackProjects, mk({ project_id: "2026-109", name: "Orphan D", track: "Track D - UI/Application" })],
+  useCases: [uc({ use_case_id: "uc-tracks", member_project_ids: trackProjects.map((p) => p.project_id) })],
+});
+const shown = byTrack.pillars[0].useCases[0].projects.map((p) => p.ref.project_id);
+assert.deepEqual(shown, ["2026-101", "2026-102", "2026-103", "2026-108"], "D-G members left out");
+assert.equal(byTrack.pillars[0].counts.total, 4, "excluded projects' outcomes aren't counted");
+assert.equal(byTrack.excluded.projectsWithoutUseCase, 0, "an excluded-track project isn't reported as unassigned");
+assert.equal(
+  [...COVERAGE_EXCLUDED_TRACKS].every((t) => SYSTEM_TRACKS.includes(t)),
+  true,
+  "excluded track names match SYSTEM_TRACKS",
+);
+// An explicit delivery link to an excluded-track project still resolves.
+const linkedD = buildCoverageGraph({
+  projects: [
+    mk({ project_id: "2026-110", name: "Viz", outcomes: [out("l1", "Ship it", { kind: "project", project_id: "2026-104" })] }),
+    trackProjects[3],
+  ],
+  useCases: [uc({ member_project_ids: ["2026-110"] })],
+});
+assert.equal(linkedD.pillars[0].useCases[0].projects[0].outcomes[0].delivery.project?.project_id, "2026-104");
 
 // ---- URL selection (drill-down level) ----
 assert.equal(resolveCoverageSelection(graph).level, 1);
