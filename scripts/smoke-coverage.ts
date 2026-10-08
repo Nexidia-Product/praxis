@@ -12,6 +12,7 @@ import {
   COVERAGE_EXCLUDED_TRACKS,
   buildCoverageGraph,
   bucketOfProject,
+  rollupBuckets,
 } from "@/lib/coverage/graph";
 import { SYSTEM_TRACKS } from "@/lib/projects/display";
 import { coverageHref, resolveCoverageSelection } from "@/lib/coverage/select";
@@ -36,6 +37,7 @@ const mk = (over: Partial<Project>): Project =>
     secondary_objectives: [],
     target_date: null,
     outcomes: [],
+    use_case_outcome_ids: [],
     ...over,
   }) as Project;
 
@@ -55,6 +57,7 @@ const uc = (over: Partial<UseCase>): UseCase =>
     primary_objective: "Cost-to-Serve",
     secondary_objectives: [],
     member_project_ids: [],
+    outcomes: [],
     ...over,
   }) as UseCase;
 
@@ -69,6 +72,14 @@ assert.equal(
   "canceled is forced to Productization on close-out but is not delivered",
 );
 
+// ---- rollupBuckets ----
+assert.equal(rollupBuckets([]), "notStarted");
+assert.equal(rollupBuckets(["delivered", "delivered"]), "delivered");
+assert.equal(rollupBuckets(["notStarted", "notStarted"]), "notStarted");
+assert.equal(rollupBuckets(["delivered", "notStarted"]), "inProgress");
+assert.equal(rollupBuckets(["inProgress", "delivered"]), "inProgress");
+assert.equal(rollupBuckets(["inProgress"]), "inProgress");
+
 // ---- Hold Time Analysis scenario ----
 const hold = mk({
   project_id: "2026-024",
@@ -78,6 +89,7 @@ const hold = mk({
     out("o2", "Quality Central build", null),
     out("o3", "Hold time dashboard", { kind: "self" }),
   ],
+  use_case_outcome_ids: ["u1", "u2"],
 });
 // Visualization project in the same use case family, same shared bot.
 const other = mk({
@@ -85,6 +97,8 @@ const other = mk({
   name: "Transfer Analysis",
   stage: "Productization",
   outcomes: [out("o4", "Same bot", { kind: "project", project_id: "2026-031" })],
+  // "gone" is an id the use case no longer defines: it must be ignored.
+  use_case_outcome_ids: ["u2", "u4", "gone"],
 });
 const taskAssist = mk({
   project_id: "2026-031",
@@ -111,6 +125,7 @@ const dangling = mk({
     out("d1", "To canceled", { kind: "project", project_id: "2026-032" }),
     out("d2", "To missing", { kind: "project", project_id: "2026-999" }),
   ],
+  use_case_outcome_ids: ["u1"],
 });
 const canceledMember = mk({ project_id: "2026-028", name: "Gone", status: "Canceled", outcomes: [out("c1", "x", null)] });
 const otherProgram = mk({ project_id: "2026-029", name: "Complaints thing", program: "Complaints", outcomes: [out("p1", "y", null)] });
@@ -122,6 +137,12 @@ const useCases = [
     use_case_id: "uc-hold",
     name: "Hold Time",
     member_project_ids: ["2026-024", "2026-025", "2026-026", "2026-027", "2026-028", "2026-029", "2026-404"],
+    outcomes: [
+      { id: "u1", text: "Reduce hold time" },
+      { id: "u2", text: "Bot handles transfers" },
+      { id: "u3", text: "Quality scoring" }, // nobody supports this one
+      { id: "u4", text: "Transfer analysis shipped" },
+    ],
   }),
   uc({ use_case_id: "uc-none", name: "No pillar", primary_objective: null, member_project_ids: [] }),
   uc({ use_case_id: "uc-complaints", name: "Complaints UC", primary_objective: "Complaints", member_project_ids: [] }),
@@ -162,9 +183,49 @@ assert.deepEqual(
   [1, 1, 1],
 );
 
-// Delivery projects are leaves: the bot's own outcome is not counted anywhere.
-assert.equal(hu.counts.total, 3 + 1 + 0 + 2);
 assert.equal(hu.projects[1].outcomes[0].bucket, "delivered");
+
+// A project's own bucket counts what it depends on: Hold Time Analysis is at
+// Kickoff and has an unplanned outcome, so in progress; Transfer Analysis has
+// shipped and so has its bot, so delivered.
+assert.equal(hu.projects[0].ref.bucket, "inProgress");
+assert.equal(hu.projects[0].bucket, "inProgress");
+assert.equal(hu.projects[1].ref.bucket, "delivered");
+assert.equal(hu.projects[1].bucket, "delivered");
+// A delivered stage with an unfinished own outcome is only in progress.
+const shippedButBotLate = buildCoverageGraph({
+  projects: [
+    mk({ project_id: "2026-070", name: "Shipped viz", stage: "Productization",
+         outcomes: [out("s1", "Bot", { kind: "project", project_id: "2026-071" })] }),
+    mk({ project_id: "2026-071", name: "Late bot", track: TRACK_B, stage: "Development" }),
+  ],
+  useCases: [uc({ member_project_ids: ["2026-070"] })],
+}).pillars[0].useCases[0].projects[0];
+assert.equal(shippedButBotLate.ref.bucket, "delivered");
+assert.equal(shippedButBotLate.bucket, "inProgress", "delivered stage, bot still in development");
+
+// Use case outcomes, with the projects that support each.
+assert.deepEqual(hu.outcomes.map((o) => o.id), ["u1", "u2", "u3", "u4"]);
+const [u1, u2, u3, u4] = hu.outcomes;
+assert.deepEqual(u1.projects.map((p) => p.ref.project_id), ["2026-024", "2026-027"]);
+assert.equal(u1.bucket, "inProgress");
+assert.deepEqual(u2.projects.map((p) => p.ref.project_id), ["2026-024", "2026-025"]);
+assert.equal(u2.bucket, "inProgress", "one supporter delivered, one in progress");
+assert.equal(u3.projects.length, 0);
+assert.equal(u3.gap, "noSupport");
+assert.equal(u3.bucket, "notStarted");
+assert.deepEqual(u4.projects.map((p) => p.ref.project_id), ["2026-025"]);
+assert.equal(u4.bucket, "delivered");
+assert.equal(u4.gap, null);
+// The stale id isn't carried onto the project.
+assert.deepEqual(hu.projects[1].supportedOutcomeIds, ["u2", "u4"]);
+// Counts are of use case outcomes, not project outcomes.
+assert.deepEqual(
+  [hu.counts.notStarted, hu.counts.inProgress, hu.counts.delivered, hu.counts.total],
+  [1, 2, 1, 4],
+);
+// Members that support nothing.
+assert.deepEqual(hu.unlinkedProjects.map((p) => p.ref.project_id), ["2026-026"]);
 
 // A project with no outcomes is flagged.
 assert.equal(hu.projects[2].noOutcomes, true);
@@ -176,11 +237,13 @@ assert.equal(toCanceled.bucket, "notStarted");
 assert.equal(toCanceled.gap, "deliveryCanceled");
 assert.equal(toMissing.bucket, "notStarted");
 assert.equal(toMissing.gap, "deliveryMissing");
-assert.equal(hu.gapCount, 1 /* QC */ + 2 /* canceled + missing */);
+assert.equal(hu.gapCount, 1, "use case outcomes with no supporting project (u3)");
+assert.equal(hu.projectOutcomeGapCount, 1 /* QC */ + 2 /* canceled + missing */);
 
 // Rollups.
 assert.equal(pillar.projectCount, 4);
 assert.equal(pillar.counts.total, hu.counts.total);
+assert.equal(pillar.gapCount, 1);
 assert.equal(graph.pillars[1].useCases.length, 0);
 assert.equal(graph.pillars[1].counts.total, 0);
 
@@ -209,7 +272,13 @@ assert.equal(countNoPillar([noPillarBot, noPillarOrphan, linker]), 1, "linked de
 
 // ---- Tracks D-H are excluded; Tracks A-C are not ----
 const onTrack = (id: string, track: string) =>
-  mk({ project_id: id, name: `On ${track}`, track, outcomes: [out(`o-${id}`, "x", null)] });
+  mk({
+    project_id: id,
+    name: `On ${track}`,
+    track,
+    outcomes: [out(`o-${id}`, "x", null)],
+    use_case_outcome_ids: ["t1"],
+  });
 const trackProjects = [
   onTrack("2026-101", "Track A - Dashboard/visualization"),
   onTrack("2026-102", "Track B - Cognigy bot inputs"),
@@ -222,11 +291,22 @@ const trackProjects = [
 ];
 const byTrack = buildCoverageGraph({
   projects: [...trackProjects, mk({ project_id: "2026-109", name: "Orphan D", track: "Track D - UI/Application" })],
-  useCases: [uc({ use_case_id: "uc-tracks", member_project_ids: trackProjects.map((p) => p.project_id) })],
+  useCases: [
+    uc({
+      use_case_id: "uc-tracks",
+      member_project_ids: trackProjects.map((p) => p.project_id),
+      outcomes: [{ id: "t1", text: "Shared outcome" }],
+    }),
+  ],
 });
 const shown = byTrack.pillars[0].useCases[0].projects.map((p) => p.ref.project_id);
 assert.deepEqual(shown, ["2026-101", "2026-102", "2026-103"], "D-H members left out");
-assert.equal(byTrack.pillars[0].counts.total, 3, "excluded projects' outcomes aren't counted");
+assert.deepEqual(
+  byTrack.pillars[0].useCases[0].outcomes[0].projects.map((p) => p.ref.project_id),
+  ["2026-101", "2026-102", "2026-103"],
+  "excluded-track projects don't appear as supporters",
+);
+assert.equal(byTrack.pillars[0].counts.total, 1, "one use case outcome");
 assert.equal(byTrack.excluded.projectsWithoutUseCase, 0, "an excluded-track project isn't reported as unassigned");
 assert.equal(
   [...COVERAGE_EXCLUDED_TRACKS].every((t) => SYSTEM_TRACKS.includes(t)),

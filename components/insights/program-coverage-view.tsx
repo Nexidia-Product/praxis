@@ -15,6 +15,7 @@ import type {
   CoverageOutcome,
   CoverageProject,
   CoverageUseCase,
+  CoverageUseCaseOutcome,
   OutcomeBucket,
   OutcomeGap,
 } from "@/lib/coverage/graph";
@@ -100,8 +101,9 @@ export function ProgramCoverageView({
       <p className="text-xs text-gray-400">
         Innovation program, five core pillars; projects on Tracks D–H
         (UI/Application, TopicAI, Complaints, Other, Services Validation) are
-        not included.
-        Delivered means the delivery project has reached Productization.
+        not included. A use case outcome is delivered when every project that
+        supports it is delivered; a project is delivered when it has reached
+        Productization and so have the delivery projects of its own outcomes.
         {graph.excluded.projectsWithoutUseCase > 0
           ? ` ${plural(graph.excluded.projectsWithoutUseCase, "pillar project")} ${graph.excluded.projectsWithoutUseCase === 1 ? "isn't" : "aren't"} in a use case yet.`
           : ""}
@@ -139,7 +141,7 @@ function PillarsLevel({ graph }: { graph: CoverageGraph }) {
           <CountsLine counts={p.counts} />
           {p.gapCount > 0 ? (
             <div className="mt-2">
-              <Flag>{plural(p.gapCount, "outcome")} without a delivery project</Flag>
+              <Flag>{plural(p.gapCount, "outcome")} with no supporting project</Flag>
             </div>
           ) : null}
         </Link>
@@ -195,8 +197,8 @@ function UseCasesLevel({ pillar }: { pillar: CoverageGraph["pillars"][number] })
                       {u.projects.map((p) => (
                         <Dot
                           key={p.ref.project_id}
-                          bucket={p.ref.bucket}
-                          label={`${p.ref.name} — ${BUCKET_LABEL[p.ref.bucket]} (${p.ref.stage})`}
+                          bucket={p.bucket}
+                          label={`${p.ref.name} — ${BUCKET_LABEL[p.bucket]} (${p.ref.stage})`}
                         />
                       ))}
                     </div>
@@ -206,40 +208,22 @@ function UseCasesLevel({ pillar }: { pillar: CoverageGraph["pillars"][number] })
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {u.projects.flatMap((p) =>
-                        p.outcomes.map((o) => (
-                          <Dot
-                            key={`${p.ref.project_id}-${o.id}`}
-                            bucket={o.bucket}
-                            label={`${o.text} — ${BUCKET_LABEL[o.bucket]}`}
-                          />
-                        )),
-                      )}
+                      {u.outcomes.map((o) => (
+                        <Dot
+                          key={o.id}
+                          bucket={o.bucket}
+                          label={`${o.text} — ${BUCKET_LABEL[o.bucket]}`}
+                        />
+                      ))}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
                       {u.counts.total === 0
-                        ? "No outcomes"
+                        ? "No outcomes defined"
                         : `${u.counts.delivered} of ${u.counts.total} delivered`}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {u.gapCount > 0 ? (
-                        <Flag>{plural(u.gapCount, "outcome")} unplanned</Flag>
-                      ) : null}
-                      {u.projects.some((p) => p.noOutcomes) ? (
-                        <Flag>
-                          {plural(
-                            u.projects.filter((p) => p.noOutcomes).length,
-                            "project",
-                          )}{" "}
-                          with no outcomes
-                        </Flag>
-                      ) : null}
-                      {u.gapCount === 0 && !u.projects.some((p) => p.noOutcomes) ? (
-                        <span className="text-xs text-gray-400">—</span>
-                      ) : null}
-                    </div>
+                    <AttentionFlags useCase={u} />
                   </td>
                 </tr>
               ))}
@@ -251,11 +235,37 @@ function UseCasesLevel({ pillar }: { pillar: CoverageGraph["pillars"][number] })
   );
 }
 
+/** The "needs attention" flags for a use case (shared by the table and the detail page). */
+function AttentionFlags({ useCase: u }: { useCase: CoverageUseCase }) {
+  const flags: string[] = [];
+  if (u.projects.length > 0 && u.outcomes.length === 0) {
+    flags.push("No outcomes defined");
+  }
+  if (u.gapCount > 0) {
+    flags.push(`${plural(u.gapCount, "outcome")} with no supporting project`);
+  }
+  if (u.outcomes.length > 0 && u.unlinkedProjects.length > 0) {
+    flags.push(`${plural(u.unlinkedProjects.length, "project")} not linked to an outcome`);
+  }
+  if (u.projectOutcomeGapCount > 0) {
+    flags.push(`${plural(u.projectOutcomeGapCount, "project outcome")} without a delivery project`);
+  }
+  if (flags.length === 0) return <span className="text-xs text-gray-400">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {flags.map((f) => (
+        <Flag key={f}>{f}</Flag>
+      ))}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Level 3 — a use case
+// Level 3 — a use case: its outcomes, with the projects that support each
 // ---------------------------------------------------------------------------
 
 function UseCaseLevel({ pillar, useCase }: { pillar: string; useCase: CoverageUseCase }) {
+  const hasOutcomes = useCase.outcomes.length > 0;
   return (
     <section className="space-y-3">
       <BackLink href={coverageHref(pillar)} label={pillar} />
@@ -273,6 +283,9 @@ function UseCaseLevel({ pillar, useCase }: { pillar: string; useCase: CoverageUs
           <StatusBar counts={useCase.counts} />
           <CountsLine counts={useCase.counts} />
         </div>
+        <div className="mt-2">
+          <AttentionFlags useCase={useCase} />
+        </div>
         {useCase.warnings.map((w) => (
           <p key={w} className="mt-2 text-xs text-amber-800">
             {w}
@@ -280,18 +293,75 @@ function UseCaseLevel({ pillar, useCase }: { pillar: string; useCase: CoverageUs
         ))}
       </header>
 
+      {!hasOutcomes ? (
+        <p className="rounded-md border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+          No outcomes are defined for this use case yet. Add them under Admin →
+          Use cases, then choose which ones each project supports on the project
+          form.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {useCase.outcomes.map((o) => (
+            <UseCaseOutcomeCard key={o.id} outcome={o} />
+          ))}
+        </ul>
+      )}
+
       {useCase.projects.length === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
           No projects in this use case yet.
         </p>
+      ) : hasOutcomes ? (
+        useCase.unlinkedProjects.length > 0 ? (
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Projects not linked to an outcome ({useCase.unlinkedProjects.length})
+            </h3>
+            <ul className="space-y-2">
+              {useCase.unlinkedProjects.map((p) => (
+                <ProjectCard key={p.ref.project_id} project={p} />
+              ))}
+            </ul>
+          </section>
+        ) : null
       ) : (
-        <ul className="space-y-3">
-          {useCase.projects.map((p) => (
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Projects ({useCase.projects.length})
+          </h3>
+          <ul className="space-y-2">
+            {useCase.projects.map((p) => (
+              <ProjectCard key={p.ref.project_id} project={p} />
+            ))}
+          </ul>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function UseCaseOutcomeCard({ outcome }: { outcome: CoverageUseCaseOutcome }) {
+  return (
+    <li className="rounded-md border border-gray-200 bg-white">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-100 px-4 py-3">
+        <span className="min-w-0 flex-1 text-sm font-semibold text-gray-900">
+          {outcome.text}
+        </span>
+        {outcome.gap === "noSupport" ? <Flag>No project supports this yet</Flag> : null}
+        <Chip bucket={outcome.bucket} />
+      </div>
+      {outcome.projects.length === 0 ? (
+        <p className="px-4 py-3 text-sm italic text-gray-400">
+          Choose this outcome on a project in the use case to align it here.
+        </p>
+      ) : (
+        <ul className="space-y-2 bg-gray-50/60 p-3">
+          {outcome.projects.map((p) => (
             <ProjectCard key={p.ref.project_id} project={p} />
           ))}
         </ul>
       )}
-    </section>
+    </li>
   );
 }
 
@@ -299,7 +369,7 @@ function ProjectCard({ project }: { project: CoverageProject }) {
   const r = project.ref;
   return (
     <li className="rounded-md border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-100 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
         <span className="font-mono text-[11px] text-gray-500">{r.project_id}</span>
         <Link
           href={`/projects?id=${encodeURIComponent(r.project_id)}`}
@@ -307,24 +377,42 @@ function ProjectCard({ project }: { project: CoverageProject }) {
         >
           {r.name}
         </Link>
-        <Chip bucket={r.bucket} />
+        <Chip bucket={project.bucket} />
         <span className="text-xs text-gray-500">
           {r.stage}
           {project.visualization_type ? ` · ${project.visualization_type}` : ""}
           {r.target_date ? ` · Release ${formatDate(r.target_date)}` : " · Unscheduled"}
+          {project.supportedOutcomeIds.length > 1
+            ? ` · supports ${project.supportedOutcomeIds.length} outcomes`
+            : ""}
         </span>
       </div>
 
       {project.noOutcomes ? (
-        <p className="px-4 py-3 text-sm italic text-gray-400">
-          No outcomes defined yet.
+        <p className="border-t border-gray-100 px-4 py-2 text-xs italic text-gray-400">
+          No outcomes of its own defined yet.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-100">
-          {project.outcomes.map((o) => (
-            <OutcomeRow key={o.id} outcome={o} />
-          ))}
-        </ul>
+        // Collapsed by default: a project that supports several use case
+        // outcomes appears under each, and its own outcomes (with their
+        // delivery projects) are detail, not the headline.
+        <details className="border-t border-gray-100">
+          <summary className="cursor-pointer px-4 py-2 text-xs text-gray-600 hover:bg-gray-50">
+            Its own outcomes: {project.counts.delivered} delivered ·{" "}
+            {project.counts.inProgress} in progress · {project.counts.notStarted} not
+            started
+            {project.outcomes.some((o) => o.gap !== null) ? (
+              <span className="ml-2">
+                <Flag>needs a delivery project</Flag>
+              </span>
+            ) : null}
+          </summary>
+          <ul className="divide-y divide-gray-100 border-t border-gray-100">
+            {project.outcomes.map((o) => (
+              <OutcomeRow key={o.id} outcome={o} />
+            ))}
+          </ul>
+        </details>
       )}
     </li>
   );

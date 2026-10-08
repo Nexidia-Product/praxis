@@ -6,17 +6,26 @@
  *
  *   pillar (objective)
  *     └─ use case
- *          └─ member project (the visualization / analysis work)
- *               └─ outcome  ──delivered by──▶  delivery project (leaf)
+ *          └─ use case outcome            (defined on the use case)
+ *               └─ supporting projects     (projects that picked the outcome)
+ *                    └─ the project's own outcomes ──delivered by──▶ delivery project (leaf)
  *
- * "As of now" — no quarter filter. Each outcome gets a status bucket read
- * from the project that delivers it:
+ * "As of now" — no quarter filter. Everything gets one of three status
+ * buckets:
  *
- *   - delivered   the delivery project has reached Productization
- *                 (or any stage after it) and isn't Canceled
+ *   - delivered   reached Productization (or any stage after it), not Canceled
  *   - inProgress  past Prioritization, not yet at Productization
- *   - notStarted  no delivery project yet, the delivery project is still
- *                 qualifying, Canceled, or can't be found
+ *   - notStarted  still qualifying, Canceled, not planned, or can't be found
+ *
+ * How the buckets roll up (`rollupBuckets`): all delivered -> delivered;
+ * all not started (or nothing at all) -> not started; anything else ->
+ * in progress.
+ *   - A project's own outcome is read from the project that delivers it.
+ *   - A project is as far along as its own stage AND each of its own
+ *     outcomes' delivery (a delivered dashboard whose bot isn't built yet is
+ *     in progress, not delivered).
+ *   - A use case outcome is as far along as the projects that support it; one
+ *     with no supporting project is not started and flagged (`noSupport`).
  *
  * Rules (agreed with the product owner, see ROADMAP-executive-phases.md §8.4):
  *   - Scope matches the Executive view: Innovation program, non-admin,
@@ -27,8 +36,9 @@
  *   - Delivery projects are leaves — their own outcomes are not expanded, so
  *     a link cycle between two projects is harmless. They can be any project
  *     (any program), including one shared by several outcomes.
- *   - Rollups count outcomes on member projects only, so a delivery project
- *     is never counted twice.
+ *   - Counts are of USE CASE outcomes (what the use case is meant to achieve);
+ *     a project's own outcomes show beneath it but aren't counted separately,
+ *     and a delivery project is never counted twice.
  *   - A Canceled project is forced to Productization on close-out, so
  *     Canceled is checked explicitly and never reads as delivered.
  */
@@ -93,22 +103,50 @@ export interface CoverageOutcome {
 
 export interface CoverageProject {
   ref: ProjectRef;
+  /**
+   * How far along the project is counting what it depends on: its own stage
+   * and each of its own outcomes' delivery, rolled up (`ref.bucket` is the
+   * stage alone).
+   */
+  bucket: OutcomeBucket;
   visualization_type: string;
+  /** The project's own outcomes (what it delivers), each with its delivery project. */
   outcomes: CoverageOutcome[];
+  /** Buckets of the project's own outcomes. */
   counts: BucketCounts;
   /** Every project is expected to have an outcome; true when it has none. */
   noOutcomes: boolean;
+  /** Ids of the use case outcomes this project supports (only ones the use case defines). */
+  supportedOutcomeIds: string[];
+}
+
+/** An outcome defined on a use case, with the projects that support it. */
+export interface CoverageUseCaseOutcome {
+  id: string;
+  text: string;
+  bucket: OutcomeBucket;
+  /** "noSupport" when no in-scope project has picked this outcome. */
+  gap: "noSupport" | null;
+  /** Supporting member projects, in the use case's member order. */
+  projects: CoverageProject[];
 }
 
 export interface CoverageUseCase {
   use_case_id: string;
   name: string;
   description: string;
+  /** Every in-scope member project. */
   projects: CoverageProject[];
-  /** Outcome counts across every member project. */
+  /** The outcomes the use case defines, with their supporting projects. */
+  outcomes: CoverageUseCaseOutcome[];
+  /** Member projects that support none of the use case's outcomes. */
+  unlinkedProjects: CoverageProject[];
+  /** Use case outcome counts by bucket. */
   counts: BucketCounts;
-  /** Outcomes that are outstanding for a structural reason (no project, canceled, missing). */
+  /** Use case outcomes with no supporting project. */
   gapCount: number;
+  /** Projects' own outcomes that are unplanned, canceled or missing a delivery project. */
+  projectOutcomeGapCount: number;
   warnings: string[];
 }
 
@@ -138,6 +176,18 @@ export function emptyCounts(): BucketCounts {
 function addTo(counts: BucketCounts, bucket: OutcomeBucket): void {
   counts[bucket] += 1;
   counts.total += 1;
+}
+
+/**
+ * Roll several buckets into one: all delivered -> delivered, all not
+ * started (or nothing to look at) -> not started, anything else -> in
+ * progress.
+ */
+export function rollupBuckets(buckets: OutcomeBucket[]): OutcomeBucket {
+  if (buckets.length === 0) return "notStarted";
+  if (buckets.every((b) => b === "delivered")) return "delivered";
+  if (buckets.every((b) => b === "notStarted")) return "notStarted";
+  return "inProgress";
 }
 
 function sumCounts(list: BucketCounts[]): BucketCounts {
@@ -254,6 +304,7 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((u) => {
         const projects: CoverageProject[] = [];
+        const definedOutcomeIds = new Set((u.outcomes ?? []).map((o) => o.id));
         for (const id of u.member_project_ids) {
           const p = byId.get(id);
           if (!p || !isMember(p)) continue;
@@ -271,14 +322,33 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
             };
           });
 
+          const ref = toRef(p);
           projects.push({
-            ref: toRef(p),
+            ref,
+            bucket: rollupBuckets([ref.bucket, ...outcomes.map((o) => o.bucket)]),
             visualization_type: p.visualization_type,
             outcomes,
             counts,
             noOutcomes: outcomes.length === 0,
+            supportedOutcomeIds: (p.use_case_outcome_ids ?? []).filter((oid) =>
+              definedOutcomeIds.has(oid),
+            ),
           });
         }
+
+        // Use case outcomes, each with the member projects that picked it.
+        const ucOutcomes: CoverageUseCaseOutcome[] = (u.outcomes ?? []).map((o) => {
+          const supporters = projects.filter((p) => p.supportedOutcomeIds.includes(o.id));
+          return {
+            id: o.id,
+            text: o.text,
+            bucket: rollupBuckets(supporters.map((p) => p.bucket)),
+            gap: supporters.length === 0 ? "noSupport" : null,
+            projects: supporters,
+          };
+        });
+        const ucCounts = emptyCounts();
+        for (const o of ucOutcomes) addTo(ucCounts, o.bucket);
 
         // A delivery project that is also a member of the same use case
         // would be shown twice (as a sibling and as a leaf) and have its own
@@ -301,8 +371,11 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
           name: u.name,
           description: u.description,
           projects,
-          counts: sumCounts(projects.map((p) => p.counts)),
-          gapCount: projects.reduce(
+          outcomes: ucOutcomes,
+          unlinkedProjects: projects.filter((p) => p.supportedOutcomeIds.length === 0),
+          counts: ucCounts,
+          gapCount: ucOutcomes.filter((o) => o.gap !== null).length,
+          projectOutcomeGapCount: projects.reduce(
             (n, p) => n + p.outcomes.filter((o) => o.gap !== null).length,
             0,
           ),
