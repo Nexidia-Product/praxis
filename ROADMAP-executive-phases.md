@@ -63,6 +63,9 @@ projects up to date with the new capabilities (see section 6) before continuing.
 | Follow-ups | Flexible; first case is **Cognigy bots**; clock **defaults to the release date**. |
 | Pillar/use-case assignment | Owner is assigning these manually while structuring use cases. A worklist/bulk-assign tool was **declined**. |
 | Per-outcome vs per-project verification | **Per project** ("each bot is built in a specific project anyway"). |
+| Stage order around Productization | Validation and adoption stages come **after** Productization (that is often the only way the functionality becomes available). **Productization = delivered** for reporting. _(2026-10-08)_ |
+| Program Coverage view (planned) | Objective → use case → visualization projects → outcomes, **as of now** (no quarter filter), at a much lower level of detail than other views. Outcome status buckets: **Not started / In progress / Delivered** (Delivered = delivery project has reached Productization). _(2026-10-08)_ |
+| Outcome → delivery project link (planned) | Each outcome points at the project that delivers it: **another project**, **this project**, or **not yet planned** (null). Every project has outcomes; the link is how a visualization project's outcome is tied to e.g. a Cognigy build. Delivery projects stay out of use-case membership and render as leaves. _(2026-10-08)_ |
 
 ## 4. Phase summary
 
@@ -177,7 +180,18 @@ drops `use_cases.caveats`), `0038_use_case_objective_inheritance`,
 - Task templates are per track; the new tracks have none until created.
 
 ### 6.4 CRITICAL dependency when adding stages (read before building them)
-Several rules treat **"Productization" (`STAGE_LAST`) as the final stage**:
+
+> **Resolved 2026-10-08 (PR: post-Productization stage support).** The rules
+> below now use `hasReachedProductization(track, stage)`
+> (`lib/projects/display.ts`), which compares the stage's position with
+> Productization's in the track's list, so stages **after** Productization
+> are treated as delivered. To add validation/adoption stages, put them in
+> `TRACK_POST_STAGES` (same file) for the track — `stagesForTrack` appends
+> them after Productization. Marking a project Completed/Canceled no longer
+> pulls it back to Productization if it is already past it
+> (`closedOutStage`). The text below is the original problem statement.
+
+Several rules treated **"Productization" (`STAGE_LAST`) as the final stage**:
 - **Delivered** = release date passed **and** stage is Productization.
 - **Missed delivery** = release date passed and stage is **not** Productization.
 - Executive phase mapping: Qualification/Prioritization = qualifying;
@@ -197,9 +211,11 @@ accordingly.
 
 - **Risk (Application Release and Executive view share one implementation,
   `buildProjectEntries` in `lib/releases/report.ts`):**
-  - _Missed delivery:_ release date passed and stage ≠ Productization.
-  - _Delivered:_ release date passed and stage = Productization (open tail
-    tasks are normal and not flagged).
+  - _Missed delivery:_ release date passed and the project has not reached
+    Productization.
+  - _Delivered:_ release date passed and the project has reached
+    Productization or any stage after it (open tail tasks are normal and not
+    flagged).
   - _At risk (before delivery):_ open tasks overdue; status Delayed; or a passed
     planned date (handoff milestone or executable deployment date) still has
     open tasks due by then.
@@ -249,6 +265,29 @@ Owner is building the verification stages as track stages with their own
 auto-advance logic. Once they exist, consider surfacing the stage rollup
 ("3 in Human Validation, 1 at Adoption") on the Executive view and in the deck,
 and revisit the dependency in 6.4.
+
+### 8.4 Program Coverage view + outcome delivery links (planned, 2026-10-08)
+
+Goal: show how the program is executed and where the pieces are — what is
+delivered, what is outstanding — less detailed than the other views.
+
+- **Drill-down (URL-driven, as of now):** five pillars (stacked outcome
+  status bar) → a pillar's use cases (matrix: visualization status, outcome
+  dots) → a use case (visualization projects, each with its outcomes: text,
+  product tag, status, delivery project, expected release).
+- **Data:** add `delivery_project_id` (nullable) to `ProjectOutcome`. Own
+  project's ID = "delivered by this project"; null = not yet planned. Delivery
+  projects render as leaves (their own outcomes are not expanded, so cycles
+  are harmless); status comes from the delivery project's stage.
+- **Counting:** roll up outcomes on use-case member projects only; keep
+  delivery projects out of use-case membership. A project that is the delivery
+  target of an outcome should count as aligned (not land in the Executive
+  view's "no pillar" footnote).
+- **Must preserve the link** in `shapeOutcomes` (`lib/projects/service.ts`) and
+  in the Markdown import's `buildImportPayload`, or saves/imports will wipe it.
+- **Build order:** (1) stage rules / post-Productization support — **done**;
+  (2) outcome link + three-way picker; (3) pure coverage-graph builder +
+  smoke test; (4) Program Coverage page; (5) optional deck slide.
 
 ## 9. Related work built in the same period (context, not phases)
 

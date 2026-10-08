@@ -1426,8 +1426,9 @@ async function syncProjectDateFromTask(
  * in its track's list (`stagesForTrack`). A stage with no tasks never
  * auto-advances — there's no completion event to react to, and a human
  * with `projects.edit_stage` can still move it by hand. Only ever
- * advances one stage per call; a project already at the last stage
- * (`Productization`), or whose status is already closed
+ * advances one stage per call; a project already at the last stage in
+ * its list (`Productization`, or the final post-Productization stage if
+ * the track defines any), or whose status is already closed
  * (Completed/Canceled), is left alone.
  *
  * Writes via `ProjectRepository` directly rather than `updateProject`

@@ -35,7 +35,11 @@ import type {
   UseCase,
 } from "@/lib/db";
 import { dependencyHealth } from "@/lib/projects/dependencies";
-import { STAGE_LAST, stagesForTrack } from "@/lib/projects/display";
+import {
+  STAGE_LAST,
+  hasReachedProductization,
+  stagesForTrack,
+} from "@/lib/projects/display";
 import {
   MILESTONE_LABELS,
   computeProjectMilestones,
@@ -265,7 +269,9 @@ export function buildProjectEntries(
 
       // ---- Risk ----
       const riskReasons: string[] = [];
-      const reachedFinalStage = project.stage === STAGE_LAST;
+      // Productization or any post-Productization stage (validation,
+      // adoption) counts as shipped.
+      const reachedFinalStage = hasReachedProductization(project.track, project.stage);
       const released = date !== null && date < today;
       const missedDelivery = released && !reachedFinalStage;
       const delivered = released && reachedFinalStage;

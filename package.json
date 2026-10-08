@@ -26,6 +26,7 @@
     "smoke:schedule": "tsx scripts/smoke-schedule.ts",
     "smoke:release": "tsx scripts/smoke-release.ts",
     "smoke:executive": "tsx scripts/smoke-executive.ts",
+    "smoke:stages": "tsx scripts/smoke-stages.ts",
     "smoke:executive-deck": "tsx scripts/smoke-executive-deck.ts",
     "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
     "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",
