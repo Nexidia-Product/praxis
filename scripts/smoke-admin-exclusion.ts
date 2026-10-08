@@ -145,6 +145,7 @@ async function main() {
       document_links: [],
       custom_fields: {},
       outcomes: [],
+      use_case_outcome_ids: [],
       created_by: "seed",
       updated_at: "2026-04-15T00:00:00Z",
       ...overrides,

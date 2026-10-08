@@ -819,6 +819,7 @@ export function WorkInProgressView({
           aiEnabled={aiEnabled}
           canEditStage={canEditProjectStage}
           canEditObjectives={canEditProjectObjectives}
+          useCases={useCases}
           objectivesInheritedFrom={
             useCasesByProject.get(modalProject.project_id)?.[0]?.name
           }

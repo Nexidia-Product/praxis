@@ -17,6 +17,11 @@ import {
 } from "@/lib/db";
 import { audit } from "@/lib/audit/service";
 import { OBJECTIVES, SECONDARY_OBJECTIVE_OPTIONS } from "@/lib/projects/display";
+import { randomUUID } from "node:crypto";
+import {
+  normalizeUseCaseOutcomes,
+  reconcileOutcomeLinks,
+} from "@/lib/use-cases/outcomes";
 
 const MAX_NAME_LEN = 200;
 const MAX_DESCRIPTION_LEN = 4000;
@@ -43,6 +48,12 @@ export interface UseCasePayload {
   secondary_objectives?: unknown;
   member_project_ids?: unknown;
   /**
+   * Outcomes the use case is meant to achieve: `[{ id?, text }]`. Existing
+   * ids are kept (project picks reference them); new entries get an id.
+   * Omit to leave the stored outcomes untouched.
+   */
+  outcomes?: unknown;
+  /**
    * When true, projects in `member_project_ids` that currently belong to
    * a different use case are moved here (removed from the old one)
    * instead of being rejected. Used to correct a wrong assignment.
@@ -65,6 +76,7 @@ export async function createUseCase(
   const secondary = validateSecondary(payload.secondary_objectives, primary);
   const move = payload.move_projects === true;
   const members = await validateMembers(payload.member_project_ids, null, move);
+  const outcomes = validateOutcomes(payload.outcomes);
 
   const created = await UseCaseRepository.create({
     name,
@@ -72,11 +84,14 @@ export async function createUseCase(
     primary_objective: primary,
     secondary_objectives: secondary,
     member_project_ids: members,
+    outcomes,
     created_by: actor.userId,
   });
 
   if (move) await detachFromOthers(members, created, actor);
   await syncMemberObjectives(created, actor);
+  // Projects moved in from another use case drop that use case's outcome picks.
+  await reconcileProjectOutcomeLinks(actor);
 
   await audit({
     actorId: actor.userId,
@@ -85,7 +100,7 @@ export async function createUseCase(
     entityId: created.use_case_id,
     entityLabel: `Use case: ${created.name}`,
     action: "create",
-    summary: `Created use case "${created.name}" (primary: ${primary}, ${secondary.length} secondary, ${members.length} project(s)).`,
+    summary: `Created use case "${created.name}" (primary: ${primary}, ${secondary.length} secondary, ${members.length} project(s), ${outcomes.length} outcome(s)).`,
   });
   return created;
 }
@@ -130,6 +145,9 @@ export async function updateUseCase(
       payload.move_projects === true,
     );
   }
+  if (payload.outcomes !== undefined) {
+    patch.outcomes = validateOutcomes(payload.outcomes);
+  }
   if (Object.keys(patch).length === 0) return before;
 
   const after = await UseCaseRepository.update(id, patch);
@@ -141,6 +159,8 @@ export async function updateUseCase(
   }
   // Objectives (or membership) may have changed: bring every member in line.
   await syncMemberObjectives(after, actor);
+  // Outcomes removed, or projects moved/removed: drop picks that no longer apply.
+  await reconcileProjectOutcomeLinks(actor);
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -160,6 +180,8 @@ export async function deleteUseCase(
   const existing = await UseCaseRepository.getById(id);
   if (!existing) throw new NotFoundError(`Use case ${id} not found.`);
   await UseCaseRepository.delete(id);
+  // Its former members are in no use case now, so their outcome picks go.
+  await reconcileProjectOutcomeLinks(actor);
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -181,6 +203,12 @@ export async function pruneProjectFromUseCases(
 // ---------------------------------------------------------------------------
 // Validators
 // ---------------------------------------------------------------------------
+
+function validateOutcomes(raw: unknown) {
+  const result = normalizeUseCaseOutcomes(raw, randomUUID);
+  if (!result.ok) throw new ValidationError(result.error);
+  return result.value;
+}
 
 function validateName(raw: unknown): string {
   if (typeof raw !== "string") throw new ValidationError("name must be a string.");
@@ -335,6 +363,35 @@ export async function syncMemberObjectives(
 }
 
 /**
+ * Drop project outcome picks that no longer point at an outcome of the
+ * use case the project belongs to (an outcome was removed, or the project
+ * left / moved between use cases). Cheap to run on every use case change:
+ * it only writes projects whose picks actually change.
+ */
+export async function reconcileProjectOutcomeLinks(actor: ActorCtx): Promise<void> {
+  const [projects, useCases] = await Promise.all([
+    ProjectRepository.getAll(),
+    UseCaseRepository.getAll(),
+  ]);
+  const byId = new Map(projects.map((p) => [p.project_id, p]));
+  for (const change of reconcileOutcomeLinks(projects, useCases)) {
+    const project = byId.get(change.project_id);
+    await ProjectRepository.update(change.project_id, {
+      use_case_outcome_ids: change.use_case_outcome_ids,
+    });
+    await audit({
+      actorId: actor.userId,
+      actorName: actor.userName,
+      entityType: "Project",
+      entityId: change.project_id,
+      entityLabel: project?.name ?? change.project_id,
+      action: "update",
+      summary: `Use case outcomes supported: ${project?.use_case_outcome_ids?.length ?? 0} → ${change.use_case_outcome_ids.length} (outcomes removed from the use case, or the project left it).`,
+    });
+  }
+}
+
+/**
  * Remove `ids` from every use case other than `dest`, auditing each
  * source use case that lost projects.
  */
@@ -388,6 +445,20 @@ function summarizeChange(before: UseCase, after: UseCase): string {
   if (secRemoved.length > 0) {
     parts.push(`secondary objectives removed: ${secRemoved.join(", ")}`);
   }
+  const beforeOutcomes = before.outcomes ?? [];
+  const afterOutcomes = after.outcomes ?? [];
+  const outAdded = afterOutcomes.filter((o) => !beforeOutcomes.some((b) => b.id === o.id));
+  const outRemoved = beforeOutcomes.filter((o) => !afterOutcomes.some((a) => a.id === o.id));
+  const outRenamed = afterOutcomes.filter((o) =>
+    beforeOutcomes.some((b) => b.id === o.id && b.text !== o.text),
+  );
+  if (outAdded.length > 0) {
+    parts.push(`outcomes added: ${outAdded.map((o) => `"${o.text}"`).join(", ")}`);
+  }
+  if (outRemoved.length > 0) {
+    parts.push(`outcomes removed: ${outRemoved.map((o) => `"${o.text}"`).join(", ")}`);
+  }
+  if (outRenamed.length > 0) parts.push(`${outRenamed.length} outcome(s) renamed`);
   const added = after.member_project_ids.filter(
     (id) => !before.member_project_ids.includes(id),
   );

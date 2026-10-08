@@ -30,6 +30,7 @@
     "smoke:executive": "tsx scripts/smoke-executive.ts",
     "smoke:stages": "tsx scripts/smoke-stages.ts",
     "smoke:coverage": "tsx scripts/smoke-coverage.ts",
+    "smoke:use-case-outcomes": "tsx scripts/smoke-use-case-outcomes.ts",
     "smoke:executive-deck": "tsx scripts/smoke-executive-deck.ts",
     "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
     "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",

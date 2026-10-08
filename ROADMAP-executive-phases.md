@@ -152,7 +152,7 @@ projects up to date with current capabilities. Use this list.
 `0034_use_cases`, `0035_use_case_primary_secondary_objectives`,
 `0036_use_case_caveats` (superseded, harmless), `0037_release_caveats` (also
 drops `use_cases.caveats`), `0038_use_case_objective_inheritance`,
-`0039_project_supports_benefits`. Also `0033_project_objectives` (earlier work).
+`0039_project_supports_benefits`, `0040_use_case_outcomes`. Also `0033_project_objectives` (earlier work).
 
 ### 6.2 Per-project data to bring up to date
 - **Primary Objective** set to one of the 5 pillars (Innovation work). Legacy
@@ -320,6 +320,19 @@ delivered, what is outstanding — less detailed than the other views.
   loader `lib/coverage/load.ts`, URL logic `lib/coverage/select.ts`, view
   `components/insights/program-coverage-view.tsx`) — **done**; (5) optional
   deck slide — **ON HOLD pending review of the concept (not started)**.
+
+**Use case outcomes (added 2026-10-08; migration `0040`):** a use case can
+define its own outcomes (`UseCase.outcomes`, `{ id, text }`, edited in
+Admin → Use cases), and a project picks the ones it supports
+(`Project.use_case_outcome_ids`, a "Use case outcomes supported" checklist on
+the project form). The checklist shows only the outcomes of the use case the
+project belongs to and is **disabled when the project is in no use case**.
+Picks are validated on save and reconciled whenever a use case changes (an
+outcome removed, or a project moved/removed, drops the stale picks). Separate
+from `ProjectOutcome` (what a project itself delivers). **Not yet used by
+Program Coverage** — showing how each project supports its use case's outcomes
+there is the intended next step, along with showing the picks in the project
+quick view.
 
 **Still to do (not started):**
 - **Review the concept with stakeholders** before investing further: are the

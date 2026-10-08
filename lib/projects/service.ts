@@ -66,6 +66,7 @@ import {
   collectDeliveryTargetIds,
   normalizeDelivery,
 } from "@/lib/projects/outcome-delivery";
+import { validateProjectOutcomeIds } from "@/lib/use-cases/outcomes";
 import {
   LinkValidationError,
   validateDocumentLinks,
@@ -207,6 +208,13 @@ export interface ProjectCreatePayload {
    * the validator stamps one in.
    */
   outcomes?: unknown;
+  /**
+   * Ids of the outcomes of the project's use case that it supports. Must be
+   * outcomes of the use case the project belongs to (empty if it belongs to
+   * none, which includes a project being created — use case membership is
+   * set from the use case side). Omit to leave unchanged.
+   */
+  use_case_outcome_ids?: unknown;
 }
 
 export interface ProjectUpdatePayload extends ProjectCreatePayload {
@@ -278,6 +286,16 @@ function shapeOutcomes(
       delivery: link.value,
     };
   });
+}
+
+/** Validate the use case outcome picks against `allowed` (null = project is in no use case). */
+function shapeUseCaseOutcomeIds(
+  raw: unknown,
+  allowed: ReadonlySet<string> | null,
+): string[] {
+  const result = validateProjectOutcomeIds(raw, allowed);
+  if (!result.ok) throw new ValidationError(result.error);
+  return result.value;
 }
 
 /**
@@ -713,6 +731,7 @@ async function validateAndShape(
     outcomes: shapeOutcomes(payload.outcomes, settings, {
       knownProjectIds: await existingDeliveryTargets(payload.outcomes),
     }),
+    use_case_outcome_ids: shapeUseCaseOutcomeIds(payload.use_case_outcome_ids, null),
     created_by: ctx.createdBy,
   };
 }
@@ -1156,6 +1175,15 @@ export async function updateProject(
     patch.roadmap_timeline_start = asNullableDate(
       payload.roadmap_timeline_start,
       "roadmap_timeline_start",
+    );
+  }
+  if (payload.use_case_outcome_ids !== undefined) {
+    // Membership is set from the use case side; the picks must be outcomes
+    // of whichever use case the project is in right now.
+    const [useCase] = await UseCaseRepository.getForProject(id);
+    patch.use_case_outcome_ids = shapeUseCaseOutcomeIds(
+      payload.use_case_outcome_ids,
+      useCase ? new Set((useCase.outcomes ?? []).map((o) => o.id)) : null,
     );
   }
   if (payload.outcomes !== undefined) {

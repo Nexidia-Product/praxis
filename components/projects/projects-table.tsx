@@ -1394,6 +1394,7 @@ export function ProjectsTable({
           aiEnabled={aiEnabled}
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
+          useCases={useCases}
           onClose={() => setShowCreateModal(false)}
           onSaved={(p) => {
             applyCreated(p);
@@ -1417,6 +1418,7 @@ export function ProjectsTable({
           aiEnabled={aiEnabled}
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
+          useCases={useCases}
           canEditStage={canEditStage}
           canEditObjectives={canEditObjectives}
           objectivesInheritedFrom={

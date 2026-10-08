@@ -34,6 +34,7 @@ export type CreateProjectInput = Omit<
   | "is_key_capability"
   | "key_capability_quarter"
   | "outcomes"
+  | "use_case_outcome_ids"
   | "program"
   | "track"
 > &
@@ -49,6 +50,7 @@ export type CreateProjectInput = Omit<
       | "is_key_capability"
       | "key_capability_quarter"
       | "outcomes"
+      | "use_case_outcome_ids"
       | "program"
       | "track"
     >
@@ -114,6 +116,7 @@ export const ProjectRepository = {
         document_links: input.document_links,
         custom_fields: input.custom_fields,
         outcomes: input.outcomes ?? [],
+        use_case_outcome_ids: input.use_case_outcome_ids ?? [],
         supports: input.supports ?? "",
         benefits: input.benefits ?? "",
         created_by: input.created_by,

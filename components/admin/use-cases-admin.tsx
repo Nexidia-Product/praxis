@@ -5,8 +5,10 @@
  *
  * Each use case has a name, description, a set of organizational
  * a primary objective plus optional secondary objectives (same lists
- * projects use), and individually selected member projects. A project
- * can belong to only one use case. The API enforces
+ * projects use), outcomes the use case is meant to achieve (member
+ * projects pick which ones they support, on the project form), and
+ * individually selected member projects. A project can belong to only one
+ * use case. The API enforces
  * `usecases.manage`; this page is only reachable with it.
  */
 
@@ -27,6 +29,8 @@ interface UseCasePayload {
   primary_objective: string;
   secondary_objectives: string[];
   member_project_ids: ProjectId[];
+  /** Outcomes of the use case; id is set for existing ones so project picks survive edits. */
+  outcomes: { id?: string; text: string }[];
   /** Move selected projects out of any other use case they are in. */
   move_projects: boolean;
 }
@@ -54,6 +58,11 @@ export function UseCasesAdmin({
     for (const p of projects) m.set(p.project_id, p);
     return m;
   }, [projects]);
+
+  /** How many projects currently support a use case outcome. */
+  function supporters(outcomeId: string): number {
+    return projects.filter((p) => p.use_case_outcome_ids?.includes(outcomeId)).length;
+  }
 
   async function save(
     url: string,
@@ -282,6 +291,39 @@ export function UseCasesAdmin({
                   >
                     {uc.description || "No description."}
                   </p>
+                  <div style={{ margin: "0 0 12px" }}>
+                    <div
+                      style={{
+                        fontSize: "var(--fs-xs)",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        color: "var(--t2)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Outcomes ({(uc.outcomes ?? []).length})
+                    </div>
+                    {(uc.outcomes ?? []).length === 0 ? (
+                      <div style={{ fontSize: "var(--fs-sm)", color: "var(--tm)" }}>
+                        No outcomes defined yet. Edit the use case to add some.
+                      </div>
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: "var(--fs-sm)" }}>
+                        {(uc.outcomes ?? []).map((o) => {
+                          const n = supporters(o.id);
+                          return (
+                            <li key={o.id} style={{ padding: "2px 0" }}>
+                              {o.text}{" "}
+                              <span style={{ color: "var(--tm)", fontSize: "var(--fs-xs)" }}>
+                                — supported by {n} project{n === 1 ? "" : "s"}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                   {uc.member_project_ids.length === 0 ? (
                     <div
                       style={{ fontSize: "var(--fs-sm)", color: "var(--tm)" }}
@@ -372,6 +414,14 @@ export function UseCasesAdmin({
 // Form modal
 // ---------------------------------------------------------------------------
 
+interface OutcomeDraft {
+  /** Stable React key: the outcome id for existing ones, a temp key for new. */
+  key: string;
+  /** Present for outcomes that already exist (kept so project picks survive). */
+  id?: string;
+  text: string;
+}
+
 interface FormModalProps {
   useCase: UseCase | null;
   projects: Project[];
@@ -398,6 +448,11 @@ function UseCaseFormModal({
   );
   const [secondary, setSecondary] = useState<string[]>(
     useCase?.secondary_objectives ?? [],
+  );
+  // Outcomes are edited as drafts: id is kept for existing outcomes so
+  // the projects that picked them keep their selection when text changes.
+  const [outcomes, setOutcomes] = useState<OutcomeDraft[]>(() =>
+    (useCase?.outcomes ?? []).map((o) => ({ key: o.id, id: o.id, text: o.text })),
   );
   const [showAssigned, setShowAssigned] = useState(false);
   const [memberIds, setMemberIds] = useState<ProjectId[]>(
@@ -449,6 +504,29 @@ function UseCaseFormModal({
     );
   }
 
+  function addOutcome() {
+    setOutcomes((prev) => [...prev, { key: `new-${Date.now()}-${prev.length}`, text: "" }]);
+  }
+
+  function updateOutcome(key: string, text: string) {
+    setOutcomes((prev) => prev.map((o) => (o.key === key ? { ...o, text } : o)));
+  }
+
+  function removeOutcome(key: string) {
+    setOutcomes((prev) => prev.filter((o) => o.key !== key));
+  }
+
+  /** How many projects support an existing outcome. */
+  function supportersOf(id: string): number {
+    return projects.filter((p) => p.use_case_outcome_ids?.includes(id)).length;
+  }
+
+  // Existing outcomes the admin has deleted that projects were supporting:
+  // saving unlinks those projects from them.
+  const removedWithSupport = (useCase?.outcomes ?? []).filter(
+    (o) => !outcomes.some((d) => d.id === o.id) && supportersOf(o.id) > 0,
+  );
+
   function toggleMember(id: ProjectId) {
     setMemberIds((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
@@ -465,6 +543,9 @@ function UseCaseFormModal({
         primary_objective: primary,
         secondary_objectives: secondary,
         member_project_ids: memberIds,
+        outcomes: outcomes
+          .filter((o) => o.text.trim() !== "")
+          .map((o) => ({ id: o.id, text: o.text.trim() })),
         move_projects: movingIds.length > 0,
       });
     } catch (err) {
@@ -533,6 +614,103 @@ function UseCaseFormModal({
               style={{ width: "100%" }}
             />
           </div>
+
+          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <legend style={LABEL_STYLE}>Outcomes ({outcomes.length})</legend>
+            <p
+              style={{
+                fontSize: "var(--fs-xs)",
+                color: "var(--tm)",
+                margin: "0 0 6px",
+              }}
+            >
+              What this use case is meant to achieve. Projects in the use case
+              choose which of these they support.
+            </p>
+            {outcomes.length === 0 ? (
+              <div
+                style={{
+                  fontSize: "var(--fs-sm)",
+                  color: "var(--tm)",
+                  fontStyle: "italic",
+                  marginBottom: 6,
+                }}
+              >
+                No outcomes yet.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 6, marginBottom: 6 }}>
+                {outcomes.map((o, i) => {
+                  const n = o.id ? supportersOf(o.id) : 0;
+                  return (
+                    <div
+                      key={o.key}
+                      style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}
+                    >
+                      <div>
+                        <input
+                          type="text"
+                          className="pol-input"
+                          aria-label={`Outcome ${i + 1}`}
+                          placeholder="e.g. Reduce average hold time"
+                          value={o.text}
+                          onChange={(e) => updateOutcome(o.key, e.target.value)}
+                          disabled={busy}
+                          maxLength={500}
+                          style={{ width: "100%" }}
+                        />
+                        {n > 0 ? (
+                          <div
+                            style={{
+                              fontSize: "var(--fs-xs)",
+                              color: "var(--tm)",
+                              marginTop: 2,
+                            }}
+                          >
+                            Supported by {n} project{n === 1 ? "" : "s"}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="pol-btn pol-btn-secondary"
+                        onClick={() => removeOutcome(o.key)}
+                        disabled={busy}
+                        aria-label={`Remove outcome ${i + 1}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              className="pol-btn pol-btn-secondary"
+              onClick={addOutcome}
+              disabled={busy}
+            >
+              + Add outcome
+            </button>
+            {removedWithSupport.length > 0 ? (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: "var(--fs-sm)",
+                  background: "var(--hover)",
+                  border: "1px solid var(--border)",
+                  padding: "8px 12px",
+                  borderRadius: "var(--pol-radius)",
+                }}
+              >
+                Saving will remove{" "}
+                {removedWithSupport.map((o) => `"${o.text}"`).join(", ")} and
+                unlink the projects that support{" "}
+                {removedWithSupport.length === 1 ? "it" : "them"}.
+              </div>
+            ) : null}
+          </fieldset>
 
           <div>
             <label htmlFor="uc-primary" style={LABEL_STYLE}>
