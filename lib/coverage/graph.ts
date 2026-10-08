@@ -21,9 +21,9 @@
  * Rules (agreed with the product owner, see ROADMAP-executive-phases.md §8.4):
  *   - Scope matches the Executive view: Innovation program, non-admin,
  *     non-canceled member projects; only the five core pillars. A use case's
- *     pillar is its primary objective. Projects on Tracks D-G
- *     (UI/Application, TopicAI, Complaints, Other) are left out
- *     (`COVERAGE_EXCLUDED_TRACKS`).
+ *     pillar is its primary objective. Projects on Tracks D-H
+ *     (UI/Application, TopicAI, Complaints, Other, Services Validation) are
+ *     left out (`COVERAGE_EXCLUDED_TRACKS`).
  *   - Delivery projects are leaves — their own outcomes are not expanded, so
  *     a link cycle between two projects is harmless. They can be any project
  *     (any program), including one shared by several outcomes.
@@ -47,6 +47,7 @@ export const COVERAGE_EXCLUDED_TRACKS: ReadonlySet<string> = new Set([
   "Track E - TopicAI",
   "Track F - Complaints",
   "Track G - Other",
+  "Track H - Services Validation",
 ]);
 
 export type OutcomeBucket = "notStarted" | "inProgress" | "delivered";
