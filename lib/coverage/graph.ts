@@ -21,7 +21,9 @@
  * Rules (agreed with the product owner, see ROADMAP-executive-phases.md §8.4):
  *   - Scope matches the Executive view: Innovation program, non-admin,
  *     non-canceled member projects; only the five core pillars. A use case's
- *     pillar is its primary objective.
+ *     pillar is its primary objective. Projects on Tracks D-G
+ *     (UI/Application, TopicAI, Complaints, Other) are left out
+ *     (`COVERAGE_EXCLUDED_TRACKS`).
  *   - Delivery projects are leaves — their own outcomes are not expanded, so
  *     a link cycle between two projects is harmless. They can be any project
  *     (any program), including one shared by several outcomes.
@@ -34,6 +36,18 @@
 import type { OutcomeDelivery, Project, ProjectId, UseCase } from "@/lib/db";
 import { EXEC_PILLARS, isExecCandidate, phaseOf } from "@/lib/executive/portfolio";
 import { deliveryTargetIds } from "@/lib/projects/outcome-delivery";
+
+/**
+ * Tracks whose projects don't belong in Program Coverage. Applies to member
+ * projects (what the drill-down lists and counts); a project named as an
+ * outcome's delivery project is still resolved, since that link is explicit.
+ */
+export const COVERAGE_EXCLUDED_TRACKS: ReadonlySet<string> = new Set([
+  "Track D - UI/Application",
+  "Track E - TopicAI",
+  "Track F - Complaints",
+  "Track G - Other",
+]);
 
 export type OutcomeBucket = "notStarted" | "inProgress" | "delivered";
 
@@ -168,7 +182,10 @@ export interface BuildCoverageInput {
 
 export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
   const byId = new Map<ProjectId, Project>(input.projects.map((p) => [p.project_id, p]));
-  const isMember = (p: Project) => isExecCandidate(p) && p.status !== "Canceled";
+  const isMember = (p: Project) =>
+    isExecCandidate(p) &&
+    p.status !== "Canceled" &&
+    !COVERAGE_EXCLUDED_TRACKS.has(p.track);
 
   // Pass 1: which in-scope projects belong to a pillar use case, and how
   // many outcomes point at each delivery project (for "shared" marking).

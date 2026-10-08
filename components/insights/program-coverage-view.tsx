@@ -98,8 +98,9 @@ export function ProgramCoverageView({
 
       <Legend />
       <p className="text-xs text-gray-400">
-        Innovation program, five core pillars. Delivered means the delivery
-        project has reached Productization.
+        Innovation program, five core pillars; projects on Tracks D–G
+        (UI/Application, TopicAI, Complaints, Other) are not included.
+        Delivered means the delivery project has reached Productization.
         {graph.excluded.projectsWithoutUseCase > 0
           ? ` ${plural(graph.excluded.projectsWithoutUseCase, "pillar project")} ${graph.excluded.projectsWithoutUseCase === 1 ? "isn't" : "aren't"} in a use case yet.`
           : ""}

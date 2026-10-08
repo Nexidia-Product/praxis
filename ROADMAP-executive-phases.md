@@ -296,6 +296,11 @@ delivered, what is outstanding — less detailed than the other views.
   harmless); status comes from the delivery project's stage: **Delivered** =
   reached Productization or later (Canceled never counts), **In progress** =
   past Prioritization, **Not started** otherwise.
+- **Scope:** same as the Executive view (Innovation, non-admin, non-canceled,
+  five core pillars), and **projects on Tracks D, E, F and G are excluded**
+  (`COVERAGE_EXCLUDED_TRACKS` in `lib/coverage/graph.ts`). Only member
+  projects are filtered; a project an outcome explicitly names as its delivery
+  project is still resolved even if it is on one of those tracks.
 - **Counting:** roll up outcomes on use-case member projects only; keep
   delivery projects out of use-case membership. A project that is the delivery
   target of an outcome should count as aligned (not land in the Executive
