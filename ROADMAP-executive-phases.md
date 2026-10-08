@@ -288,7 +288,18 @@ settled design.
 Goal: show how the program is executed and where the pieces are — what is
 delivered, what is outstanding — less detailed than the other views.
 
-- **Drill-down (URL-driven, as of now):** five pillars (stacked outcome
+- **Drill-down (URL-driven, as of now) — revised 2026-10-08 around use case
+  outcomes:** the third level lists the use case's DEFINED OUTCOMES, each with
+  the member projects that support it (the project form's "Use case outcomes
+  supported" picks), plus a "projects not linked to an outcome" group. Counts
+  and status bars are of use case outcomes. A use case outcome's status rolls
+  up from its supporting projects (all delivered -> Delivered; none started or
+  no supporter -> Not started + a "no supporting project" flag; otherwise In
+  progress); a project's status rolls up its own stage and the delivery of its
+  own outcomes, so a shipped dashboard whose bot isn't built is In progress. A
+  project's own outcomes (and their delivery projects) sit collapsed under it.
+  The original description follows.
+- **Drill-down (original description):** five pillars (stacked outcome
   status bar) → a pillar's use cases (matrix: visualization status, outcome
   dots) → a use case (visualization projects, each with its outcomes: text,
   product tag, status, delivery project, expected release).
@@ -329,10 +340,9 @@ the project form). The checklist shows only the outcomes of the use case the
 project belongs to and is **disabled when the project is in no use case**.
 Picks are validated on save and reconciled whenever a use case changes (an
 outcome removed, or a project moved/removed, drops the stale picks). Separate
-from `ProjectOutcome` (what a project itself delivers). **Not yet used by
-Program Coverage** — showing how each project supports its use case's outcomes
-there is the intended next step, along with showing the picks in the project
-quick view.
+from `ProjectOutcome` (what a project itself delivers). **Program Coverage
+now aligns projects to these outcomes** (see the drill-down note above); showing
+the picks in the project quick view is still open.
 
 **Still to do (not started):**
 - **Review the concept with stakeholders** before investing further: are the
