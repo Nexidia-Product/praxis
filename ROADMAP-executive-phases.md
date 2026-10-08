@@ -18,6 +18,10 @@ deliberate scope changes noted below). Phase 3 is not started. The owner is
 pausing development to build out the other tracks/stages and bring all existing
 projects up to date with the new capabilities (see section 6) before continuing.
 
+**Also built since (2026-10-08):** the Program Coverage page, outcome delivery
+links and post-Productization stage support (section 8.4). That concept is
+**under review with stakeholders**; its deck slide is on hold until then.
+
 ## 2. The original notes (leader's direction, condensed)
 
 - Every work item must ultimately align with an objective. For innovation work
@@ -266,7 +270,13 @@ auto-advance logic. Once they exist, consider surfacing the stage rollup
 ("3 in Human Validation, 1 at Adoption") on the Executive view and in the deck,
 and revisit the dependency in 6.4.
 
-### 8.4 Program Coverage view + outcome delivery links (planned, 2026-10-08)
+### 8.4 Program Coverage view + outcome delivery links (built 2026-10-08; concept under review)
+
+**Status:** steps 1–4 are built and merged (PRs #34–#37). The concept still
+needs to be **reviewed with others to confirm it is what's needed** before any
+more is built on it — in particular the deck slide (step 5, **on hold**, see
+"Still to do" below). Treat the page as a first version to react to, not a
+settled design.
 
 Goal: show how the program is executed and where the pieces are — what is
 delivered, what is outstanding — less detailed than the other views.
@@ -275,10 +285,14 @@ delivered, what is outstanding — less detailed than the other views.
   status bar) → a pillar's use cases (matrix: visualization status, outcome
   dots) → a use case (visualization projects, each with its outcomes: text,
   product tag, status, delivery project, expected release).
-- **Data:** add `delivery_project_id` (nullable) to `ProjectOutcome`. Own
-  project's ID = "delivered by this project"; null = not yet planned. Delivery
-  projects render as leaves (their own outcomes are not expanded, so cycles
-  are harmless); status comes from the delivery project's stage.
+- **Data:** `ProjectOutcome.delivery` is `{ kind: "self" }` (delivered by the
+  project it sits on), `{ kind: "project", project_id }` (another project), or
+  null/absent (not yet planned). `self` is a kind, not the project's own ID,
+  because a new project has no ID until it is inserted. Delivery projects
+  render as leaves (their own outcomes are not expanded, so cycles are
+  harmless); status comes from the delivery project's stage: **Delivered** =
+  reached Productization or later (Canceled never counts), **In progress** =
+  past Prioritization, **Not started** otherwise.
 - **Counting:** roll up outcomes on use-case member projects only; keep
   delivery projects out of use-case membership. A project that is the delivery
   target of an outcome should count as aligned (not land in the Executive
@@ -293,7 +307,30 @@ delivered, what is outstanding — less detailed than the other views.
   Coverage page at `/insights/program-coverage` (`?pillar=…&useCase=…`;
   loader `lib/coverage/load.ts`, URL logic `lib/coverage/select.ts`, view
   `components/insights/program-coverage-view.tsx`) — **done**; (5) optional
-  deck slide.
+  deck slide — **ON HOLD pending review of the concept (not started)**.
+
+**Still to do (not started):**
+- **Review the concept with stakeholders** before investing further: are the
+  three drill-down levels, the three status buckets (Not started / In progress
+  / Delivered) and the level of detail what's needed? Adjust the page from the
+  feedback.
+- **Deck slide (step 5) — on hold until that review.** Idea: one "Program
+  coverage" slide per pillar, use cases as rows and status dots as columns,
+  reusing the existing deck pagination/branding (`lib/executive/deck.ts`,
+  `lib/export/executive-slides.ts`). Don't build it before the page is
+  confirmed.
+- **Try the page with real data** (it has only been rendered from sample
+  data): a use case with a shared delivery project, one with an outcome that
+  has no delivery project, one with a project that has no outcomes.
+- **Fill in the data it depends on:** outcomes on every project, each outcome's
+  "Delivered by", and use-case membership; the page can only be as complete as
+  that data.
+- **Small follow-ups, only if the concept holds:** show the delivery link in the
+  read-only outcome lists (Work in Progress, Key Capabilities); include it in
+  the PROJECT.md export (the importer would then need to ignore/read it so
+  outcome matching isn't thrown off); show the Import-from-Markdown button
+  outside the Projects table (Work in Progress and Roadmap don't pass
+  `onProjectImported`).
 
 ## 9. Related work built in the same period (context, not phases)
 
