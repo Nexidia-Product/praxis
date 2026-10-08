@@ -19,6 +19,7 @@ import {
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
+  UseCaseRepository,
   UserRepository,
 } from "@/lib/db";
 import { isAdminProject } from "@/lib/projects/display";
@@ -36,11 +37,12 @@ export const dynamic = "force-dynamic";
 export default async function RoadmapPage() {
   const session = await requirePermission("roadmap.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings, templates, users] = await Promise.all([
+  const [allProjects, settings, templates, users, useCases] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     UserRepository.getAll(),
+    UseCaseRepository.getAll(),
   ]);
 
   // Active-user names for the project form's Project lead dropdown
@@ -117,6 +119,7 @@ export default async function RoadmapPage() {
         quadrantLabels={settings.portfolio_quadrants}
         enumOptions={enumOptions}
         templates={templates}
+        useCases={useCases}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}

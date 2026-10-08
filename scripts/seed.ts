@@ -457,6 +457,7 @@ function transformProjects(
       document_links: [],
       custom_fields: {},
       outcomes: [],
+      use_case_outcome_ids: [],
       created_by: SEED_USER_ID,
       updated_at: SEED_TIMESTAMP,
     });

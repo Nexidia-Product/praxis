@@ -481,6 +481,14 @@ export interface Project {
    */
   outcomes: ProjectOutcome[];
 
+  /**
+   * Ids of the outcomes of this project's USE CASE that it supports (see
+   * `UseCaseOutcome`). Only ever references the use case the project
+   * belongs to; empty when it belongs to none. Maintained by
+   * `lib/use-cases/service.ts` (reconcile) and validated on write.
+   */
+  use_case_outcome_ids: string[];
+
   // ---- AI fields (Section 5.16) ----
   ai_complexity_score: ComplexityScore | null;
   /** Free-form, e.g. `"4-6 weeks"`. */
@@ -802,6 +810,17 @@ export interface ProjectGroup {
 // use for primary/secondary objective), with individually selected member
 // projects. Many-to-many with projects. Entirely separate from ProjectGroup.
 
+/**
+ * An outcome a use case is meant to achieve. Projects in the use case
+ * pick the ones they support (`Project.use_case_outcome_ids`); the id is
+ * stable across renames so those picks survive. Distinct from
+ * `ProjectOutcome` (what a single project delivers).
+ */
+export interface UseCaseOutcome {
+  id: string;
+  text: string;
+}
+
 export interface UseCase {
   use_case_id: UseCaseId;
   name: string;
@@ -818,6 +837,8 @@ export interface UseCase {
   secondary_objectives: string[];
   /** Projects in this use case, by `YYYY-NNN` ID. Order is preserved. */
   member_project_ids: ProjectId[];
+  /** Outcomes this use case is meant to achieve; projects pick which they support. */
+  outcomes: UseCaseOutcome[];
   created_by: UserId | null;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;

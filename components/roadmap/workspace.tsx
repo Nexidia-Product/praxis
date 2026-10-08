@@ -54,6 +54,7 @@ import type {
   ProjectStatus,
   SavedKanbanConfig,
   TaskTemplate,
+  UseCase,
   UserRole,
 } from "@/lib/db";
 
@@ -96,6 +97,11 @@ interface RoadmapWorkspaceProps {
    */
   templates?: TaskTemplate[];
   /**
+   * Use cases, so the project form can offer the project's use case
+   * outcomes ("Use case outcomes supported").
+   */
+  useCases?: UseCase[];
+  /**
    * Whether the AI Advisor is reachable in this environment. Threaded
    * into the form modal so the Generate AI estimate button hides in
    * production. Optional; defaults to false.
@@ -130,6 +136,7 @@ export function RoadmapWorkspace({
   quadrantLabels,
   enumOptions,
   templates,
+  useCases,
   aiEnabled = false,
   activeUserNames = [],
   mentionableUsers = [],
@@ -560,6 +567,7 @@ export function RoadmapWorkspace({
           priorityOptions={enumOptions?.priority}
           templates={templates}
           allProjects={projects}
+          useCases={useCases}
           aiEnabled={aiEnabled}
           canEditStage={canEditStage}
           canEditObjectives={canEditObjectives}

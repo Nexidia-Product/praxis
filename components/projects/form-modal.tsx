@@ -47,12 +47,14 @@ import type {
   ProjectStatus,
   ProjectType,
   TaskTemplate,
+  UseCase,
   VisualizationType,
 } from "@/lib/db";
 import { DependencyEditor } from "./dependency-editor";
 import { DocumentLinksEditor } from "./document-links-editor";
 import { ExternalDependenciesEditor } from "./external-dependencies-editor";
 import { OutcomesEditor } from "./outcomes-editor";
+import { UseCaseOutcomesPicker } from "./use-case-outcomes-picker";
 
 interface ProjectFormModalProps {
   /** When set, the modal is in edit mode against this project. */
@@ -117,6 +119,13 @@ interface ProjectFormModalProps {
    * objectives are inherited from it and shown read-only here.
    */
   objectivesInheritedFrom?: string;
+  /**
+   * Every use case, so the form can find the project's own use case (by
+   * membership) and offer its outcomes in "Use case outcomes supported".
+   * When omitted the section is hidden and the project's current picks
+   * are left untouched on save.
+   */
+  useCases?: UseCase[];
   onClose: () => void;
   /** Called with the API-returned record after a successful save. */
   onSaved: (project: Project) => void;
@@ -183,6 +192,8 @@ interface FormState {
   external_dependencies: ExternalDependency[];
   /** Free-form project outcomes, each optionally tagged product + type. */
   outcomes: ProjectOutcome[];
+  /** Ids of the project's use case outcomes it supports. */
+  use_case_outcome_ids: string[];
   /**
    * AI-generated complexity tier and time estimate. Held in form state
    * so the "Generate estimate" button can populate them inline and the
@@ -229,6 +240,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     document_links: [],
     external_dependencies: [],
     outcomes: [],
+    use_case_outcome_ids: [],
     ai_complexity_score: null,
     ai_time_estimate: null,
     definition_of_done: "",
@@ -319,6 +331,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     document_links: p.document_links,
     external_dependencies: p.external_dependencies ?? [],
     outcomes: p.outcomes ?? [],
+    use_case_outcome_ids: p.use_case_outcome_ids ?? [],
     ai_complexity_score: p.ai_complexity_score ?? null,
     ai_time_estimate: p.ai_time_estimate ?? null,
     definition_of_done: p.definition_of_done ?? "",
@@ -327,7 +340,15 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
   };
 }
 
-function toPayload(s: FormState, includeTemplate: boolean) {
+function toPayload(
+  s: FormState,
+  includeTemplate: boolean,
+  /**
+   * Outcome ids the project may support (its use case's outcomes; empty
+   * when it has no use case). Omit to leave the stored picks untouched.
+   */
+  allowedUseCaseOutcomeIds?: ReadonlySet<string>,
+) {
   const splitList = (v: string) =>
     v
       .split(/[,\n]/)
@@ -380,6 +401,13 @@ function toPayload(s: FormState, includeTemplate: boolean) {
     definition_of_done: s.definition_of_done,
     supports: s.supports,
     benefits: s.benefits,
+    ...(allowedUseCaseOutcomeIds
+      ? {
+          use_case_outcome_ids: s.use_case_outcome_ids.filter((id) =>
+            allowedUseCaseOutcomeIds.has(id),
+          ),
+        }
+      : {}),
   };
   // Only attach template_id on create, and only when the user picked one.
   // On edit it would be ignored by the service layer anyway, but stripping
@@ -440,10 +468,17 @@ export function ProjectFormModal({
   canEditStage = true,
   canEditObjectives = true,
   objectivesInheritedFrom,
+  useCases,
   onClose,
   onSaved,
 }: ProjectFormModalProps) {
   const isEdit = project !== null;
+  // The project's own use case, found by membership. A project being
+  // created has none (membership is set from the use case side).
+  const projectUseCase =
+    project && useCases
+      ? (useCases.find((u) => u.member_project_ids.includes(project.project_id)) ?? null)
+      : null;
   const [state, setState] = useState<FormState>(() =>
     project ? fromProject(project, customFields) : emptyState(customFields),
   );
@@ -586,7 +621,13 @@ export function ProjectFormModal({
     setError(null);
     setSaving(true);
 
-    const payload = toPayload(state, !isEdit);
+    const payload = toPayload(
+      state,
+      !isEdit,
+      useCases
+        ? new Set((projectUseCase?.outcomes ?? []).map((o) => o.id))
+        : undefined,
+    );
     const url = isEdit ? `/api/projects/${project!.project_id}` : "/api/projects";
     const method = isEdit ? "PATCH" : "POST";
 
@@ -1360,6 +1401,15 @@ export function ProjectFormModal({
             selfId={project?.project_id ?? null}
             disabled={saving}
           />
+
+          {useCases ? (
+            <UseCaseOutcomesPicker
+              useCase={projectUseCase}
+              value={state.use_case_outcome_ids}
+              onChange={(ids) => update("use_case_outcome_ids", ids)}
+              disabled={saving}
+            />
+          ) : null}
 
           {customFields.length > 0 ? (
             <div className="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4">
