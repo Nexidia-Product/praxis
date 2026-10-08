@@ -290,7 +290,10 @@ delivered, what is outstanding — less detailed than the other views.
   `delivery` is `self` / `project` / null, `self` being a kind because a new
   project has no ID yet); (3) pure coverage-graph builder
   (`lib/coverage/graph.ts`, `npm run smoke:coverage`) — **done**; (4) Program
-  Coverage page; (5) optional deck slide.
+  Coverage page at `/insights/program-coverage` (`?pillar=…&useCase=…`;
+  loader `lib/coverage/load.ts`, URL logic `lib/coverage/select.ts`, view
+  `components/insights/program-coverage-view.tsx`) — **done**; (5) optional
+  deck slide.
 
 ## 9. Related work built in the same period (context, not phases)
 
