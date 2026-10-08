@@ -11,9 +11,13 @@
  *   - New templates → POST /api/templates.
  *   - Existing templates → PUT /api/templates/[id] (full replace).
  *
- * Reordering tasks within a template uses up/down buttons rather than
- * drag-and-drop. Templates rarely have more than ~10 tasks; the keyboard-
- * accessible up/down pattern is good enough and saves a dependency.
+ * Tasks are collapsed rows (grip, number, name, hours, and a note when the
+ * duration varies by complexity); everything else lives in the expanded
+ * body so a large template stays scannable. Reordering is by dragging a
+ * row's grip (native HTML5 drag, same pattern as the task checklist) or,
+ * for keyboard users, ArrowUp/ArrowDown on the focused grip. Save/Cancel
+ * live in a sticky toolbar so they stay reachable however long the template
+ * is, and Ctrl/Cmd+S saves.
  *
  * Per-task Stage options are the union of `stagesForTrack(t)` across
  * whichever tracks are currently checked on the draft — the template
@@ -21,7 +25,7 @@
  * at authoring time (the service layer re-validates the same way on save).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   DrivenProjectDateField,
@@ -34,6 +38,11 @@ import type {
 import { stagesForTrack } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import { buildTemplateMarkdown } from "@/lib/tasks/template-markdown";
+import {
+  moveItem,
+  moveItemBy,
+  type DropPosition,
+} from "@/lib/tasks/template-reorder";
 
 const PRIORITIES: Priority[] = ["Critical", "High", "Medium", "Low"];
 
@@ -106,28 +115,44 @@ function templateToDraft(t: TaskTemplate): DraftTemplate {
   };
 }
 
+function blankTask(): DraftTaskItem {
+  return {
+    local_id: newLocalId(),
+    name: "",
+    description: "",
+    default_priority: "Medium",
+    stage: "",
+    default_responsible: null,
+    estimate_hours: null,
+    complexity_estimate_hours: null,
+    friday_anchor: false,
+    fixed_lag_business_days_after: null,
+    drives_project_date: null,
+    dependencies: [],
+  };
+}
+
 function newDraft(trackOptions: EnumOption[]): DraftTemplate {
   return {
     template_id: null,
     template_name: "",
     tracks: trackOptions[0] ? [trackOptions[0].id] : [],
-    tasks: [
-      {
-        local_id: newLocalId(),
-        name: "",
-        description: "",
-        default_priority: "Medium",
-        stage: "",
-        default_responsible: null,
-        estimate_hours: null,
-        complexity_estimate_hours: null,
-        friday_anchor: false,
-        fixed_lag_business_days_after: null,
-        drives_project_date: null,
-        dependencies: [],
-      },
-    ],
+    tasks: [blankTask()],
   };
+}
+
+/**
+ * One-line note for a collapsed row when the task's duration varies by
+ * complexity, e.g. "Low 4h · Med 9h · High 19h". A tier without its own
+ * override uses the main estimate (the Medium value), same as
+ * `instantiateTemplate`. Null when there are no overrides.
+ */
+function complexitySummary(item: DraftTaskItem): string | null {
+  const o = item.complexity_estimate_hours;
+  if (!o || (o.Low == null && o.High == null)) return null;
+  const med = item.estimate_hours;
+  const fmt = (n: number | null | undefined) => (n == null ? "—" : `${n}h`);
+  return `Low ${fmt(o.Low ?? med)} · Med ${fmt(med)} · High ${fmt(o.High ?? med)}`;
 }
 
 export function TemplatesAdmin({
@@ -143,20 +168,104 @@ export function TemplatesAdmin({
   const [error, setError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  function startEdit(t: TaskTemplate) {
-    setDraft(templateToDraft(t));
+  // Task rows are collapsed by default; this holds the expanded ones by
+  // local_id (stable across reorders, unlike the array index).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Drag state. A row is only draggable while its grip is pressed
+  // (`armedId`), so text inside the row's inputs stays selectable.
+  const [armedId, setArmedId] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [overPos, setOverPos] = useState<DropPosition>("before");
+  // A task to scroll to and focus once it has rendered (new task, or one
+  // that failed validation).
+  const [focusTarget, setFocusTarget] = useState<
+    { id: string; field: "name" | "row" } | null
+  >(null);
+  // Snapshot of the draft as last loaded/saved, to show "Unsaved changes"
+  // and to confirm before discarding them.
+  const [baseline, setBaseline] = useState("");
+
+  const dirty = draft !== null && JSON.stringify(draft) !== baseline;
+
+  function openDraft(next: DraftTemplate | null, opts?: { expandAll?: boolean }) {
+    setDraft(next);
+    setBaseline(next ? JSON.stringify(next) : "");
+    setExpanded(
+      opts?.expandAll && next
+        ? new Set(next.tasks.map((t) => t.local_id))
+        : new Set(),
+    );
     setError(null);
+  }
+
+  /** True if it's fine to replace the current draft (nothing unsaved, or the admin agrees). */
+  function confirmDiscard(): boolean {
+    return !dirty || window.confirm("Discard your unsaved changes to this template?");
+  }
+
+  function startEdit(t: TaskTemplate) {
+    if (draft?.template_id === t.template_id) return;
+    if (!confirmDiscard()) return;
+    openDraft(templateToDraft(t));
   }
 
   function startCreate() {
-    setDraft(newDraft(trackOptions));
-    setError(null);
+    if (!confirmDiscard()) return;
+    openDraft(newDraft(trackOptions), { expandAll: true });
   }
 
   function cancelDraft() {
-    setDraft(null);
-    setError(null);
+    if (!confirmDiscard()) return;
+    openDraft(null);
   }
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Scroll to / focus a task after it renders.
+  useEffect(() => {
+    if (!focusTarget) return;
+    const row = document.getElementById(`tpl-task-${focusTarget.id}`);
+    if (row) {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (focusTarget.field === "name") {
+        document.getElementById(`tpl-task-name-${focusTarget.id}`)?.focus({
+          preventScroll: true,
+        });
+      }
+    }
+    setFocusTarget(null);
+  }, [focusTarget]);
+
+  // Ctrl/Cmd+S saves while a template is open. The handler is re-bound on
+  // every render so it always sees the current draft.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && draft && !saving) {
+        e.preventDefault();
+        void handleSave();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  // Warn before leaving the page with unsaved changes.
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   function updateDraft<K extends keyof DraftTemplate>(
     key: K,
@@ -201,30 +310,11 @@ export function TemplatesAdmin({
   }
 
   function addTaskItem() {
-    setDraft((prev) =>
-      prev
-        ? {
-            ...prev,
-            tasks: [
-              ...prev.tasks,
-              {
-                local_id: newLocalId(),
-                name: "",
-                description: "",
-                default_priority: "Medium",
-                stage: "",
-                default_responsible: null,
-                estimate_hours: null,
-                complexity_estimate_hours: null,
-                friday_anchor: false,
-                fixed_lag_business_days_after: null,
-                drives_project_date: null,
-                dependencies: [],
-              },
-            ],
-          }
-        : prev,
-    );
+    const task = blankTask();
+    setDraft((prev) => (prev ? { ...prev, tasks: [...prev.tasks, task] } : prev));
+    // Open the new task and put the cursor in its name.
+    setExpanded((prev) => new Set(prev).add(task.local_id));
+    setFocusTarget({ id: task.local_id, field: "name" });
   }
 
   function removeTaskItem(index: number) {
@@ -302,15 +392,24 @@ export function TemplatesAdmin({
     });
   }
 
-  function moveTaskItem(index: number, direction: -1 | 1) {
-    setDraft((prev) => {
-      if (!prev) return prev;
-      const target = index + direction;
-      if (target < 0 || target >= prev.tasks.length) return prev;
-      const next = [...prev.tasks];
-      [next[index], next[target]] = [next[target], next[index]];
-      return { ...prev, tasks: next };
-    });
+  /** Drop the dragged task before/after `over` (or at the end). */
+  function dropTask(fromId: string, over: string | null, pos: DropPosition) {
+    setDraft((prev) =>
+      prev ? { ...prev, tasks: moveItem(prev.tasks, fromId, over, pos) } : prev,
+    );
+  }
+
+  /** Keyboard reorder: ArrowUp/ArrowDown on a task's grip. */
+  function nudgeTask(id: string, direction: -1 | 1) {
+    setDraft((prev) =>
+      prev ? { ...prev, tasks: moveItemBy(prev.tasks, id, direction) } : prev,
+    );
+  }
+
+  function endDrag() {
+    setArmedId(null);
+    setDragId(null);
+    setOverId(null);
   }
 
   async function handleSave() {
@@ -330,16 +429,19 @@ export function TemplatesAdmin({
       return;
     }
     for (const [i, t] of draft.tasks.entries()) {
-      if (!t.name.trim()) {
-        setError(`Task ${i + 1}: name is required.`);
-        return;
-      }
-      if (!t.stage) {
-        setError(`Task ${i + 1}: stage is required.`);
-        return;
-      }
-      if (t.estimate_hours == null) {
-        setError(`Task ${i + 1}: estimate (hours) is required.`);
+      const problem = !t.name.trim()
+        ? "name is required."
+        : !t.stage
+          ? "stage is required."
+          : t.estimate_hours == null
+            ? "estimate (hours) is required."
+            : null;
+      if (problem) {
+        setError(`Task ${i + 1}: ${problem}`);
+        // Rows are collapsed by default, so open the offending one (the
+        // stage lives in the expanded body) and bring it into view.
+        setExpanded((prev) => new Set(prev).add(t.local_id));
+        setFocusTarget({ id: t.local_id, field: "row" });
         return;
       }
     }
@@ -393,7 +495,9 @@ export function TemplatesAdmin({
         trackOptions,
       ),
     );
-    setDraft(templateToDraft(data.template));
+    const saved = templateToDraft(data.template);
+    setDraft(saved);
+    setBaseline(JSON.stringify(saved));
   }
 
   async function handleDelete() {
@@ -411,7 +515,7 @@ export function TemplatesAdmin({
     setTemplates((prev) =>
       prev.filter((t) => t.template_id !== draft.template_id),
     );
-    setDraft(null);
+    openDraft(null);
   }
 
   // Group templates by track for the sidebar.
@@ -501,15 +605,55 @@ export function TemplatesAdmin({
               Select a template on the left, or create a new one.
             </p>
           ) : (
-            <div className="space-y-5 p-6">
-              {error ? (
-                <div
-                  role="alert"
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-                >
-                  {error}
+            <div className="space-y-5 p-6 pt-0">
+              {/* Sticky toolbar: Save/Cancel stay in view however long the
+                  template is, and validation errors appear right next to
+                  the button that triggered them. */}
+              <div className="sticky top-0 z-10 -mx-6 space-y-2 border-b border-gray-200 bg-white px-6 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="truncate text-sm font-semibold text-gray-900">
+                      {draft.template_name.trim() || "New template"}
+                    </h2>
+                    {dirty ? (
+                      <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
+                        Unsaved changes
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelDraft}
+                      disabled={saving}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      title="Ctrl/Cmd+S"
+                      className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:bg-gray-400"
+                    >
+                      {saving
+                        ? "Saving…"
+                        : draft.template_id
+                          ? "Save changes"
+                          : "Create template"}
+                    </button>
+                  </div>
                 </div>
-              ) : null}
+                {error ? (
+                  <div
+                    role="alert"
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                  >
+                    {error}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field id="tpl-name" label="Template name" required>
@@ -576,349 +720,434 @@ export function TemplatesAdmin({
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Tasks ({draft.tasks.length})
                   </h3>
-                  <button
-                    type="button"
-                    onClick={addTaskItem}
-                    disabled={saving}
-                    className="text-xs font-medium text-gray-700 hover:underline disabled:opacity-50"
-                  >
-                    + Add task
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {draft.tasks.map((item, i) => (
-                    <div
-                      key={i}
-                      className="rounded-md border border-gray-200 bg-gray-50 p-3"
+                  <div className="flex items-center gap-3 text-xs font-medium text-gray-700">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpanded(new Set(draft.tasks.map((t) => t.local_id)))
+                      }
+                      className="hover:underline"
                     >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                          Task {i + 1}
-                        </span>
-                        <div className="flex items-center gap-1">
+                      Expand all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(new Set())}
+                      className="hover:underline"
+                    >
+                      Collapse all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addTaskItem}
+                      disabled={saving}
+                      className="hover:underline disabled:opacity-50"
+                    >
+                      + Add task
+                    </button>
+                  </div>
+                </div>
+                <ol
+                  className="space-y-2"
+                  onDragOver={(e) => {
+                    // Allow dropping in the gap below the last row (append).
+                    if (dragId === null) return;
+                    e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragId !== null) dropTask(dragId, overId, overPos);
+                    endDrag();
+                  }}
+                >
+                  {draft.tasks.map((item, i) => {
+                    const open = expanded.has(item.local_id);
+                    const isDragging = dragId === item.local_id;
+                    const lineBefore =
+                      overId === item.local_id && overPos === "before" && !isDragging;
+                    const lineAfter =
+                      overId === item.local_id && overPos === "after" && !isDragging;
+                    const summary = complexitySummary(item);
+                    const panelId = `tpl-task-panel-${item.local_id}`;
+                    return (
+                      <li
+                        key={item.local_id}
+                        id={`tpl-task-${item.local_id}`}
+                        draggable={armedId === item.local_id}
+                        onDragStart={(e) => {
+                          setDragId(item.local_id);
+                          e.dataTransfer.setData("text/plain", item.local_id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={endDrag}
+                        onDragOver={(e) => {
+                          if (dragId === null) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          if (dragId === item.local_id) {
+                            setOverId(null);
+                            return;
+                          }
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setOverId(item.local_id);
+                          setOverPos(
+                            e.clientY > rect.top + rect.height / 2 ? "after" : "before",
+                          );
+                        }}
+                        className={`relative rounded-md border border-gray-200 bg-gray-50 ${
+                          isDragging ? "opacity-40" : ""
+                        }`}
+                      >
+                        {/* Insertion indicator */}
+                        {lineBefore ? (
+                          <span className="pointer-events-none absolute inset-x-0 -top-1.5 h-0.5 bg-gray-900" />
+                        ) : null}
+                        {lineAfter ? (
+                          <span className="pointer-events-none absolute inset-x-0 -bottom-1.5 h-0.5 bg-gray-900" />
+                        ) : null}
+
+                        {/* Collapsed row: grip, number, expand toggle, name,
+                            complexity note, hours, remove. */}
+                        <div className="flex items-center gap-2 p-2">
+                          {/* A span, not a <button>: Firefox won't start a
+                              drag from inside a button. The row only becomes
+                              draggable while the grip is held (armedId). */}
+                          <span
+                            role="button"
+                            tabIndex={saving ? -1 : 0}
+                            aria-label={`Reorder task ${i + 1}: drag, or press the up and down arrow keys`}
+                            title="Drag to reorder (or press ↑ / ↓ while focused)"
+                            onMouseDown={() => {
+                              if (!saving) setArmedId(item.local_id);
+                            }}
+                            onMouseUp={() => setArmedId(null)}
+                            onKeyDown={(e) => {
+                              if (saving) return;
+                              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                                e.preventDefault();
+                                nudgeTask(item.local_id, e.key === "ArrowUp" ? -1 : 1);
+                              }
+                            }}
+                            className="shrink-0 cursor-grab select-none rounded px-1 text-base leading-none text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-gray-900"
+                          >
+                            ⠿
+                          </span>
+                          <span className="w-5 shrink-0 text-center text-[11px] font-semibold text-gray-500">
+                            {i + 1}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => moveTaskItem(i, -1)}
-                            disabled={saving || i === 0}
-                            className="rounded px-1.5 py-0.5 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-30"
-                            aria-label={`Move task ${i + 1} up`}
+                            onClick={() => toggleExpanded(item.local_id)}
+                            aria-expanded={open}
+                            aria-controls={panelId}
+                            aria-label={`${open ? "Collapse" : "Expand"} task ${i + 1}`}
+                            className="shrink-0 rounded px-1.5 py-0.5 text-xs text-gray-600 hover:bg-gray-200"
                           >
-                            ↑
+                            {open ? "▾" : "▸"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => moveTaskItem(i, 1)}
-                            disabled={saving || i === draft.tasks.length - 1}
-                            className="rounded px-1.5 py-0.5 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-30"
-                            aria-label={`Move task ${i + 1} down`}
-                          >
-                            ↓
-                          </button>
+                          <input
+                            id={`tpl-task-name-${item.local_id}`}
+                            type="text"
+                            aria-label={`Task ${i + 1} name`}
+                            placeholder="Task name"
+                            value={item.name}
+                            onChange={(e) => updateTaskItem(i, { name: e.target.value })}
+                            disabled={saving}
+                            className={`${baseInput} min-w-0 flex-1`}
+                          />
+                          {summary ? (
+                            <span
+                              className="hidden shrink-0 text-[11px] text-gray-500 md:inline"
+                              title="Estimated hours vary by project complexity"
+                            >
+                              {summary}
+                            </span>
+                          ) : null}
+                          {!item.stage ? (
+                            <span className="hidden shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-900 ring-1 ring-inset ring-amber-200 sm:inline">
+                              Stage needed
+                            </span>
+                          ) : null}
+                          <input
+                            type="number"
+                            required
+                            inputMode="decimal"
+                            step="0.25"
+                            min={0}
+                            max={999}
+                            aria-label={`Task ${i + 1} estimate in hours (required)`}
+                            placeholder="Hours *"
+                            // Render null/0 as an empty string so the
+                            // placeholder is visible. The controlled value
+                            // only becomes a number when the admin types
+                            // something.
+                            value={item.estimate_hours ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              updateTaskItem(i, {
+                                estimate_hours: v === "" ? null : Number(v),
+                              });
+                            }}
+                            disabled={saving}
+                            className={`${baseInput} w-24 shrink-0`}
+                          />
                           <button
                             type="button"
                             onClick={() => removeTaskItem(i)}
                             disabled={saving || draft.tasks.length <= 1}
-                            className="rounded px-1.5 py-0.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                            className="shrink-0 rounded px-1.5 py-0.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
                             aria-label={`Remove task ${i + 1}`}
                           >
                             ×
                           </button>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr,8rem,6rem]">
-                        <input
-                          type="text"
-                          aria-label={`Task ${i + 1} name`}
-                          placeholder="Task name"
-                          value={item.name}
-                          onChange={(e) =>
-                            updateTaskItem(i, { name: e.target.value })
-                          }
-                          disabled={saving}
-                          className={baseInput}
-                        />
-                        <select
-                          aria-label={`Task ${i + 1} default priority`}
-                          value={item.default_priority}
-                          onChange={(e) =>
-                            updateTaskItem(i, {
-                              default_priority: e.target.value as Priority,
-                            })
-                          }
-                          disabled={saving}
-                          className={baseInput}
-                        >
-                          {PRIORITIES.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          required
-                          inputMode="decimal"
-                          step="0.25"
-                          min={0}
-                          max={999}
-                          aria-label={`Task ${i + 1} estimate in hours (required)`}
-                          placeholder="Hours *"
-                          // Render null/0 as an empty string so the
-                          // placeholder is visible. The controlled value
-                          // only becomes a number when the admin types
-                          // something.
-                          value={item.estimate_hours ?? ""}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            updateTaskItem(i, {
-                              estimate_hours: v === "" ? null : Number(v),
-                            });
-                          }}
-                          disabled={saving}
-                          className={baseInput}
-                        />
-                      </div>
-                      <ComplexityOverrides
-                        taskIndex={i}
-                        value={item.complexity_estimate_hours ?? null}
-                        onChange={(next) =>
-                          updateTaskItem(i, { complexity_estimate_hours: next })
-                        }
-                        disabled={saving}
-                      />
-                      <ScheduleAnchorControls
-                        taskIndex={i}
-                        tasks={draft.tasks}
-                        selfLocalId={item.local_id}
-                        fridayAnchor={item.friday_anchor ?? false}
-                        onFridayAnchorChange={(next) =>
-                          updateTaskItem(i, { friday_anchor: next })
-                        }
-                        fixedLag={item.fixed_lag_business_days_after ?? null}
-                        onFixedLagChange={(next) =>
-                          updateTaskItem(i, { fixed_lag_business_days_after: next })
-                        }
-                        drivesProjectDate={item.drives_project_date ?? null}
-                        onDrivesProjectDateChange={(next) =>
-                          updateTaskItem(i, { drives_project_date: next })
-                        }
-                        disabled={saving}
-                      />
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <div>
-                          <select
-                            aria-label={`Task ${i + 1} stage`}
-                            value={item.stage}
-                            onChange={(e) =>
-                              updateTaskItem(i, { stage: e.target.value })
-                            }
-                            disabled={saving || stageChoices.length === 0}
-                            className={baseInput}
-                          >
-                            <option value="" disabled>
-                              — Select a stage —
-                            </option>
-                            {stageChoices.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                            {/* Defensive: preserve a stage that's no longer
-                                covered by the checked tracks rather than
-                                silently dropping it from the select. */}
-                            {item.stage && !stageChoices.includes(item.stage) ? (
-                              <option value={item.stage}>{item.stage}</option>
-                            ) : null}
-                          </select>
-                          {stageChoices.length === 0 ? (
-                            <p className="mt-1 text-[11px] text-gray-500">
-                              Pick a track above first.
-                            </p>
-                          ) : null}
-                        </div>
-                        <select
-                          aria-label={`Task ${i + 1} default responsible`}
-                          value={item.default_responsible ?? ""}
-                          onChange={(e) =>
-                            updateTaskItem(i, {
-                              default_responsible: e.target.value || null,
-                            })
-                          }
-                          disabled={saving}
-                          className={baseInput}
-                        >
-                          <option value="">— None (defaults to project lead) —</option>
-                          {userOptions.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                          {/* Defensive: preserve a name that's no longer
-                              in the active-user roster (e.g. the user
-                              was deactivated after this template was
-                              saved) rather than silently dropping it. */}
-                          {item.default_responsible &&
-                          !userOptions.includes(item.default_responsible) ? (
-                            <option value={item.default_responsible}>
-                              {item.default_responsible}
-                            </option>
-                          ) : null}
-                        </select>
-                      </div>
-                      <textarea
-                        aria-label={`Task ${i + 1} description`}
-                        placeholder="Description (optional)"
-                        value={item.description}
-                        onChange={(e) =>
-                          updateTaskItem(i, { description: e.target.value })
-                        }
-                        disabled={saving}
-                        rows={2}
-                        className={`mt-2 ${baseInput}`}
-                      />
 
-                      {/* Dependencies subsection. Only renders the
-                          "+ Add dependency" button when there's at
-                          least one other task to point at; until then
-                          there's nothing meaningful to pick. */}
-                      <div className="mt-3 border-t border-gray-200 pt-2">
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                            Dependencies
-                          </span>
-                          {draft.tasks.length > 1 ? (
-                            <button
-                              type="button"
-                              onClick={() => addDependency(i)}
-                              disabled={saving}
-                              className="text-[11px] font-medium text-gray-700 hover:underline disabled:opacity-50"
-                            >
-                              + Add dependency
-                            </button>
-                          ) : null}
-                        </div>
-                        {item.dependencies.length === 0 ? (
-                          <p className="text-xs text-gray-500">
-                            No predecessors.
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {item.dependencies.map((dep, j) => {
-                              const others = draft.tasks.filter(
-                                (_, k) => k !== i,
-                              );
-                              // If the picked predecessor was removed
-                              // elsewhere we let the row stay with its
-                              // current value; the save-time validator
-                              // would catch a truly-broken reference,
-                              // but `removeTaskItem` already prunes
-                              // dangling deps so this is belt-and-braces.
-                              return (
-                                <div
-                                  key={j}
-                                  className="grid grid-cols-[1fr,10rem,auto] gap-2"
+                        {open ? (
+                          <div id={panelId} className="border-t border-gray-200 p-3">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                              <label className="block text-[11px] font-medium text-gray-600">
+                                Priority
+                                <select
+                                  aria-label={`Task ${i + 1} default priority`}
+                                  value={item.default_priority}
+                                  onChange={(e) =>
+                                    updateTaskItem(i, {
+                                      default_priority: e.target.value as Priority,
+                                    })
+                                  }
+                                  disabled={saving}
+                                  className={`mt-0.5 ${baseInput}`}
                                 >
-                                  <select
-                                    aria-label={`Task ${i + 1} dependency ${j + 1} predecessor`}
-                                    value={dep.predecessor_local_id}
-                                    onChange={(e) =>
-                                      updateDependency(i, j, {
-                                        predecessor_local_id: e.target.value,
-                                      })
-                                    }
-                                    disabled={saving}
-                                    className={baseInput}
-                                  >
-                                    {others.map((o) => (
-                                      <option
-                                        key={o.local_id}
-                                        value={o.local_id}
-                                      >
-                                        {o.name.trim() || `Task ${
-                                          draft.tasks.indexOf(o) + 1
-                                        }`}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    aria-label={`Task ${i + 1} dependency ${j + 1} type`}
-                                    value={dep.type}
-                                    onChange={(e) =>
-                                      updateDependency(i, j, {
-                                        type: e.target.value as TaskDependencyType,
-                                      })
-                                    }
-                                    disabled={saving}
-                                    className={baseInput}
-                                  >
-                                    {DEPENDENCY_TYPES.map((dt) => (
-                                      <option key={dt.value} value={dt.value}>
-                                        {dt.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {PRIORITIES.map((p) => (
+                                    <option key={p} value={p}>
+                                      {p}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block text-[11px] font-medium text-gray-600">
+                                Stage
+                                <select
+                                  aria-label={`Task ${i + 1} stage`}
+                                  value={item.stage}
+                                  onChange={(e) =>
+                                    updateTaskItem(i, { stage: e.target.value })
+                                  }
+                                  disabled={saving || stageChoices.length === 0}
+                                  className={`mt-0.5 ${baseInput}`}
+                                >
+                                  <option value="" disabled>
+                                    — Select a stage —
+                                  </option>
+                                  {stageChoices.map((s) => (
+                                    <option key={s} value={s}>
+                                      {s}
+                                    </option>
+                                  ))}
+                                  {/* Defensive: preserve a stage that's no longer
+                                      covered by the checked tracks rather than
+                                      silently dropping it from the select. */}
+                                  {item.stage && !stageChoices.includes(item.stage) ? (
+                                    <option value={item.stage}>{item.stage}</option>
+                                  ) : null}
+                                </select>
+                                {stageChoices.length === 0 ? (
+                                  <span className="mt-1 block text-[11px] font-normal text-gray-500">
+                                    Pick a track above first.
+                                  </span>
+                                ) : null}
+                              </label>
+                              <label className="block text-[11px] font-medium text-gray-600">
+                                Default responsible
+                                <select
+                                  aria-label={`Task ${i + 1} default responsible`}
+                                  value={item.default_responsible ?? ""}
+                                  onChange={(e) =>
+                                    updateTaskItem(i, {
+                                      default_responsible: e.target.value || null,
+                                    })
+                                  }
+                                  disabled={saving}
+                                  className={`mt-0.5 ${baseInput}`}
+                                >
+                                  <option value="">— None (defaults to project lead) —</option>
+                                  {userOptions.map((u) => (
+                                    <option key={u} value={u}>
+                                      {u}
+                                    </option>
+                                  ))}
+                                  {/* Defensive: preserve a name that's no longer
+                                      in the active-user roster (e.g. the user
+                                      was deactivated after this template was
+                                      saved) rather than silently dropping it. */}
+                                  {item.default_responsible &&
+                                  !userOptions.includes(item.default_responsible) ? (
+                                    <option value={item.default_responsible}>
+                                      {item.default_responsible}
+                                    </option>
+                                  ) : null}
+                                </select>
+                              </label>
+                            </div>
+                            <ComplexityOverrides
+                              taskIndex={i}
+                              value={item.complexity_estimate_hours ?? null}
+                              onChange={(next) =>
+                                updateTaskItem(i, { complexity_estimate_hours: next })
+                              }
+                              disabled={saving}
+                            />
+                            <ScheduleAnchorControls
+                              taskIndex={i}
+                              tasks={draft.tasks}
+                              selfLocalId={item.local_id}
+                              fridayAnchor={item.friday_anchor ?? false}
+                              onFridayAnchorChange={(next) =>
+                                updateTaskItem(i, { friday_anchor: next })
+                              }
+                              fixedLag={item.fixed_lag_business_days_after ?? null}
+                              onFixedLagChange={(next) =>
+                                updateTaskItem(i, { fixed_lag_business_days_after: next })
+                              }
+                              drivesProjectDate={item.drives_project_date ?? null}
+                              onDrivesProjectDateChange={(next) =>
+                                updateTaskItem(i, { drives_project_date: next })
+                              }
+                              disabled={saving}
+                            />
+                            <textarea
+                              aria-label={`Task ${i + 1} description`}
+                              placeholder="Description (optional)"
+                              value={item.description}
+                              onChange={(e) =>
+                                updateTaskItem(i, { description: e.target.value })
+                              }
+                              disabled={saving}
+                              rows={2}
+                              className={`mt-2 ${baseInput}`}
+                            />
+
+                            {/* Dependencies subsection. Only renders the
+                                "+ Add dependency" button when there's at
+                                least one other task to point at; until then
+                                there's nothing meaningful to pick. */}
+                            <div className="mt-3 border-t border-gray-200 pt-2">
+                              <div className="mb-1 flex items-center justify-between">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                  Dependencies
+                                </span>
+                                {draft.tasks.length > 1 ? (
                                   <button
                                     type="button"
-                                    onClick={() => removeDependency(i, j)}
+                                    onClick={() => addDependency(i)}
                                     disabled={saving}
-                                    aria-label={`Remove dependency ${j + 1} from task ${i + 1}`}
-                                    className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                                    className="text-[11px] font-medium text-gray-700 hover:underline disabled:opacity-50"
                                   >
-                                    ×
+                                    + Add dependency
                                   </button>
+                                ) : null}
+                              </div>
+                              {item.dependencies.length === 0 ? (
+                                <p className="text-xs text-gray-500">No predecessors.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {item.dependencies.map((dep, j) => {
+                                    const others = draft.tasks.filter((_, k) => k !== i);
+                                    // If the picked predecessor was removed
+                                    // elsewhere we let the row stay with its
+                                    // current value; the save-time validator
+                                    // would catch a truly-broken reference,
+                                    // but `removeTaskItem` already prunes
+                                    // dangling deps so this is belt-and-braces.
+                                    return (
+                                      <div
+                                        key={j}
+                                        className="grid grid-cols-[1fr,10rem,auto] gap-2"
+                                      >
+                                        <select
+                                          aria-label={`Task ${i + 1} dependency ${j + 1} predecessor`}
+                                          value={dep.predecessor_local_id}
+                                          onChange={(e) =>
+                                            updateDependency(i, j, {
+                                              predecessor_local_id: e.target.value,
+                                            })
+                                          }
+                                          disabled={saving}
+                                          className={baseInput}
+                                        >
+                                          {others.map((o) => (
+                                            <option key={o.local_id} value={o.local_id}>
+                                              {o.name.trim() ||
+                                                `Task ${draft.tasks.indexOf(o) + 1}`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <select
+                                          aria-label={`Task ${i + 1} dependency ${j + 1} type`}
+                                          value={dep.type}
+                                          onChange={(e) =>
+                                            updateDependency(i, j, {
+                                              type: e.target.value as TaskDependencyType,
+                                            })
+                                          }
+                                          disabled={saving}
+                                          className={baseInput}
+                                        >
+                                          {DEPENDENCY_TYPES.map((dt) => (
+                                            <option key={dt.value} value={dt.value}>
+                                              {dt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDependency(i, j)}
+                                          disabled={saving}
+                                          aria-label={`Remove dependency ${j + 1} from task ${i + 1}`}
+                                          className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+                <button
+                  type="button"
+                  onClick={addTaskItem}
+                  disabled={saving}
+                  className="mt-3 text-xs font-medium text-gray-700 hover:underline disabled:opacity-50"
+                >
+                  + Add task
+                </button>
               </div>
 
-              <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => downloadTemplateMarkdown(draft, trackOptions)}
+                  className="text-sm font-medium text-gray-700 hover:underline"
+                >
+                  ↓ Download Markdown
+                </button>
+                {draft.template_id ? (
                   <button
                     type="button"
-                    onClick={() => downloadTemplateMarkdown(draft, trackOptions)}
-                    className="text-sm font-medium text-gray-700 hover:underline"
-                  >
-                    ↓ Download Markdown
-                  </button>
-                  {draft.template_id ? (
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={saving}
-                      className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
-                    >
-                      Delete template
-                    </button>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={cancelDraft}
+                    onClick={handleDelete}
                     disabled={saving}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+                    className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
                   >
-                    Cancel
+                    Delete template
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:bg-gray-400"
-                  >
-                    {saving
-                      ? "Saving…"
-                      : draft.template_id
-                        ? "Save changes"
-                        : "Create template"}
-                  </button>
-                </div>
+                ) : null}
               </div>
             </div>
           )}

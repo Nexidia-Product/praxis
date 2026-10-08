@@ -24,6 +24,7 @@
     "smoke:ideas": "tsx scripts/smoke-ideas.ts",
     "smoke:fetch-links": "tsx scripts/smoke-fetch-links.ts",
     "smoke:template": "tsx scripts/smoke-template.ts",
+    "smoke:template-reorder": "tsx scripts/smoke-template-reorder.ts",
     "smoke:schedule": "tsx scripts/smoke-schedule.ts",
     "smoke:release": "tsx scripts/smoke-release.ts",
     "smoke:executive": "tsx scripts/smoke-executive.ts",
