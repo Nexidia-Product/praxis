@@ -178,7 +178,10 @@ drops `use_cases.caveats`), `0038_use_case_objective_inheritance`,
 - Tracks D–G (UI/Application, TopicAI, Complaints, Other) were added but have
   **only the three standard stages** (Qualification, Prioritization,
   Productization). Tracks B and C are the same. Only Track A has a full list.
-- Stage lists are defined **in code** (`TRACK_MIDDLE_STAGES` in
+- **Track H - Services Validation** was added (2026-10-08) and also has only
+  the three standard stages for now.
+- Stage lists are defined **in code** (`TRACK_MIDDLE_STAGES`, and
+  `TRACK_POST_STAGES` for stages after Productization, in
   `lib/projects/display.ts`), not in an admin screen — confirm how you intend to
   add stages before assuming otherwise.
 - Task templates are per track; the new tracks have none until created.

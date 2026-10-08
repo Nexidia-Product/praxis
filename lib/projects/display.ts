@@ -246,6 +246,7 @@ export const SYSTEM_TRACKS: string[] = [
   "Track E - TopicAI",
   "Track F - Complaints",
   "Track G - Other",
+  "Track H - Services Validation",
 ];
 
 // ---------------------------------------------------------------------------
