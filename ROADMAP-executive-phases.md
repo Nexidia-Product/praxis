@@ -285,9 +285,12 @@ delivered, what is outstanding — less detailed than the other views.
   view's "no pillar" footnote).
 - **Must preserve the link** in `shapeOutcomes` (`lib/projects/service.ts`) and
   in the Markdown import's `buildImportPayload`, or saves/imports will wipe it.
-- **Build order:** (1) stage rules / post-Productization support — **done**;
-  (2) outcome link + three-way picker; (3) pure coverage-graph builder +
-  smoke test; (4) Program Coverage page; (5) optional deck slide.
+- **Build order:** (1) stage rules / post-Productization support — **done**
+  (PR #34); (2) outcome link + "Delivered by" picker — **done** (PR #35;
+  `delivery` is `self` / `project` / null, `self` being a kind because a new
+  project has no ID yet); (3) pure coverage-graph builder
+  (`lib/coverage/graph.ts`, `npm run smoke:coverage`) — **done**; (4) Program
+  Coverage page; (5) optional deck slide.
 
 ## 9. Related work built in the same period (context, not phases)
 

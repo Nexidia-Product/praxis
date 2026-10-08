@@ -1,0 +1,204 @@
+/**
+ * Smoke test for the Program Coverage graph builder (`lib/coverage/graph.ts`).
+ * Pure, no database.
+ *
+ * Run with:
+ *   npm run smoke:coverage
+ */
+
+import assert from "node:assert/strict";
+
+import { buildCoverageGraph, bucketOfProject } from "@/lib/coverage/graph";
+import { countNoPillar } from "@/lib/executive/portfolio";
+import type { Project, ProjectOutcome, UseCase } from "@/lib/db";
+
+const TRACK_A = "Track A - Dashboard/visualization";
+const TRACK_B = "Track B - Cognigy bot inputs";
+
+const mk = (over: Partial<Project>): Project =>
+  ({
+    project_id: "2026-001",
+    name: "Alpha",
+    program: "Innovation",
+    project_type: "New Feature",
+    application_product: "Automated Insights",
+    visualization_type: "New Visualization",
+    status: "In Progress",
+    stage: "Kickoff",
+    track: TRACK_A,
+    primary_objective: "Cost-to-Serve",
+    secondary_objectives: [],
+    target_date: null,
+    outcomes: [],
+    ...over,
+  }) as Project;
+
+const out = (id: string, text: string, delivery: ProjectOutcome["delivery"]): ProjectOutcome => ({
+  id,
+  text,
+  product: null,
+  type: null,
+  delivery,
+});
+
+const uc = (over: Partial<UseCase>): UseCase =>
+  ({
+    use_case_id: "uc-1",
+    name: "Use case",
+    description: "",
+    primary_objective: "Cost-to-Serve",
+    secondary_objectives: [],
+    member_project_ids: [],
+    ...over,
+  }) as UseCase;
+
+// ---- bucketOfProject ----
+assert.equal(bucketOfProject(mk({ stage: "Qualification" })), "notStarted");
+assert.equal(bucketOfProject(mk({ stage: "Prioritization" })), "notStarted");
+assert.equal(bucketOfProject(mk({ stage: "Kickoff" })), "inProgress");
+assert.equal(bucketOfProject(mk({ stage: "Productization" })), "delivered");
+assert.equal(
+  bucketOfProject(mk({ stage: "Productization", status: "Canceled" })),
+  "notStarted",
+  "canceled is forced to Productization on close-out but is not delivered",
+);
+
+// ---- Hold Time Analysis scenario ----
+const hold = mk({
+  project_id: "2026-024",
+  name: "Hold Time Analysis",
+  outcomes: [
+    out("o1", "Task Assist bot", { kind: "project", project_id: "2026-031" }),
+    out("o2", "Quality Central build", null),
+    out("o3", "Hold time dashboard", { kind: "self" }),
+  ],
+});
+// Visualization project in the same use case family, same shared bot.
+const other = mk({
+  project_id: "2026-025",
+  name: "Transfer Analysis",
+  stage: "Productization",
+  outcomes: [out("o4", "Same bot", { kind: "project", project_id: "2026-031" })],
+});
+const taskAssist = mk({
+  project_id: "2026-031",
+  name: "Task Assist bot build",
+  track: TRACK_B,
+  program: "Innovation",
+  primary_objective: null,
+  stage: "Productization",
+  outcomes: [out("t1", "Bot live", { kind: "self" })],
+});
+const canceledBot = mk({
+  project_id: "2026-032",
+  name: "Dropped bot",
+  track: TRACK_B,
+  stage: "Productization",
+  status: "Canceled",
+  primary_objective: null,
+});
+const noOutcomes = mk({ project_id: "2026-026", name: "Empty", outcomes: [] });
+const dangling = mk({
+  project_id: "2026-027",
+  name: "Dangling",
+  outcomes: [
+    out("d1", "To canceled", { kind: "project", project_id: "2026-032" }),
+    out("d2", "To missing", { kind: "project", project_id: "2026-999" }),
+  ],
+});
+const canceledMember = mk({ project_id: "2026-028", name: "Gone", status: "Canceled", outcomes: [out("c1", "x", null)] });
+const otherProgram = mk({ project_id: "2026-029", name: "Complaints thing", program: "Complaints", outcomes: [out("p1", "y", null)] });
+const unassigned = mk({ project_id: "2026-050", name: "Orphan" });
+
+const projects = [hold, other, taskAssist, canceledBot, noOutcomes, dangling, canceledMember, otherProgram, unassigned];
+const useCases = [
+  uc({
+    use_case_id: "uc-hold",
+    name: "Hold Time",
+    member_project_ids: ["2026-024", "2026-025", "2026-026", "2026-027", "2026-028", "2026-029", "2026-404"],
+  }),
+  uc({ use_case_id: "uc-none", name: "No pillar", primary_objective: null, member_project_ids: [] }),
+  uc({ use_case_id: "uc-complaints", name: "Complaints UC", primary_objective: "Complaints", member_project_ids: [] }),
+];
+
+const graph = buildCoverageGraph({ projects, useCases });
+
+assert.deepEqual(graph.pillars.map((p) => p.pillar), [
+  "Cost-to-Serve",
+  "Revenue",
+  "Compliance",
+  "Customer Experience",
+  "Agent Experience",
+]);
+const pillar = graph.pillars[0];
+assert.equal(pillar.useCases.length, 1);
+const hu = pillar.useCases[0];
+
+// Members: only in-scope (Innovation, non-canceled, found) projects, in member order.
+assert.deepEqual(hu.projects.map((p) => p.ref.project_id), ["2026-024", "2026-025", "2026-026", "2026-027"]);
+
+const holdNode = hu.projects[0];
+assert.equal(holdNode.outcomes.length, 3);
+const [taskAssistOutcome, qcOutcome, selfOutcome] = holdNode.outcomes;
+assert.equal(taskAssistOutcome.bucket, "delivered");
+assert.equal(taskAssistOutcome.gap, null);
+assert.equal(taskAssistOutcome.delivery.kind, "project");
+assert.equal(taskAssistOutcome.delivery.project?.name, "Task Assist bot build");
+assert.equal(taskAssistOutcome.delivery.sharedCount, 2, "bot is shared by two outcomes");
+assert.equal(qcOutcome.bucket, "notStarted");
+assert.equal(qcOutcome.gap, "notPlanned");
+assert.equal(qcOutcome.delivery.kind, "none");
+assert.equal(selfOutcome.bucket, "inProgress", "self = the owning project's own stage (Kickoff)");
+assert.equal(selfOutcome.delivery.kind, "self");
+assert.equal(holdNode.counts.total, 3);
+assert.deepEqual(
+  [holdNode.counts.notStarted, holdNode.counts.inProgress, holdNode.counts.delivered],
+  [1, 1, 1],
+);
+
+// Delivery projects are leaves: the bot's own outcome is not counted anywhere.
+assert.equal(hu.counts.total, 3 + 1 + 0 + 2);
+assert.equal(hu.projects[1].outcomes[0].bucket, "delivered");
+
+// A project with no outcomes is flagged.
+assert.equal(hu.projects[2].noOutcomes, true);
+assert.equal(hu.projects[0].noOutcomes, false);
+
+// Canceled / missing delivery targets are outstanding with a reason.
+const [toCanceled, toMissing] = hu.projects[3].outcomes;
+assert.equal(toCanceled.bucket, "notStarted");
+assert.equal(toCanceled.gap, "deliveryCanceled");
+assert.equal(toMissing.bucket, "notStarted");
+assert.equal(toMissing.gap, "deliveryMissing");
+assert.equal(hu.gapCount, 1 /* QC */ + 2 /* canceled + missing */);
+
+// Rollups.
+assert.equal(pillar.projectCount, 4);
+assert.equal(pillar.counts.total, hu.counts.total);
+assert.equal(graph.pillars[1].useCases.length, 0);
+assert.equal(graph.pillars[1].counts.total, 0);
+
+// Exclusions: use cases without a core pillar; pillar projects with no use case
+// (the delivery project and use-case members don't count).
+assert.equal(graph.excluded.useCasesWithoutPillar, 2);
+assert.equal(graph.excluded.projectsWithoutUseCase, 1, "only the orphan");
+
+// No warnings in the normal case; flag a delivery project that is also a member.
+assert.deepEqual(hu.warnings, []);
+const both = buildCoverageGraph({
+  projects,
+  useCases: [uc({ member_project_ids: ["2026-024", "2026-031"] })],
+});
+assert.equal(both.pillars[0].useCases[0].warnings.length, 1);
+
+// ---- Executive "no pillar" footnote ignores delivery projects ----
+const noPillarBot = mk({ project_id: "2026-031", primary_objective: null });
+const noPillarOrphan = mk({ project_id: "2026-060", primary_objective: null });
+const linker = mk({
+  project_id: "2026-024",
+  outcomes: [out("o1", "bot", { kind: "project", project_id: "2026-031" })],
+});
+assert.equal(countNoPillar([noPillarBot, noPillarOrphan]), 2);
+assert.equal(countNoPillar([noPillarBot, noPillarOrphan, linker]), 1, "linked delivery project is aligned");
+
+console.log("smoke-coverage: all assertions passed");
