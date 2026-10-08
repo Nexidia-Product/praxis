@@ -177,7 +177,11 @@ drops `use_cases.caveats`), `0038_use_case_objective_inheritance`,
 ### 6.3 Tracks and stages
 - Tracks D–G (UI/Application, TopicAI, Complaints, Other) were added but have
   **only the three standard stages** (Qualification, Prioritization,
-  Productization). Tracks B and C are the same. Only Track A has a full list.
+  Productization). Track C is the same. Track A has a full list. **Track B** has
+  (2026-10-08): Qualification, Prioritization, Development, Testing, Signoff,
+  Integration, Release, **Productization**, then the post-Productization
+  stages Services Validation, Services Signoff, Adoption (so those count as
+  delivered; see 6.4).
 - **Track H - Services Validation** was added (2026-10-08) and also has only
   the three standard stages for now.
 - Stage lists are defined **in code** (`TRACK_MIDDLE_STAGES`, and
