@@ -297,7 +297,7 @@ delivered, what is outstanding — less detailed than the other views.
   reached Productization or later (Canceled never counts), **In progress** =
   past Prioritization, **Not started** otherwise.
 - **Scope:** same as the Executive view (Innovation, non-admin, non-canceled,
-  five core pillars), and **projects on Tracks D, E, F and G are excluded**
+  five core pillars), and **projects on Tracks D, E, F, G and H are excluded**
   (`COVERAGE_EXCLUDED_TRACKS` in `lib/coverage/graph.ts`). Only member
   projects are filtered; a project an outcome explicitly names as its delivery
   project is still resolved even if it is on one of those tracks.

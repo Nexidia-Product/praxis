@@ -207,7 +207,7 @@ const linker = mk({
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan]), 2);
 assert.equal(countNoPillar([noPillarBot, noPillarOrphan, linker]), 1, "linked delivery project is aligned");
 
-// ---- Tracks D-G are excluded; other tracks (incl. H) are not ----
+// ---- Tracks D-H are excluded; Tracks A-C are not ----
 const onTrack = (id: string, track: string) =>
   mk({ project_id: id, name: `On ${track}`, track, outcomes: [out(`o-${id}`, "x", null)] });
 const trackProjects = [
@@ -225,8 +225,8 @@ const byTrack = buildCoverageGraph({
   useCases: [uc({ use_case_id: "uc-tracks", member_project_ids: trackProjects.map((p) => p.project_id) })],
 });
 const shown = byTrack.pillars[0].useCases[0].projects.map((p) => p.ref.project_id);
-assert.deepEqual(shown, ["2026-101", "2026-102", "2026-103", "2026-108"], "D-G members left out");
-assert.equal(byTrack.pillars[0].counts.total, 4, "excluded projects' outcomes aren't counted");
+assert.deepEqual(shown, ["2026-101", "2026-102", "2026-103"], "D-H members left out");
+assert.equal(byTrack.pillars[0].counts.total, 3, "excluded projects' outcomes aren't counted");
 assert.equal(byTrack.excluded.projectsWithoutUseCase, 0, "an excluded-track project isn't reported as unassigned");
 assert.equal(
   [...COVERAGE_EXCLUDED_TRACKS].every((t) => SYSTEM_TRACKS.includes(t)),
