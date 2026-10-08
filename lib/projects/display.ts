@@ -253,8 +253,11 @@ export const SYSTEM_TRACKS: string[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Anchor stages every track's list starts and ends with, regardless of
- * track-specific middle stages.
+ * Anchor stages every track's list is built around: it starts with
+ * Qualification and Prioritization and delivers at Productization
+ * (`STAGE_LAST`, kept under that name for existing callers). A track may
+ * also define stages after Productization (`TRACK_POST_STAGES`), so
+ * Productization is the delivery point, not necessarily the final entry.
  */
 export const STAGE_FIRST = "Qualification";
 export const STAGE_SECOND = "Prioritization";
@@ -284,14 +287,56 @@ const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
   ],
 };
 
-/** Full ordered stage list for a track: anchors + its middle stages. */
+/**
+ * Track-specific stages AFTER Productization (e.g. validation and
+ * adoption). Productization is the point the functionality ships, so a
+ * project in one of these stages has already been delivered; the stages
+ * track what happens next. Empty until a track defines them — every
+ * "has it shipped?" check goes through `hasReachedProductization`, which
+ * compares positions in the track's list rather than assuming
+ * Productization is last, so adding stages here is safe.
+ */
+const TRACK_POST_STAGES: Record<string, string[]> = {};
+
+/**
+ * Full ordered stage list for a track: anchors + its middle stages,
+ * Productization, then any post-Productization stages.
+ */
 export function stagesForTrack(track: string): string[] {
   return [
     STAGE_FIRST,
     STAGE_SECOND,
     ...(TRACK_MIDDLE_STAGES[track] ?? []),
     STAGE_LAST,
+    ...(TRACK_POST_STAGES[track] ?? []),
   ];
+}
+
+/**
+ * True when `stage` is Productization or any stage after it in the
+ * track's list — i.e. the project has shipped. Use this, not
+ * `stage === STAGE_LAST`, for every delivered / released / missed-delivery
+ * decision. A stage not in the track's list (e.g. a retired legacy value)
+ * is treated as not reached, matching the old strict-equality behavior.
+ */
+export function hasReachedProductization(track: string, stage: string): boolean {
+  return reachedProductizationIn(stagesForTrack(track), stage);
+}
+
+/** Position check behind `hasReachedProductization`, on an explicit stage list. */
+export function reachedProductizationIn(stages: string[], stage: string): boolean {
+  const idx = stages.indexOf(stage);
+  return idx !== -1 && idx >= stages.indexOf(STAGE_LAST);
+}
+
+/**
+ * The stage a project should sit at when it is closed out (status
+ * Completed/Canceled): Productization, unless it is already past it, in
+ * which case it stays where it is — closing out must never move a project
+ * backwards out of a validation/adoption stage.
+ */
+export function closedOutStage(track: string, currentStage: string): string {
+  return hasReachedProductization(track, currentStage) ? currentStage : STAGE_LAST;
 }
 
 /**

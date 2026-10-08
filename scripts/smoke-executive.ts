@@ -47,9 +47,10 @@ const mk = (over: Partial<Project>): Project =>
 // ---- helpers ----
 assert.equal(quarterStart("2026-Q4"), "2026-10-01");
 assert.equal(previousQuarter("2026-Q1"), "2025-Q4");
-assert.equal(phaseOf("Qualification"), "qualifying");
-assert.equal(phaseOf("Kickoff"), "inProgress");
-assert.equal(phaseOf("Productization"), "released");
+const trackA = "Track A - Dashboard/visualization";
+assert.equal(phaseOf("Qualification", trackA), "qualifying");
+assert.equal(phaseOf("Kickoff", trackA), "inProgress");
+assert.equal(phaseOf("Productization", trackA), "released");
 
 // ---- eligibility ----
 assert.equal(isExecEligible(mk({})), true);

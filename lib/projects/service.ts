@@ -57,6 +57,7 @@ import {
   SECONDARY_OBJECTIVE_OPTIONS,
   PROJECT_TYPES,
   VISUALIZATION_TYPES,
+  closedOutStage,
   stagesForTrack,
   stageTransitionSetsStartDate,
 } from "@/lib/projects/display";
@@ -558,9 +559,12 @@ async function validateAndShape(
   const status = asEnum(payload.status, PROJECT_STATUSES, "status");
   const stage = asEnum(payload.stage, stagesForTrack(track), "stage");
   // Mirror updateProject's terminal-status rule: a project created
-  // directly as Completed or Canceled is already closed out.
+  // directly as Completed or Canceled is already closed out (at
+  // Productization, or where it already is if that's past it).
   const effectiveStage =
-    status === "Completed" || status === "Canceled" ? "Productization" : stage;
+    status === "Completed" || status === "Canceled"
+      ? closedOutStage(track, stage)
+      : stage;
   const primary_stakeholders = asStringArray(
     payload.primary_stakeholders,
     "primary_stakeholders",
@@ -1367,20 +1371,27 @@ export async function updateProject(
 
   // Business rule: a project reaching a terminal status is closed out.
   // When this update transitions the project *into* "Completed" or
-  // "Canceled", force the stage to "Productization" (the fixed final
-  // stage for every track). The terminal transition governs, so it
-  // overrides any stage value the same patch happened to carry (the edit
-  // form always sends the stage field, so keying off "stage absent from
-  // patch" would skip that path). We fire only on the transition — not on
-  // every save of an already-terminal project — so an admin can still
-  // hand-adjust the stage afterwards if they need to.
+  // "Canceled", force the stage to "Productization" — unless the project
+  // is already past it (a validation/adoption stage), in which case it
+  // stays put so closing out never moves it backwards. The terminal
+  // transition governs, so it overrides any stage value the same patch
+  // happened to carry (the edit form always sends the stage field, so
+  // keying off "stage absent from patch" would skip that path), judging
+  // "already past Productization" from the stage the project would end up
+  // on. We fire only on the transition — not on every save of an
+  // already-terminal project — so an admin can still hand-adjust the stage
+  // afterwards if they need to.
   const isTerminalStatusTransition =
     hasStatusChange &&
     (patch.status === "Completed" || patch.status === "Canceled");
+  const closedStage = closedOutStage(
+    patch.track !== undefined ? patch.track : existing.track,
+    patch.stage !== undefined ? patch.stage : existing.stage,
+  );
   const stageAutoClosedOut =
-    isTerminalStatusTransition && existing.stage !== "Productization";
+    isTerminalStatusTransition && existing.stage !== closedStage;
   if (isTerminalStatusTransition) {
-    patch.stage = "Productization";
+    patch.stage = closedStage;
   }
 
   // Auto-set the planned start date when a project transitions from
@@ -1609,7 +1620,7 @@ export async function updateProject(
       action: "status_change",
       summary: `Status: ${existing.status} → ${updated.status}${
         rawSummary.length > 0 ? ` — ${rawSummary}` : ""
-      }${stageAutoClosedOut ? " (stage → Productization)" : ""}${
+      }${stageAutoClosedOut ? ` (stage → ${closedStage})` : ""}${
         cascadedTasks > 0
           ? ` (${cascadedTasks} open task${cascadedTasks === 1 ? "" : "s"} auto-canceled)`
           : ""

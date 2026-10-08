@@ -21,10 +21,10 @@
 import type { IsoDate, Project } from "@/lib/db";
 import {
   STAGE_FIRST,
-  STAGE_LAST,
   STAGE_SECOND,
   SECONDARY_OBJECTIVE_OPTIONS,
   SYSTEM_PROGRAMS,
+  hasReachedProductization,
   isAdminProject,
 } from "@/lib/projects/display";
 import { quarterOf } from "@/lib/key-capabilities";
@@ -82,8 +82,9 @@ export interface ExecutiveView {
 
 export const NO_USE_CASE = "No use case";
 
-export function phaseOf(stage: string): ExecPhase {
-  if (stage === STAGE_LAST) return "released";
+export function phaseOf(stage: string, track: string): ExecPhase {
+  // Productization and anything after it (validation, adoption) is released.
+  if (hasReachedProductization(track, stage)) return "released";
   if (stage === STAGE_FIRST || stage === STAGE_SECOND) return "qualifying";
   return "inProgress";
 }
@@ -139,7 +140,7 @@ function toExecProject(
 ): ExecProject {
   const p = entry.project;
   const quarter = p.target_date ? quarterOfDate(p.target_date) : null;
-  const phase = phaseOf(p.stage);
+  const phase = phaseOf(p.stage, p.track);
   const carriedOver =
     p.target_date !== null &&
     p.target_date < quarterStart(currentQuarter) &&

@@ -88,7 +88,7 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     key: "stage",
     label: "Stage",
     description:
-      "View only. Every track's stage list starts with Qualification, then Prioritization, and ends with Productization; the stages in between are defined per track in code, not here — ask engineering to add stages for a track that doesn't have them yet.",
+      "View only. Every track's stage list starts with Qualification, then Prioritization, and delivers at Productization (a track may also have stages after it, such as validation or adoption); the stages in between are defined per track in code, not here — ask engineering to add stages for a track that doesn't have them yet.",
   },
 ];
 
