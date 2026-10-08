@@ -853,7 +853,7 @@ export function TemplatesAdmin({
                             value={item.name}
                             onChange={(e) => updateTaskItem(i, { name: e.target.value })}
                             disabled={saving}
-                            className={`${baseInput} min-w-0 flex-1`}
+                            className={`${inputChrome} min-w-0 flex-1`}
                           />
                           {summary ? (
                             <span
@@ -889,7 +889,7 @@ export function TemplatesAdmin({
                               });
                             }}
                             disabled={saving}
-                            className={`${baseInput} w-24 shrink-0`}
+                            className={`${inputChrome} w-24 shrink-0`}
                           />
                           <button
                             type="button"
@@ -1161,8 +1161,14 @@ export function TemplatesAdmin({
 // Helpers
 // ---------------------------------------------------------------------------
 
-const baseInput =
-  "block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100";
+// Input styling WITHOUT a width. Never add a second width class (w-24,
+// flex-1 sizing, ...) on top of `baseInput`: its `w-full` and the other width
+// utility both apply, and whichever Tailwind emits later wins — which is how a
+// compact hours field once ballooned to the full row width. Compose from
+// `inputChrome` plus exactly one width instead.
+const inputChrome =
+  "block rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100";
+const baseInput = `w-full ${inputChrome}`;
 
 function Field({
   id,
