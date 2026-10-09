@@ -67,6 +67,8 @@ interface IdeaReviewPanelProps {
    */
   statusOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
+  /** Merged track list, so a converted project can be created on any track. */
+  trackOptions?: EnumOption[];
   /**
    * Whether the current user holds `ideas.review`. When false the user
    * has read-only access (`ideas.view` only): the entire "Reviewer
@@ -107,6 +109,7 @@ export function IdeaReviewPanel({
   projects,
   statusOptions,
   priorityOptions,
+  trackOptions,
   canReview,
   canConvert,
   aiEnabled = false,
@@ -546,6 +549,7 @@ export function IdeaReviewPanel({
           applicationOptions={applicationOptions}
           statusOptions={statusOptions}
           priorityOptions={priorityOptions}
+          trackOptions={trackOptions}
           onCancel={() => setShowConvert(false)}
           onConverted={onConverted}
         />
