@@ -149,7 +149,7 @@ const SYSTEM_PROGRAM_OPTIONS: EnumOption[] = SYSTEM_PROGRAMS.map((id) => ({
 }));
 
 /**
- * Track ships with eight built-in values (Tracks A-H) (see `SYSTEM_TRACKS` in
+ * Track ships with nine built-in values (Tracks A-I) (see `SYSTEM_TRACKS` in
  * `lib/projects/display.ts`). Admin-curated extensions are merged on top.
  */
 const SYSTEM_TRACK_OPTIONS: EnumOption[] = SYSTEM_TRACKS.map((id) => ({

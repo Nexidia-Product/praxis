@@ -14,10 +14,12 @@ import assert from "node:assert/strict";
 
 import {
   STAGE_LAST,
+  SYSTEM_TRACKS,
   closedOutStage,
   hasReachedProductization,
   reachedProductizationIn,
   stagesForTrack,
+  tracksWithStageDefinitions,
 } from "@/lib/projects/display";
 
 const trackA = "Track A - Dashboard/visualization";
@@ -55,6 +57,43 @@ for (const s of ["Productization", "Services Validation", "Services Signoff", "A
 assert.equal(closedOutStage(trackB, "Testing"), "Productization");
 assert.equal(closedOutStage(trackB, "Services Validation"), "Services Validation", "closing out never moves a project backwards");
 assert.equal(closedOutStage(trackB, "Adoption"), "Adoption");
+
+// Track I - Coaching Plan.
+const trackI = "Track I - Coaching Plan";
+assert.deepEqual(stagesForTrack(trackI), [
+  "Qualification",
+  "Prioritization",
+  "Data development",
+  "Signoff",
+  "Handoff",
+  "Integration",
+  "Visualization Update",
+  "Release",
+  "Productization",
+]);
+assert.equal(hasReachedProductization(trackI, "Release"), false);
+assert.equal(hasReachedProductization(trackI, "Productization"), true);
+
+// Stage lists are matched by exact track name: every track that has stages
+// defined must be a real track (a typo would hide its stages on
+// Configuration -> Stage), and every track lists at least its anchors.
+for (const name of tracksWithStageDefinitions()) {
+  assert.ok(SYSTEM_TRACKS.includes(name), `stage definitions for unknown track "${name}"`);
+}
+for (const t of SYSTEM_TRACKS) {
+  const stages = stagesForTrack(t);
+  assert.ok(stages.length >= 3, `${t} has its anchor stages`);
+  assert.equal(new Set(stages).size, stages.length, `${t} has no duplicate stage names`);
+}
+assert.deepEqual(
+  [...tracksWithStageDefinitions()].sort(),
+  [
+    "Track A - Dashboard/visualization",
+    "Track B - Cognigy bot inputs",
+    "Track I - Coaching Plan",
+  ],
+  "which tracks currently define stages",
+);
 
 // A track with stages after Productization.
 const withPost = [
