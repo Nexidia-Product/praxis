@@ -104,6 +104,9 @@ interface Props {
   templates: TaskTemplate[];
   groups: ProjectGroup[];
   useCases: UseCase[];
+  /** Admin-managed outcome product / type lists for the project form's outcome dropdowns. */
+  outcomeProducts?: string[];
+  outcomeTypes?: string[];
   quadrantLabels: PortfolioQuadrantLabels;
   aiEnabled: boolean;
   activeUserNames: string[];
@@ -126,6 +129,8 @@ export function WorkInProgressView({
   templates,
   groups,
   useCases,
+  outcomeProducts = [],
+  outcomeTypes = [],
   quadrantLabels,
   aiEnabled,
   activeUserNames,
@@ -189,6 +194,10 @@ export function WorkInProgressView({
     (permissions["projects.edit_stage"] === undefined &&
       currentUserRole === "Admin");
   // Same treatment for organizational Objective changes.
+  const canManageOutcomeValues =
+    permissions["admin.project_values.manage"] === true ||
+    (permissions["admin.project_values.manage"] === undefined &&
+      currentUserRole === "Admin");
   const canEditProjectObjectives =
     permissions["projects.edit_objectives"] === true ||
     (permissions["projects.edit_objectives"] === undefined &&
@@ -819,6 +828,9 @@ export function WorkInProgressView({
           aiEnabled={aiEnabled}
           canEditStage={canEditProjectStage}
           canEditObjectives={canEditProjectObjectives}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
+          canManageOutcomeValues={canManageOutcomeValues}
           useCases={useCases}
           objectivesInheritedFrom={
             useCasesByProject.get(modalProject.project_id)?.[0]?.name

@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   OBJECTIVES,
@@ -98,6 +99,12 @@ interface ProjectFormModalProps {
   /** Admin-managed vocabularies for the outcomes editor's dropdowns. */
   outcomeProducts?: string[];
   outcomeTypes?: string[];
+  /**
+   * Whether the user may add values to the outcome product / type lists
+   * (`admin.project_values.manage`). When true the outcome dropdowns offer
+   * "+ Add new…". Defaults to false.
+   */
+  canManageOutcomeValues?: boolean;
   /**
    * Whether the Stage field is editable — gated by the narrower
    * `projects.edit_stage` permission rather than general project
@@ -465,6 +472,7 @@ export function ProjectFormModal({
   aiEnabled = false,
   outcomeProducts = [],
   outcomeTypes = [],
+  canManageOutcomeValues = false,
   canEditStage = true,
   canEditObjectives = true,
   objectivesInheritedFrom,
@@ -473,6 +481,27 @@ export function ProjectFormModal({
   onSaved,
 }: ProjectFormModalProps) {
   const isEdit = project !== null;
+  const router = useRouter();
+  // The outcome product / type lists, kept locally so a value added from
+  // this form is available to every outcome row straight away.
+  const [vocab, setVocab] = useState({ products: outcomeProducts, types: outcomeTypes });
+  async function addOutcomeValue(kind: "product" | "type", value: string): Promise<string> {
+    const res = await fetch("/api/admin/outcome-values", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, value }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      outcome_products?: string[];
+      outcome_types?: string[];
+      value?: string;
+      error?: string;
+    };
+    if (!res.ok || !data.value) throw new Error(data.error ?? "Could not add the value.");
+    setVocab({ products: data.outcome_products ?? [], types: data.outcome_types ?? [] });
+    router.refresh(); // so the page's own copy of the lists catches up
+    return data.value;
+  }
   // The project's own use case, found by membership. A project being
   // created has none (membership is set from the use case side).
   const projectUseCase =
@@ -1395,8 +1424,9 @@ export function ProjectFormModal({
           <OutcomesEditor
             value={state.outcomes}
             onChange={(o) => update("outcomes", o)}
-            products={outcomeProducts}
-            types={outcomeTypes}
+            products={vocab.products}
+            types={vocab.types}
+            onAddValue={canManageOutcomeValues ? addOutcomeValue : undefined}
             allProjects={allProjects}
             selfId={project?.project_id ?? null}
             disabled={saving}

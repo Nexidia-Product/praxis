@@ -101,6 +101,9 @@ interface RoadmapWorkspaceProps {
    * outcomes ("Use case outcomes supported").
    */
   useCases?: UseCase[];
+  /** Admin-managed outcome product / type lists for the project form's outcome dropdowns. */
+  outcomeProducts?: string[];
+  outcomeTypes?: string[];
   /**
    * Whether the AI Advisor is reachable in this environment. Threaded
    * into the form modal so the Generate AI estimate button hides in
@@ -137,6 +140,8 @@ export function RoadmapWorkspace({
   enumOptions,
   templates,
   useCases,
+  outcomeProducts = [],
+  outcomeTypes = [],
   aiEnabled = false,
   activeUserNames = [],
   mentionableUsers = [],
@@ -187,6 +192,9 @@ export function RoadmapWorkspace({
     ? permissions["projects.edit_stage"] === true
     : currentUserRole === "Admin";
   // Same treatment for organizational Objective changes.
+  const canManageOutcomeValues = permissions
+    ? permissions["admin.project_values.manage"] === true
+    : currentUserRole === "Admin";
   const canEditObjectives = permissions
     ? permissions["projects.edit_objectives"] === true
     : currentUserRole === "Admin";
@@ -568,6 +576,9 @@ export function RoadmapWorkspace({
           templates={templates}
           allProjects={projects}
           useCases={useCases}
+          outcomeProducts={outcomeProducts}
+          outcomeTypes={outcomeTypes}
+          canManageOutcomeValues={canManageOutcomeValues}
           aiEnabled={aiEnabled}
           canEditStage={canEditStage}
           canEditObjectives={canEditObjectives}

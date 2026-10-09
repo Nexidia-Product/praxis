@@ -126,6 +126,8 @@ export default async function WorkInProgressPage() {
         templates={templates}
         groups={groups}
         useCases={useCases}
+        outcomeProducts={settings.outcome_products}
+        outcomeTypes={settings.outcome_types}
         quadrantLabels={settings.portfolio_quadrants}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}

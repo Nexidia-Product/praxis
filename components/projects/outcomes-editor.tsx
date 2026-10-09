@@ -10,6 +10,8 @@
  * change, matching the DocumentLinksEditor pattern.
  */
 
+import { useState } from "react";
+
 import type { OutcomeDelivery, Project, ProjectId, ProjectOutcome } from "@/lib/db";
 
 interface OutcomesEditorProps {
@@ -26,8 +28,18 @@ interface OutcomesEditorProps {
   allProjects?: Project[];
   /** The project being edited (null while creating); excluded from the picker. */
   selfId?: ProjectId | null;
+  /**
+   * When provided, the product and type dropdowns get a "+ Add new…" option
+   * that adds a value to the shared list (it resolves to the value to
+   * select, and rejects with a message on failure). Omit for users who
+   * can't manage the lists.
+   */
+  onAddValue?: (kind: "product" | "type", value: string) => Promise<string>;
   disabled?: boolean;
 }
+
+/** Sentinel option value for "+ Add new…". */
+const ADD_NEW = "__add_new__";
 
 /** Select value for a delivery: "" = not yet planned, "self", or "p:<id>". */
 function deliveryToValue(d: OutcomeDelivery | null | undefined): string {
@@ -64,8 +76,37 @@ export function OutcomesEditor({
   types,
   allProjects,
   selfId = null,
+  onAddValue,
   disabled,
 }: OutcomesEditorProps) {
+  // Which outcome row is adding a new product/type, and the draft value.
+  const [adding, setAdding] = useState<{ id: string; kind: "product" | "type" } | null>(null);
+  const [draftValue, setDraftValue] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
+
+  function startAdd(id: string, kind: "product" | "type") {
+    setAdding({ id, kind });
+    setDraftValue("");
+    setAddError(null);
+  }
+
+  async function submitAdd() {
+    if (!adding || !onAddValue) return;
+    setAddBusy(true);
+    setAddError(null);
+    try {
+      const value = await onAddValue(adding.kind, draftValue);
+      patch(adding.id, adding.kind === "product" ? { product: value } : { type: value });
+      setAdding(null);
+      setDraftValue("");
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Could not add the value.");
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
   const otherProjects = (allProjects ?? [])
     .filter((p) => p.project_id !== selfId)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -117,9 +158,13 @@ export function OutcomesEditor({
               />
               <select
                 value={o.product ?? ""}
-                onChange={(e) =>
-                  patch(o.id, { product: e.target.value || null })
-                }
+                onChange={(e) => {
+                  if (e.target.value === ADD_NEW) {
+                    startAdd(o.id, "product");
+                    return;
+                  }
+                  patch(o.id, { product: e.target.value || null });
+                }}
                 disabled={disabled}
                 className={inputCls}
                 aria-label="Product"
@@ -130,10 +175,17 @@ export function OutcomesEditor({
                     {p}
                   </option>
                 ))}
+                {onAddValue ? <option value={ADD_NEW}>+ Add new product…</option> : null}
               </select>
               <select
                 value={o.type ?? ""}
-                onChange={(e) => patch(o.id, { type: e.target.value || null })}
+                onChange={(e) => {
+                  if (e.target.value === ADD_NEW) {
+                    startAdd(o.id, "type");
+                    return;
+                  }
+                  patch(o.id, { type: e.target.value || null });
+                }}
                 disabled={disabled}
                 className={inputCls}
                 aria-label="Type"
@@ -144,6 +196,7 @@ export function OutcomesEditor({
                     {t}
                   </option>
                 ))}
+                {onAddValue ? <option value={ADD_NEW}>+ Add new type…</option> : null}
               </select>
               {!disabled ? (
                 <button
@@ -163,6 +216,56 @@ export function OutcomesEditor({
                     />
                   </svg>
                 </button>
+              ) : null}
+              {adding?.id === o.id ? (
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600 sm:col-span-4">
+                  <span className="font-medium">New {adding.kind}:</span>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={draftValue}
+                    onChange={(e) => setDraftValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      // This editor sits inside the project form: Enter must
+                      // add the value, not submit the whole project.
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void submitAdd();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAdding(null);
+                      }
+                    }}
+                    disabled={addBusy}
+                    maxLength={100}
+                    aria-label={`New ${adding.kind} name`}
+                    placeholder={adding.kind === "product" ? "e.g. Cognigy" : "e.g. automation"}
+                    className={inputCls}
+                    style={{ maxWidth: 220 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void submitAdd()}
+                    disabled={addBusy || draftValue.trim() === ""}
+                    className="rounded-md bg-gray-900 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {addBusy ? "Adding…" : "Add"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdding(null)}
+                    disabled={addBusy}
+                    className="text-gray-600 hover:underline disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  {addError ? (
+                    <span role="alert" className="text-red-700">
+                      {addError}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
               {allProjects ? (
                 <label className="flex items-center gap-2 text-[11px] text-gray-600 sm:col-span-4">

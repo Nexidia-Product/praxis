@@ -369,6 +369,11 @@ export function ProjectsTable({
   const canEditObjectives = permissions
     ? permissions["projects.edit_objectives"] === true
     : currentUserRole === "Admin";
+  // May add values to the outcome product / type lists from the outcome
+  // dropdowns (same permission as Admin → Configuration → Outcomes).
+  const canManageOutcomeValues = permissions
+    ? permissions["admin.project_values.manage"] === true
+    : currentUserRole === "Admin";
 
   // ---- Derived option lists for the filter bar / form datalists. ----
   // leadOptions is the project-derived list — used by the filter bar
@@ -1394,6 +1399,7 @@ export function ProjectsTable({
           aiEnabled={aiEnabled}
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
+          canManageOutcomeValues={canManageOutcomeValues}
           useCases={useCases}
           onClose={() => setShowCreateModal(false)}
           onSaved={(p) => {
@@ -1418,6 +1424,7 @@ export function ProjectsTable({
           aiEnabled={aiEnabled}
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
+          canManageOutcomeValues={canManageOutcomeValues}
           useCases={useCases}
           canEditStage={canEditStage}
           canEditObjectives={canEditObjectives}
