@@ -58,6 +58,19 @@ assert.equal(closedOutStage(trackB, "Testing"), "Productization");
 assert.equal(closedOutStage(trackB, "Services Validation"), "Services Validation", "closing out never moves a project backwards");
 assert.equal(closedOutStage(trackB, "Adoption"), "Adoption");
 
+// Track D - UI/Application.
+assert.deepEqual(stagesForTrack("Track D - UI/Application"), [
+  "Qualification",
+  "Prioritization",
+  "Development",
+  "Testing",
+  "Signoff",
+  "Integration",
+  "Visualization Update",
+  "Release",
+  "Productization",
+]);
+
 // Track I - Coaching Plan.
 const trackI = "Track I - Coaching Plan";
 assert.deepEqual(stagesForTrack(trackI), [
@@ -90,6 +103,7 @@ assert.deepEqual(
   [
     "Track A - Dashboard/visualization",
     "Track B - Cognigy bot inputs",
+    "Track D - UI/Application",
     "Track I - Coaching Plan",
   ],
   "which tracks currently define stages",
