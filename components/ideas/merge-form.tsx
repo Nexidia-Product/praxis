@@ -19,15 +19,19 @@
  * different endpoints.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import { mergeCandidates } from "@/lib/ideas/merge-candidates";
 import { PRIORITIES, stagesForTrack } from "@/lib/projects/display";
 import { TASK_STATUSES } from "@/lib/tasks/display";
 import type { Priority, Project, ProjectIdea, Task, TaskStatus } from "@/lib/db";
 
 interface IdeaMergeFormProps {
   idea: ProjectIdea;
-  /** Candidate projects — open (non-Completed/Canceled) only. */
+  /**
+   * Projects to offer. Completed/Canceled ones are filtered out again here
+   * (`mergeCandidates`), so the picker is right whatever the caller passes.
+   */
   projects: Project[];
   onCancel: () => void;
   onMerged: (result: { task: Task; idea: ProjectIdea }) => void;
@@ -90,6 +94,14 @@ export function IdeaMergeForm({
   const [state, setState] = useState<FormState>(() => initialState(idea));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectQuery, setProjectQuery] = useState("");
+
+  // Alphabetical, closed projects excluded, narrowed by the search box.
+  const visibleProjects = useMemo(
+    () => mergeCandidates(projects, projectQuery),
+    [projects, projectQuery],
+  );
+  const totalProjects = useMemo(() => mergeCandidates(projects).length, [projects]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((s) => ({ ...s, [key]: value }));
@@ -178,26 +190,78 @@ export function IdeaMergeForm({
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         <div>
           <label
-            htmlFor="merge_project"
+            htmlFor="merge_project_search"
             className="block text-sm font-medium text-gray-900"
           >
             Project <span className="text-red-600">*</span>
           </label>
-          <select
-            id="merge_project"
-            required
-            value={state.project_id}
-            onChange={(e) => updateProjectId(e.target.value)}
+          <input
+            id="merge_project_search"
+            type="search"
+            value={projectQuery}
+            onChange={(e) => setProjectQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter picks the first match instead of submitting the form.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (visibleProjects[0]) updateProjectId(visibleProjects[0].project_id);
+              }
+            }}
             disabled={saving}
+            placeholder="Search by project name or ID…"
+            autoComplete="off"
             className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+          />
+          <div
+            role="listbox"
+            aria-label="Projects to merge into"
+            className="mt-2 max-h-56 overflow-y-auto rounded-md border border-gray-300 bg-white"
           >
-            <option value="">— Select a project —</option>
-            {projects.map((p) => (
-              <option key={p.project_id} value={p.project_id}>
-                {p.project_id} — {p.name}
-              </option>
-            ))}
-          </select>
+            {visibleProjects.length === 0 ? (
+              <p className="px-3 py-3 text-sm italic text-gray-500">
+                {totalProjects === 0
+                  ? "No open projects to merge into."
+                  : "No projects match your search."}
+              </p>
+            ) : (
+              visibleProjects.map((p) => {
+                const selected = p.project_id === state.project_id;
+                return (
+                  <button
+                    key={p.project_id}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => updateProjectId(p.project_id)}
+                    disabled={saving}
+                    className={`flex w-full items-baseline justify-between gap-3 border-b border-gray-100 px-3 py-1.5 text-left text-sm last:border-b-0 disabled:opacity-60 ${
+                      selected
+                        ? "bg-sky-50 font-medium text-sky-900"
+                        : "text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="min-w-0 truncate">{p.name}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-gray-500">
+                      {p.project_id}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <p className="mt-1 text-xs text-gray-500" aria-live="polite">
+            {selectedProject ? (
+              <>
+                Selected:{" "}
+                <span className="font-medium text-gray-900">
+                  {selectedProject.name}
+                </span>{" "}
+                ({selectedProject.project_id})
+              </>
+            ) : (
+              `${visibleProjects.length} of ${totalProjects} open project${totalProjects === 1 ? "" : "s"} · alphabetical · completed projects are not listed`
+            )}
+          </p>
         </div>
 
         <div>
