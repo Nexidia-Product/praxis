@@ -43,7 +43,7 @@ import type {
   ExtensibleEnumKey,
 } from "@/lib/db";
 import type { EnumOption } from "@/lib/projects/enum-options";
-import { stagesForTrack } from "@/lib/projects/display";
+import { STAGE_LAST, stagesForTrack } from "@/lib/projects/display";
 
 interface ProjectValuesEditorProps {
   initialOptions: Record<ExtensibleEnumKey, EnumOption[]>;
@@ -82,7 +82,7 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     key: "track",
     label: "Track",
     description:
-      "Delivery track a project belongs to. Ships with seven built-ins (Tracks A-G: Dashboard/visualization, Cognigy bot inputs, WFM/mid-shift reskilling, UI/Application, TopicAI, Complaints, Other); all other values are admin-curated.",
+      "Delivery track a project belongs to. Ships with eight built-ins (Tracks A-H: Dashboard/visualization, Cognigy bot inputs, WFM/mid-shift reskilling, UI/Application, TopicAI, Complaints, Other, Services Validation); all other values are admin-curated.",
   },
   {
     key: "stage",
@@ -447,6 +447,14 @@ export function ProjectValuesEditor({
 function TrackStagesView({ tracks }: { tracks: EnumOption[] }) {
   const [selectedTrack, setSelectedTrack] = useState(tracks[0]?.id ?? "");
   const stages = selectedTrack ? stagesForTrack(selectedTrack) : [];
+  // Productization is the delivery point; a track can have stages after it
+  // (validation, adoption), so it isn't necessarily the last entry.
+  const deliveryIndex = stages.indexOf(STAGE_LAST);
+  // Only the three anchors: no stages of its own. Stage lists are keyed by
+  // the track's exact name in code, so an admin-added (or renamed) track
+  // always lands here until engineering defines its stages.
+  const onlyAnchors = stages.length > 0 && stages.length <= 3;
+  const selectedOption = tracks.find((t) => t.id === selectedTrack);
 
   return (
     <div className="pol-card pol-card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -475,18 +483,26 @@ function TrackStagesView({ tracks }: { tracks: EnumOption[] }) {
       {stages.length > 0 ? (
         <ol style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, paddingLeft: 22 }}>
           {stages.map((s, i) => {
-            const isAnchor = i === 0 || i === 1 || i === stages.length - 1;
+            const isFixed = i === 0 || i === 1 || i === deliveryIndex;
+            const tag =
+              i === 0 || i === 1
+                ? "always present"
+                : i === deliveryIndex
+                  ? "delivery point"
+                  : deliveryIndex !== -1 && i > deliveryIndex
+                    ? "after delivery"
+                    : null;
             return (
               <li key={s} style={{ fontSize: 13, color: "var(--t2)" }}>
-                <span style={{ color: "var(--t1)", fontWeight: isAnchor ? 600 : 500 }}>
+                <span style={{ color: "var(--t1)", fontWeight: isFixed ? 600 : 500 }}>
                   {s}
                 </span>
-                {isAnchor ? (
+                {tag ? (
                   <span
                     className="pol-tag pol-tag-gray"
                     style={{ marginLeft: 8, fontSize: 10 }}
                   >
-                    {i === stages.length - 1 ? "always last" : "always present"}
+                    {tag}
                   </span>
                 ) : null}
               </li>
@@ -495,10 +511,22 @@ function TrackStagesView({ tracks }: { tracks: EnumOption[] }) {
         </ol>
       ) : null}
 
+      {onlyAnchors ? (
+        <p className="pol-notice pol-notice-warn" style={{ margin: 0 }}>
+          <span>
+            “{selectedOption?.label ?? selectedTrack}” has no stages of its own
+            yet — only the three every track gets. Stage lists are matched to a
+            track by its exact name in code, so an admin-added or renamed track
+            needs engineering to define its stages.
+          </span>
+        </p>
+      ) : null}
+
       <p className="form-help" style={{ color: "var(--tm)", margin: 0 }}>
         Stages are defined in code, per track — there&apos;s nothing to add or
-        edit here. Ask engineering to add stages for a track that doesn&apos;t
-        have its middle stages defined yet.
+        edit here. Productization is the delivery point; stages after it
+        (validation, adoption) count as delivered. Ask engineering to add or
+        change a track&apos;s stages.
       </p>
     </div>
   );
