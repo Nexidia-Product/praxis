@@ -215,6 +215,13 @@ export interface ProjectCreatePayload {
    * set from the use case side). Omit to leave unchanged.
    */
   use_case_outcome_ids?: unknown;
+  /**
+   * Create-only: the use case the new project joins. The project is added to
+   * the use case's members and takes its objectives (so the objectives sent
+   * with the payload are overwritten for a use case that has a primary
+   * objective). Must be an existing use case.
+   */
+  use_case_id?: unknown;
 }
 
 export interface ProjectUpdatePayload extends ProjectCreatePayload {
@@ -979,7 +986,41 @@ export async function createProject(
   // is empty; harmless when no one is looking at the dashboard.
   invalidateVelocityCache();
   const input = await validateAndShape(payload, ctx);
-  const created = await ProjectRepository.create(input);
+
+  // Optional use case: validated up front, so a bad id fails before anything
+  // is created.
+  let useCaseId = "";
+  if (payload.use_case_id !== undefined && payload.use_case_id !== null) {
+    if (typeof payload.use_case_id !== "string") {
+      throw new ValidationError("use_case_id must be a string.");
+    }
+    useCaseId = payload.use_case_id.trim();
+    if (useCaseId && !(await UseCaseRepository.getById(useCaseId))) {
+      throw new ValidationError(`Use case ${useCaseId} not found.`);
+    }
+  }
+
+  let created = await ProjectRepository.create(input);
+
+  // Join the use case. Like template instantiation, a failure here does not
+  // roll back the project (it exists and can be assigned from Admin → Use
+  // cases); it's logged. On success the project's objectives have been
+  // brought in line with the use case, so re-read it.
+  if (useCaseId) {
+    try {
+      const { assignProjectToUseCase } = await import("@/lib/use-cases/service");
+      await assignProjectToUseCase(useCaseId, created.project_id, {
+        userId: ctx.createdBy,
+        userName: ctx.userName ?? null,
+      });
+      created = (await ProjectRepository.getById(created.project_id)) ?? created;
+    } catch (err) {
+      console.error(
+        `[use-cases] project ${created.project_id} was created but could not be added to use case ${useCaseId}; assign it from Admin → Use cases:`,
+        err,
+      );
+    }
+  }
 
   // If the caller supplied a template_id, instantiate it. Failure here
   // does NOT roll back the project — a project missing its starter tasks

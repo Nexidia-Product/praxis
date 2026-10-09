@@ -33,6 +33,7 @@
     "smoke:use-case-outcomes": "tsx scripts/smoke-use-case-outcomes.ts",
     "smoke:outcome-values": "tsx scripts/smoke-outcome-values.ts",
     "smoke:merge-candidates": "tsx scripts/smoke-merge-candidates.ts",
+    "smoke:use-case-pick": "tsx scripts/smoke-use-case-pick.ts",
     "smoke:executive-deck": "tsx scripts/smoke-executive-deck.ts",
     "smoke:supabase": "tsx --env-file=.env.local scripts/smoke-supabase.ts",
     "migrate:supabase": "tsx --env-file=.env.local scripts/migrate-to-supabase.ts",
