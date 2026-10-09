@@ -54,6 +54,11 @@ import type {
 import { DependencyEditor } from "./dependency-editor";
 import { DocumentLinksEditor } from "./document-links-editor";
 import { ExternalDependenciesEditor } from "./external-dependencies-editor";
+import {
+  inheritedObjectives,
+  sortedUseCases,
+  useCaseOptionLabel,
+} from "@/lib/use-cases/pick";
 import { OutcomesEditor } from "./outcomes-editor";
 import { UseCaseOutcomesPicker } from "./use-case-outcomes-picker";
 
@@ -201,6 +206,8 @@ interface FormState {
   outcomes: ProjectOutcome[];
   /** Ids of the project's use case outcomes it supports. */
   use_case_outcome_ids: string[];
+  /** Create only: the use case the new project joins ("" = none). */
+  use_case_id: string;
   /**
    * AI-generated complexity tier and time estimate. Held in form state
    * so the "Generate estimate" button can populate them inline and the
@@ -248,6 +255,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     external_dependencies: [],
     outcomes: [],
     use_case_outcome_ids: [],
+    use_case_id: "",
     ai_complexity_score: null,
     ai_time_estimate: null,
     definition_of_done: "",
@@ -339,6 +347,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     external_dependencies: p.external_dependencies ?? [],
     outcomes: p.outcomes ?? [],
     use_case_outcome_ids: p.use_case_outcome_ids ?? [],
+    use_case_id: "",
     ai_complexity_score: p.ai_complexity_score ?? null,
     ai_time_estimate: p.ai_time_estimate ?? null,
     definition_of_done: p.definition_of_done ?? "",
@@ -416,13 +425,16 @@ function toPayload(
         }
       : {}),
   };
-  // Only attach template_id on create, and only when the user picked one.
-  // On edit it would be ignored by the service layer anyway, but stripping
-  // it here keeps the request body honest.
-  if (includeTemplate && s.template_id) {
-    return { ...base, template_id: s.template_id };
-  }
-  return base;
+  // template_id and use_case_id are create-only (`includeTemplate` is true on
+  // create), and only sent when the user picked one. On edit they'd be
+  // ignored by the service layer anyway, but stripping them keeps the request
+  // body honest. (Use case membership is changed from Admin → Use cases.)
+  if (!includeTemplate) return base;
+  return {
+    ...base,
+    ...(s.template_id ? { template_id: s.template_id } : {}),
+    ...(s.use_case_id ? { use_case_id: s.use_case_id } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -513,6 +525,26 @@ export function ProjectFormModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Create only: a use case chosen here fills in — and locks — the objectives,
+  // because a project takes the objectives of the use case it belongs to.
+  const chosenUseCase =
+    !isEdit && useCases
+      ? (useCases.find((u) => u.use_case_id === state.use_case_id) ?? null)
+      : null;
+  const inheritedFrom =
+    objectivesInheritedFrom ??
+    (chosenUseCase && inheritedObjectives(chosenUseCase) ? chosenUseCase.name : undefined);
+  function chooseUseCase(id: string) {
+    const uc = useCases?.find((u) => u.use_case_id === id) ?? null;
+    const inherited = inheritedObjectives(uc);
+    setState((prev) => ({
+      ...prev,
+      use_case_id: id,
+      ...(inherited
+        ? { primary_objective: inherited.primary, secondary_objectives: inherited.secondary }
+        : {}),
+    }));
+  }
   /**
    * AI estimate state. Tracks the in-flight request and the most
    * recent rationale (which we don't persist — it's transient
@@ -1002,6 +1034,29 @@ export function ProjectFormModal({
               </select>
             </Field>
 
+            {!isEdit && useCases ? (
+              <Field id="proj-use-case" label="Use case">
+                <select
+                  id="proj-use-case"
+                  value={state.use_case_id}
+                  onChange={(e) => chooseUseCase(e.target.value)}
+                  disabled={saving}
+                  className={baseInput}
+                >
+                  <option value="">— None —</option>
+                  {sortedUseCases(useCases).map((u) => (
+                    <option key={u.use_case_id} value={u.use_case_id}>
+                      {useCaseOptionLabel(u)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Optional. The project joins this use case and takes its
+                  objectives; you can choose its outcomes on the project later.
+                </p>
+              </Field>
+            ) : null}
+
             <Field
               id="proj-primary-objective"
               label="Primary Objective"
@@ -1024,7 +1079,7 @@ export function ProjectFormModal({
                     ),
                   }));
                 }}
-                disabled={saving || !canEditObjectives || Boolean(objectivesInheritedFrom)}
+                disabled={saving || !canEditObjectives || Boolean(inheritedFrom)}
                 className={baseInput}
               >
                 <option value="" disabled>
@@ -1036,9 +1091,9 @@ export function ProjectFormModal({
                   </option>
                 ))}
               </select>
-              {objectivesInheritedFrom ? (
+              {inheritedFrom ? (
                 <p className="mt-1 text-xs text-gray-500">
-                  Inherited from the use case “{objectivesInheritedFrom}”.
+                  Inherited from the use case “{inheritedFrom}”.
                   Change them on the use case.
                 </p>
               ) : !canEditObjectives ? (
@@ -1081,7 +1136,7 @@ export function ProjectFormModal({
                                 ),
                           )
                         }
-                        disabled={saving || !canEditObjectives || Boolean(objectivesInheritedFrom)}
+                        disabled={saving || !canEditObjectives || Boolean(inheritedFrom)}
                         className="h-3 w-3"
                       />
                       {o}

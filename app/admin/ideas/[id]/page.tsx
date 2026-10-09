@@ -23,6 +23,7 @@ import {
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
+  UseCaseRepository,
 } from "@/lib/db";
 import { getIdea, NotFoundError } from "@/lib/ideas/service";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
@@ -54,10 +55,11 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
     throw err;
   }
 
-  const [projects, settings, templates] = await Promise.all([
+  const [projects, settings, templates, useCases] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
+    UseCaseRepository.getAll(),
   ]);
 
   const leadOptions = Array.from(
@@ -117,6 +119,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         projects={openProjects}
         statusOptions={statusOptions}
         trackOptions={trackOptions}
+        useCases={useCases}
         canReview={canReview}
         canConvert={permissions["ideas.convert"] === true}
         aiEnabled={isAiEnabled()}

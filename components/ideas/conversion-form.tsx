@@ -34,6 +34,11 @@ import {
   stagesForTrack,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
+import {
+  inheritedObjectives,
+  sortedUseCases,
+  useCaseOptionLabel,
+} from "@/lib/use-cases/pick";
 import type {
   CustomFieldDefinition,
   Priority,
@@ -42,6 +47,7 @@ import type {
   ProjectStatus,
   ProjectType,
   TaskTemplate,
+  UseCase,
   VisualizationType,
 } from "@/lib/db";
 
@@ -72,6 +78,8 @@ interface IdeaConversionFormProps {
   priorityOptions?: EnumOption[];
   /** Merged track list (built-ins + admin-added); falls back to the built-ins. */
   trackOptions?: EnumOption[];
+  /** Use cases the new project can join. When omitted the picker is hidden. */
+  useCases?: UseCase[];
   onCancel: () => void;
   onConverted: (result: { project: Project; idea: ProjectIdea }) => void;
 }
@@ -85,6 +93,8 @@ interface FormState {
   status: ProjectStatus;
   track: string;
   visualization_type: VisualizationType;
+  /** The use case the new project joins ("" = none). */
+  use_case_id: string;
   /** Required by the project service; blank until the admin picks one. */
   primary_objective: string;
   secondary_objectives: string[];
@@ -139,6 +149,7 @@ function initialState(
     status: "Not Started",
     track: DEFAULT_TRACK,
     visualization_type: "Data Only",
+    use_case_id: "",
     primary_objective: "",
     secondary_objectives: [],
     stage: STAGE_FIRST,
@@ -160,6 +171,7 @@ export function IdeaConversionForm({
   statusOptions,
   priorityOptions,
   trackOptions,
+  useCases,
   onCancel,
   onConverted,
 }: IdeaConversionFormProps) {
@@ -208,6 +220,22 @@ export function IdeaConversionForm({
       ...s,
       track,
       stage: stagesForTrack(track).includes(s.stage) ? s.stage : STAGE_FIRST,
+    }));
+  }
+
+  // A use case chosen here fills in — and locks — the objectives: a project
+  // takes the objectives of the use case it belongs to.
+  const chosenUseCase = useCases?.find((u) => u.use_case_id === state.use_case_id) ?? null;
+  const objectivesLocked = inheritedObjectives(chosenUseCase) !== null;
+  function chooseUseCase(id: string) {
+    const uc = useCases?.find((u) => u.use_case_id === id) ?? null;
+    const inherited = inheritedObjectives(uc);
+    setState((s) => ({
+      ...s,
+      use_case_id: id,
+      ...(inherited
+        ? { primary_objective: inherited.primary, secondary_objectives: inherited.secondary }
+        : {}),
     }));
   }
 
@@ -266,6 +294,7 @@ export function IdeaConversionForm({
       project_type: state.project_type,
       track: state.track,
       visualization_type: state.visualization_type,
+      ...(state.use_case_id ? { use_case_id: state.use_case_id } : {}),
       primary_objective: state.primary_objective,
       secondary_objectives: state.secondary_objectives.filter(
         (o) => o !== state.primary_objective,
@@ -531,6 +560,35 @@ export function IdeaConversionForm({
           </div>
         </div>
 
+        {useCases ? (
+          <div>
+            <label
+              htmlFor="conv_use_case"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Use case
+            </label>
+            <select
+              id="conv_use_case"
+              value={state.use_case_id}
+              onChange={(e) => chooseUseCase(e.target.value)}
+              disabled={saving}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            >
+              <option value="">— None —</option>
+              {sortedUseCases(useCases).map((u) => (
+                <option key={u.use_case_id} value={u.use_case_id}>
+                  {useCaseOptionLabel(u)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Optional. The new project joins this use case and takes its
+              objectives.
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label
@@ -544,7 +602,7 @@ export function IdeaConversionForm({
               required
               value={state.primary_objective}
               onChange={(e) => changePrimaryObjective(e.target.value)}
-              disabled={saving}
+              disabled={saving || objectivesLocked}
               className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
             >
               <option value="">— Select —</option>
@@ -555,8 +613,9 @@ export function IdeaConversionForm({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              A project assigned to a use case later takes that use case&apos;s
-              objectives.
+              {objectivesLocked
+                ? `Inherited from the use case “${chosenUseCase?.name}”.`
+                : "A project assigned to a use case later takes that use case's objectives."}
             </p>
           </div>
           <fieldset>
@@ -575,7 +634,7 @@ export function IdeaConversionForm({
                     type="checkbox"
                     checked={state.secondary_objectives.includes(o)}
                     onChange={() => toggleSecondary(o)}
-                    disabled={saving}
+                    disabled={saving || objectivesLocked}
                     className="h-3.5 w-3.5"
                   />
                   {o}

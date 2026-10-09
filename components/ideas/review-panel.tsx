@@ -29,6 +29,7 @@ import type {
   ProjectIdea,
   Task,
   TaskTemplate,
+  UseCase,
 } from "@/lib/db";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import { IdeaConversionForm } from "./conversion-form";
@@ -69,6 +70,8 @@ interface IdeaReviewPanelProps {
   priorityOptions?: EnumOption[];
   /** Merged track list, so a converted project can be created on any track. */
   trackOptions?: EnumOption[];
+  /** Use cases a converted project can join. */
+  useCases?: UseCase[];
   /**
    * Whether the current user holds `ideas.review`. When false the user
    * has read-only access (`ideas.view` only): the entire "Reviewer
@@ -110,6 +113,7 @@ export function IdeaReviewPanel({
   statusOptions,
   priorityOptions,
   trackOptions,
+  useCases,
   canReview,
   canConvert,
   aiEnabled = false,
@@ -550,6 +554,7 @@ export function IdeaReviewPanel({
           statusOptions={statusOptions}
           priorityOptions={priorityOptions}
           trackOptions={trackOptions}
+          useCases={useCases}
           onCancel={() => setShowConvert(false)}
           onConverted={onConverted}
         />

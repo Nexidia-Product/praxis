@@ -193,6 +193,49 @@ export async function deleteUseCase(
   });
 }
 
+/**
+ * Add one project to a use case — used when a project is created with a use
+ * case chosen (New project form, idea conversion). Appends to the use case's
+ * members and brings the project's objectives in line with the use case's,
+ * exactly as saving the use case in the admin would. A project can belong to
+ * only one use case, so one already held by another use case is rejected
+ * (moving a project between use cases stays an admin action).
+ */
+export async function assignProjectToUseCase(
+  useCaseId: UseCaseId,
+  projectId: ProjectId,
+  actor: ActorCtx,
+): Promise<UseCase> {
+  const useCase = await UseCaseRepository.getById(useCaseId);
+  if (!useCase) throw new NotFoundError(`Use case ${useCaseId} not found.`);
+  if (useCase.member_project_ids.includes(projectId)) return useCase;
+
+  const owners = await UseCaseRepository.getForProject(projectId);
+  if (owners.length > 0) {
+    throw new ValidationError(
+      `Project ${projectId} already belongs to the use case "${owners[0].name}".`,
+    );
+  }
+  if (useCase.member_project_ids.length >= MAX_MEMBERS) {
+    throw new ValidationError(`A use case can contain at most ${MAX_MEMBERS} projects.`);
+  }
+
+  const after = await UseCaseRepository.update(useCaseId, {
+    member_project_ids: [...useCase.member_project_ids, projectId],
+  });
+  await syncMemberObjectives(after, actor);
+  await audit({
+    actorId: actor.userId,
+    actorName: actor.userName,
+    entityType: "Settings",
+    entityId: after.use_case_id,
+    entityLabel: `Use case: ${after.name}`,
+    action: "update",
+    summary: `projects added: ${projectId} (chosen when the project was created)`,
+  });
+  return after;
+}
+
 /** Called from `lib/projects/service.deleteProject`. */
 export async function pruneProjectFromUseCases(
   projectId: ProjectId,
