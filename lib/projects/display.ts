@@ -267,7 +267,7 @@ export const STAGE_LAST = "Productization";
 
 /**
  * Track-specific stages between Prioritization and Productization.
- * Tracks A and B have full lists; Track C (and any future track not
+ * Tracks A, B, D and I have full lists; Track C (and any future track not
  * listed here) has none yet — `stagesForTrack` falls back to just the
  * anchors for them.
  */
@@ -292,6 +292,14 @@ const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
     "Testing",
     "Signoff",
     "Integration",
+    "Release",
+  ],
+  "Track D - UI/Application": [
+    "Development",
+    "Testing",
+    "Signoff",
+    "Integration",
+    "Visualization Update",
     "Release",
   ],
   "Track I - Coaching Plan": [
