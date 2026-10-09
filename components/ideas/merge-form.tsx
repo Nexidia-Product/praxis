@@ -46,6 +46,12 @@ interface FormState {
    * matching the standalone task form's create behavior.
    */
   stage: string;
+  /**
+   * Required by the task service (a task can't be created without an
+   * estimate). Held as a string so a half-typed value doesn't fight the
+   * number input; blank until the admin enters it.
+   */
+  estimate_hours: string;
 }
 
 /** Mirrors `urgencyToPriority` in `lib/ideas/service.ts`. */
@@ -71,6 +77,7 @@ function initialState(idea: ProjectIdea): FormState {
     status: "Not Started",
     target_date: idea.requested_target_date ?? "",
     stage: "",
+    estimate_hours: "",
   };
 }
 
@@ -122,6 +129,7 @@ export function IdeaMergeForm({
       status: state.status,
       target_date: state.target_date || null,
       stage: state.stage,
+      estimate_hours: Number(state.estimate_hours),
     };
 
     const res = await fetch(`/api/ideas/${idea.idea_id}/merge`, {
@@ -227,7 +235,7 @@ export function IdeaMergeForm({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
           <div>
             <label
               htmlFor="merge_stage"
@@ -316,6 +324,28 @@ export function IdeaMergeForm({
               className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
             />
           </div>
+          <div>
+            <label
+              htmlFor="merge_estimate"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Estimated hours <span className="text-red-600">*</span>
+            </label>
+            <input
+              id="merge_estimate"
+              type="number"
+              required
+              min="0"
+              max="999"
+              step="0.25"
+              inputMode="decimal"
+              placeholder="e.g. 4"
+              value={state.estimate_hours}
+              onChange={(e) => update("estimate_hours", e.target.value)}
+              disabled={saving}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            />
+          </div>
         </div>
 
         {error ? (
@@ -342,7 +372,8 @@ export function IdeaMergeForm({
               saving ||
               !state.project_id ||
               !state.task_name.trim() ||
-              !state.stage
+              !state.stage ||
+              state.estimate_hours.trim() === ""
             }
             className="rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-gray-400"
           >

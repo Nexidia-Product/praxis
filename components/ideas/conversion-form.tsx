@@ -23,9 +23,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  OBJECTIVES,
   PRIORITIES,
   PROJECT_STATUSES,
   PROJECT_TYPES,
+  SECONDARY_OBJECTIVE_OPTIONS,
+  STAGE_FIRST,
+  SYSTEM_TRACKS,
+  VISUALIZATION_TYPES,
   stagesForTrack,
 } from "@/lib/projects/display";
 import type { EnumOption } from "@/lib/projects/enum-options";
@@ -37,14 +42,11 @@ import type {
   ProjectStatus,
   ProjectType,
   TaskTemplate,
+  VisualizationType,
 } from "@/lib/db";
 
-/**
- * This form doesn't collect a Track — converted projects always default
- * to Track A server-side (`ProjectRepository.create`). Its stage dropdown
- * is scoped to Track A's stage list accordingly.
- */
-const CONVERSION_TRACK = "Track A - Dashboard/visualization";
+/** Track a new conversion starts on (the first built-in track). */
+const DEFAULT_TRACK = SYSTEM_TRACKS[0];
 
 /**
  * Sentinel value the Application/Product and Project Lead selects use to
@@ -68,6 +70,8 @@ interface IdeaConversionFormProps {
    */
   statusOptions?: EnumOption[];
   priorityOptions?: EnumOption[];
+  /** Merged track list (built-ins + admin-added); falls back to the built-ins. */
+  trackOptions?: EnumOption[];
   onCancel: () => void;
   onConverted: (result: { project: Project; idea: ProjectIdea }) => void;
 }
@@ -79,6 +83,11 @@ interface FormState {
   project_type: ProjectType;
   priority: Priority;
   status: ProjectStatus;
+  track: string;
+  visualization_type: VisualizationType;
+  /** Required by the project service; blank until the admin picks one. */
+  primary_objective: string;
+  secondary_objectives: string[];
   stage: string;
   primary_stakeholders: string;
   project_lead: string;
@@ -128,7 +137,11 @@ function initialState(
     project_type: "New Feature",
     priority: urgencyToPriority(idea),
     status: "Not Started",
-    stage: "Qualification",
+    track: DEFAULT_TRACK,
+    visualization_type: "Data Only",
+    primary_objective: "",
+    secondary_objectives: [],
+    stage: STAGE_FIRST,
     primary_stakeholders: idea.key_stakeholders, // free-form, split server-side
     project_lead: "",
     additional_resources: "",
@@ -146,6 +159,7 @@ export function IdeaConversionForm({
   applicationOptions,
   statusOptions,
   priorityOptions,
+  trackOptions,
   onCancel,
   onConverted,
 }: IdeaConversionFormProps) {
@@ -163,7 +177,10 @@ export function IdeaConversionForm({
     id: s,
     label: s,
   } as EnumOption));
-  const stageList = stagesForTrack(CONVERSION_TRACK);
+  const trackList =
+    trackOptions ?? SYSTEM_TRACKS.map((t) => ({ id: t, label: t }) as EnumOption);
+  // Stages are track-scoped, so the list follows the picked track.
+  const stageList = stagesForTrack(state.track);
   const priorityList = priorityOptions ?? PRIORITIES.map((p) => ({
     id: p,
     label: p,
@@ -180,12 +197,41 @@ export function IdeaConversionForm({
     }));
   }
 
-  // This form doesn't collect a Track (converted projects always default
-  // to Track A server-side — see CONVERSION_TRACK above), so the
-  // template picker is scoped to that fixed track rather than a form field.
+  /**
+   * Changing the track changes which stages are valid, so move to the first
+   * stage if the current one isn't in the new track's list. (The template
+   * picker is scoped to the track too; its effect below clears a template
+   * that no longer applies.)
+   */
+  function updateTrack(track: string) {
+    setState((s) => ({
+      ...s,
+      track,
+      stage: stagesForTrack(track).includes(s.stage) ? s.stage : STAGE_FIRST,
+    }));
+  }
+
+  function changePrimaryObjective(o: string) {
+    setState((s) => ({
+      ...s,
+      primary_objective: o,
+      secondary_objectives: s.secondary_objectives.filter((x) => x !== o),
+    }));
+  }
+
+  function toggleSecondary(o: string) {
+    setState((s) => ({
+      ...s,
+      secondary_objectives: s.secondary_objectives.includes(o)
+        ? s.secondary_objectives.filter((x) => x !== o)
+        : [...s.secondary_objectives, o],
+    }));
+  }
+
+  // Templates are per track, so the picker follows the picked track.
   const matchingTemplates = useMemo(
-    () => templates.filter((t) => t.tracks.includes(CONVERSION_TRACK)),
-    [templates],
+    () => templates.filter((t) => t.tracks.includes(state.track)),
+    [templates, state.track],
   );
   useEffect(() => {
     if (
@@ -218,6 +264,12 @@ export function IdeaConversionForm({
           ? ""
           : state.application_product.trim(),
       project_type: state.project_type,
+      track: state.track,
+      visualization_type: state.visualization_type,
+      primary_objective: state.primary_objective,
+      secondary_objectives: state.secondary_objectives.filter(
+        (o) => o !== state.primary_objective,
+      ),
       priority: state.priority,
       status: state.status,
       stage: state.stage,
@@ -427,6 +479,112 @@ export function IdeaConversionForm({
           </div>
         </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="conv_track"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Track <span className="text-red-600">*</span>
+            </label>
+            <select
+              id="conv_track"
+              required
+              value={state.track}
+              onChange={(e) => updateTrack(e.target.value)}
+              disabled={saving}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            >
+              {trackList.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Sets the stage list and which task templates are offered.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor="conv_visualization"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Visualization type <span className="text-red-600">*</span>
+            </label>
+            <select
+              id="conv_visualization"
+              required
+              value={state.visualization_type}
+              onChange={(e) =>
+                update("visualization_type", e.target.value as VisualizationType)
+              }
+              disabled={saving}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            >
+              {VISUALIZATION_TYPES.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="conv_primary_objective"
+              className="block text-sm font-medium text-gray-900"
+            >
+              Primary objective <span className="text-red-600">*</span>
+            </label>
+            <select
+              id="conv_primary_objective"
+              required
+              value={state.primary_objective}
+              onChange={(e) => changePrimaryObjective(e.target.value)}
+              disabled={saving}
+              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-50"
+            >
+              <option value="">— Select —</option>
+              {OBJECTIVES.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              A project assigned to a use case later takes that use case&apos;s
+              objectives.
+            </p>
+          </div>
+          <fieldset>
+            <legend className="block text-sm font-medium text-gray-900">
+              Secondary objectives
+            </legend>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1.5 rounded-md border border-gray-300 bg-white p-2.5">
+              {SECONDARY_OBJECTIVE_OPTIONS.filter(
+                (o) => o !== state.primary_objective,
+              ).map((o) => (
+                <label
+                  key={o}
+                  className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-gray-900"
+                >
+                  <input
+                    type="checkbox"
+                    checked={state.secondary_objectives.includes(o)}
+                    onChange={() => toggleSecondary(o)}
+                    disabled={saving}
+                    className="h-3.5 w-3.5"
+                  />
+                  {o}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <label
@@ -565,7 +723,7 @@ export function IdeaConversionForm({
             </select>
             <p className="mt-1 text-xs text-gray-500">
               {matchingTemplates.length === 0
-                ? "No templates configured for Track A (converted projects default to Track A)."
+                ? "No templates configured for the selected track."
                 : "Auto-creates the template's tasks on the new project."}
             </p>
           </div>
@@ -647,7 +805,8 @@ export function IdeaConversionForm({
             disabled={
               saving ||
               !state.name.trim() ||
-              !state.application_product.trim()
+              !state.application_product.trim() ||
+              !state.primary_objective
             }
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-400"
           >

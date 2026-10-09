@@ -87,6 +87,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
     "priority",
     settings.enum_extensions.priority,
   );
+  const trackOptions = mergeEnumOptions("track", settings.enum_extensions.track);
 
   return (
     <PolarisShell
@@ -115,6 +116,7 @@ export default async function AdminIdeaDetailPage({ params }: PageProps) {
         applicationOptions={applicationOptions}
         projects={openProjects}
         statusOptions={statusOptions}
+        trackOptions={trackOptions}
         canReview={canReview}
         canConvert={permissions["ideas.convert"] === true}
         aiEnabled={isAiEnabled()}
