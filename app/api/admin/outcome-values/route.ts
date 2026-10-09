@@ -4,6 +4,15 @@
  *   GET  /api/admin/outcome-values
  *     Returns the current outcome product / type vocabularies.
  *
+ *   POST /api/admin/outcome-values
+ *     Body: { kind: "product" | "type", value: string }
+ *     Appends one value to the stored list (used by the "+ Add new…" option
+ *     in the project form's outcome dropdowns). Appending server-side, rather
+ *     than replacing the list, keeps two admins' additions from overwriting
+ *     each other. Adding a value that already exists (ignoring case) is not an
+ *     error: it returns the existing spelling. Responds with both lists and
+ *     the value to select.
+ *
  *   PUT  /api/admin/outcome-values
  *     Body: { outcome_products: string[], outcome_types: string[] }
  *     Replaces both lists wholesale (the editor batches changes and
@@ -18,6 +27,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { SettingsRepository } from "@/lib/db";
+import { appendOutcomeValue } from "@/lib/projects/outcome-values";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,6 +60,38 @@ function normalizeList(value: unknown, field: string): string[] {
   }
   return out;
 }
+
+export const POST = withAuth(async (request: Request) => {
+  await requirePermission("admin.project_values.manage");
+
+  let body: { kind?: unknown; value?: unknown };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+  }
+  if (body.kind !== "product" && body.kind !== "type") {
+    return NextResponse.json(
+      { error: 'kind must be "product" or "type".' },
+      { status: 400 },
+    );
+  }
+
+  const settings = await SettingsRepository.get();
+  const current = body.kind === "product" ? settings.outcome_products : settings.outcome_types;
+  const result = appendOutcomeValue(current, body.value);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  let { outcome_products, outcome_types } = settings;
+  if (result.added) {
+    if (body.kind === "product") outcome_products = result.list;
+    else outcome_types = result.list;
+    await SettingsRepository.update({ outcome_products, outcome_types });
+  }
+  return NextResponse.json({ outcome_products, outcome_types, value: result.value });
+});
 
 export const PUT = withAuth(async (request: Request) => {
   await requirePermission("admin.project_values.manage");

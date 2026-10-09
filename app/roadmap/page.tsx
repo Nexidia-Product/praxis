@@ -120,6 +120,8 @@ export default async function RoadmapPage() {
         enumOptions={enumOptions}
         templates={templates}
         useCases={useCases}
+        outcomeProducts={settings.outcome_products}
+        outcomeTypes={settings.outcome_types}
         aiEnabled={isAiEnabled()}
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}
