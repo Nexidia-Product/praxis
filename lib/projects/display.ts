@@ -247,6 +247,7 @@ export const SYSTEM_TRACKS: string[] = [
   "Track F - Complaints",
   "Track G - Other",
   "Track H - Services Validation",
+  "Track I - Coaching Plan",
 ];
 
 // ---------------------------------------------------------------------------
@@ -293,6 +294,14 @@ const TRACK_MIDDLE_STAGES: Record<string, string[]> = {
     "Integration",
     "Release",
   ],
+  "Track I - Coaching Plan": [
+    "Data development",
+    "Signoff",
+    "Handoff",
+    "Integration",
+    "Visualization Update",
+    "Release",
+  ],
 };
 
 /**
@@ -311,6 +320,19 @@ const TRACK_POST_STAGES: Record<string, string[]> = {
     "Adoption",
   ],
 };
+
+/**
+ * Names of the tracks that have stages defined in code (middle or post).
+ * Stage lists are matched to a track by its exact name, so every name here
+ * must be one of `SYSTEM_TRACKS` — a typo would silently leave a track with
+ * only the anchors (and nothing to see on Configuration → Stage). The
+ * smoke test checks it.
+ */
+export function tracksWithStageDefinitions(): string[] {
+  return [
+    ...new Set([...Object.keys(TRACK_MIDDLE_STAGES), ...Object.keys(TRACK_POST_STAGES)]),
+  ];
+}
 
 /**
  * Full ordered stage list for a track: anchors + its middle stages,

@@ -82,7 +82,7 @@ const TABS: Array<{ key: TabKey; label: string; description: string }> = [
     key: "track",
     label: "Track",
     description:
-      "Delivery track a project belongs to. Ships with eight built-ins (Tracks A-H: Dashboard/visualization, Cognigy bot inputs, WFM/mid-shift reskilling, UI/Application, TopicAI, Complaints, Other, Services Validation); all other values are admin-curated.",
+      "Delivery track a project belongs to. Ships with nine built-ins (Tracks A-I: Dashboard/visualization, Cognigy bot inputs, WFM/mid-shift reskilling, UI/Application, TopicAI, Complaints, Other, Services Validation, Coaching Plan); all other values are admin-curated.",
   },
   {
     key: "stage",

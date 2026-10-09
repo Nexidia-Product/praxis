@@ -184,6 +184,10 @@ drops `use_cases.caveats`), `0038_use_case_objective_inheritance`,
   delivered; see 6.4).
 - **Track H - Services Validation** was added (2026-10-08) and also has only
   the three standard stages for now.
+- **Track I - Coaching Plan** was added (2026-10-09): Qualification,
+  Prioritization, Data development, Signoff, Handoff, Integration,
+  Visualization Update, Release, then Productization (the delivery anchor every
+  track ends its main flow with).
 - Stage lists are defined **in code** (`TRACK_MIDDLE_STAGES`, and
   `TRACK_POST_STAGES` for stages after Productization, in
   `lib/projects/display.ts`), not in an admin screen — confirm how you intend to
