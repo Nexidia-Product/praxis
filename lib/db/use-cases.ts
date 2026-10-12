@@ -63,6 +63,7 @@ export const UseCaseRepository = {
         secondary_objectives: input.secondary_objectives,
         member_project_ids: input.member_project_ids,
         outcomes: input.outcomes ?? [],
+        nice_product_ids: input.nice_product_ids ?? [],
         created_by: input.created_by ?? "",
       })
       .select()

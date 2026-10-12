@@ -13,6 +13,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { ProductFilter } from "@/components/shared/product-filter";
+import type { NiceProduct } from "@/lib/db";
 import { HEALTH_BADGE, HEALTH_DOT } from "@/lib/projects/display";
 import { ExecutiveDeckModal } from "@/components/insights/executive-deck-modal";
 import {
@@ -31,6 +33,9 @@ interface Props {
   today: string;
   upcoming: UpcomingRelease[];
   noPillarCount: number;
+  niceProducts: NiceProduct[];
+  /** Active Product alignment filter (ids / "No product"); lives in the URL. */
+  productFilter: string[];
   /** Show the Download deck button (needs `roadmap.export`). */
   canExport?: boolean;
 }
@@ -50,9 +55,17 @@ export function ExecutiveView({
   today,
   upcoming,
   noPillarCount,
+  niceProducts,
+  productFilter,
   canExport = false,
 }: Props) {
   const router = useRouter();
+  const filtersActive = productFilter.length > 0;
+  const hrefFor = (scope: string, products: string[]) => {
+    const qs = new URLSearchParams({ scope });
+    if (products.length > 0) qs.set("products", products.join(","));
+    return `/insights/executive?${qs.toString()}`;
+  };
   const [deckOpen, setDeckOpen] = useState(false);
 
   return (
@@ -72,9 +85,7 @@ export function ExecutiveView({
               role="tab"
               aria-selected={active}
               onClick={() =>
-                router.push(
-                  `/insights/executive?scope=${encodeURIComponent(o.value)}`,
-                )
+                router.push(hrefFor(o.value, productFilter))
               }
               className={`rounded-md border px-3 py-1.5 text-sm ${
                 active
@@ -90,6 +101,20 @@ export function ExecutiveView({
             </button>
           );
         })}
+        <ProductFilter
+          products={niceProducts}
+          selected={productFilter}
+          onChange={(next) => router.push(hrefFor(view.scope, next))}
+        />
+        {filtersActive ? (
+          <button
+            type="button"
+            onClick={() => router.push(hrefFor(view.scope, []))}
+            className="text-xs text-gray-600 underline hover:text-gray-900"
+          >
+            Clear filters
+          </button>
+        ) : null}
         {canExport ? (
           <button
             type="button"
@@ -184,7 +209,9 @@ export function ExecutiveView({
 
       {view.totalShown === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-          No pillar-aligned Innovation projects in this period.
+          {filtersActive
+            ? "No projects match the current filters in this period."
+            : "No pillar-aligned Innovation projects in this period."}
         </p>
       ) : null}
 
@@ -192,6 +219,7 @@ export function ExecutiveView({
         <ExecutiveDeckModal
           options={options}
           initialScope={view.scope}
+          products={productFilter}
           onClose={() => setDeckOpen(false)}
         />
       ) : null}

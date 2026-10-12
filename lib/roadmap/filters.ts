@@ -14,6 +14,7 @@ import type {
   ProjectStatus,
   ProjectType,
 } from "@/lib/db";
+import { matchesProductFilter } from "@/lib/products/logic";
 
 export interface RoadmapFilters {
   status: ProjectStatus[];
@@ -24,6 +25,8 @@ export interface RoadmapFilters {
   project_lead: string[];
   application_product: string[];
   program: string[];
+  /** NiCE product alignment (product ids and/or NO_PRODUCT); empty = all. */
+  nice_product_ids: string[];
   search: string;
 }
 
@@ -36,6 +39,7 @@ export const EMPTY_ROADMAP_FILTERS: RoadmapFilters = {
   project_lead: [],
   application_product: [],
   program: [],
+  nice_product_ids: [],
   search: "",
 };
 
@@ -93,6 +97,9 @@ export function applyRoadmapFilters(
       return false;
     }
     if (filters.program.length && !filters.program.includes(p.program)) {
+      return false;
+    }
+    if (!matchesProductFilter(p.nice_product_ids, filters.nice_product_ids ?? [])) {
       return false;
     }
     if (search) {

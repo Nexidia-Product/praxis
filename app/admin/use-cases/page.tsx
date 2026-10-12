@@ -10,7 +10,11 @@ import {
   getCurrentUserPermissions,
   requirePagePermission,
 } from "@/lib/auth/permissions";
-import { ProjectRepository, UseCaseRepository } from "@/lib/db";
+import {
+  NiceProductRepository,
+  ProjectRepository,
+  UseCaseRepository,
+} from "@/lib/db";
 import { OBJECTIVES, SECONDARY_OBJECTIVE_OPTIONS } from "@/lib/projects/display";
 import { UseCasesAdmin } from "@/components/admin/use-cases-admin";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -21,9 +25,10 @@ export default async function UseCasesAdminPage() {
   const session = await requirePagePermission("usecases.manage");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [useCases, projects] = await Promise.all([
+  const [useCases, projects, niceProducts] = await Promise.all([
     UseCaseRepository.getAll(),
     ProjectRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   return (
@@ -42,6 +47,7 @@ export default async function UseCasesAdminPage() {
         projects={projects}
         primaryOptions={OBJECTIVES}
         secondaryOptions={SECONDARY_OBJECTIVE_OPTIONS}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

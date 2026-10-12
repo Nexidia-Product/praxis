@@ -67,6 +67,7 @@ import {
   normalizeDelivery,
 } from "@/lib/projects/outcome-delivery";
 import { validateProjectOutcomeIds } from "@/lib/use-cases/outcomes";
+import { validateProjectProductIds } from "@/lib/products/logic";
 import {
   LinkValidationError,
   validateDocumentLinks,
@@ -215,6 +216,12 @@ export interface ProjectCreatePayload {
    * set from the use case side). Omit to leave unchanged.
    */
   use_case_outcome_ids?: unknown;
+  /**
+   * Ids of the NiCE products the project aligns to. Must be products of the
+   * use case the project belongs to (empty if it belongs to none). Omit to
+   * leave unchanged. Not accepted on create — the use case is set after.
+   */
+  nice_product_ids?: unknown;
   /**
    * Create-only: the use case the new project joins. The project is added to
    * the use case's members and takes its objectives (so the objectives sent
@@ -1226,6 +1233,15 @@ export async function updateProject(
       payload.use_case_outcome_ids,
       useCase ? new Set((useCase.outcomes ?? []).map((o) => o.id)) : null,
     );
+  }
+  if (payload.nice_product_ids !== undefined) {
+    const [useCase] = await UseCaseRepository.getForProject(id);
+    const result = validateProjectProductIds(
+      payload.nice_product_ids,
+      useCase ? new Set(useCase.nice_product_ids ?? []) : null,
+    );
+    if (!result.ok) throw new ValidationError(result.error);
+    patch.nice_product_ids = result.value;
   }
   if (payload.outcomes !== undefined) {
     patch.outcomes = shapeOutcomes(payload.outcomes, settings, {

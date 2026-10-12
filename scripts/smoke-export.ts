@@ -227,6 +227,7 @@ async function main() {
       custom_fields: p.custom_fields ?? {},
       outcomes: p.outcomes ?? [],
       use_case_outcome_ids: [],
+      nice_product_ids: [],
       created_by: p.created_by ?? "seed",
       updated_at: p.updated_at ?? "2026-04-01T00:00:00Z",
     };

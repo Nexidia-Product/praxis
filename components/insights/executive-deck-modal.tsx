@@ -23,10 +23,17 @@ import { EXEC_PILLARS, type ScopeOption } from "@/lib/executive/portfolio";
 interface Props {
   options: ScopeOption[];
   initialScope: string;
+  /** On-screen Product alignment filter; the deck is built over the same set. */
+  products?: string[];
   onClose: () => void;
 }
 
-export function ExecutiveDeckModal({ options, initialScope, onClose }: Props) {
+export function ExecutiveDeckModal({
+  options,
+  initialScope,
+  products = [],
+  onClose,
+}: Props) {
   const [preset, setPreset] = useState<DeckPreset>("monthly");
   const [scope, setScope] = useState(initialScope);
   const [pillars, setPillars] = useState<string[]>([...EXEC_PILLARS]);
@@ -55,7 +62,15 @@ export function ExecutiveDeckModal({ options, initialScope, onClose }: Props) {
       const res = await fetch("/api/export/executive-deck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preset, scope, pillars, sections, detail, title }),
+        body: JSON.stringify({
+          preset,
+          scope,
+          pillars,
+          sections,
+          detail,
+          title,
+          products,
+        }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };

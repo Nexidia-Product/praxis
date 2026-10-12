@@ -68,6 +68,12 @@ export interface VelocityFilters {
   programs: string[];
   project_leads: UserId[];
   /**
+   * NiCE product alignment (OR; may include the `NO_PRODUCT` sentinel).
+   * Matched against `Project.nice_product_ids`; tasks follow their project.
+   * Optional so callers predating the filter keep compiling.
+   */
+  nice_product_ids?: string[];
+  /**
    * Individual-contributor view (Section 5.15). When set, the throughput
    * and time-to-completion metrics are scoped to projects led by, or
    * tasks assigned to, this user. Authorization (Admin or self) is

@@ -81,20 +81,29 @@ function plural(n: number, word: string): string {
 export function ProgramCoverageView({
   graph,
   selection,
+  products = [],
 }: {
   graph: CoverageGraph;
   selection: CoverageSelection;
+  /** Active product filter, carried through drill-down links. */
+  products?: string[];
 }) {
+  const href = (pillar?: string, useCaseId?: string) =>
+    coverageHref(pillar, useCaseId, products);
   return (
     <div className="pc-root space-y-5">
       <style>{CSS}</style>
 
-      {selection.level === 1 ? <PillarsLevel graph={graph} /> : null}
+      {selection.level === 1 ? <PillarsLevel graph={graph} href={href} /> : null}
       {selection.level === 2 ? (
-        <UseCasesLevel pillar={selection.pillar} />
+        <UseCasesLevel pillar={selection.pillar} href={href} />
       ) : null}
       {selection.level === 3 ? (
-        <UseCaseLevel pillar={selection.pillar.pillar} useCase={selection.useCase} />
+        <UseCaseLevel
+          pillar={selection.pillar.pillar}
+          useCase={selection.useCase}
+          href={href}
+        />
       ) : null}
 
       <Legend />
@@ -119,13 +128,15 @@ export function ProgramCoverageView({
 // Level 1 — pillars
 // ---------------------------------------------------------------------------
 
-function PillarsLevel({ graph }: { graph: CoverageGraph }) {
+type HrefFn = (pillar?: string, useCaseId?: string) => string;
+
+function PillarsLevel({ graph, href }: { graph: CoverageGraph; href: HrefFn }) {
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
       {graph.pillars.map((p) => (
         <Link
           key={p.pillar}
-          href={coverageHref(p.pillar)}
+          href={href(p.pillar)}
           className="block rounded-md border border-gray-200 bg-white p-3 shadow-sm hover:border-gray-400"
         >
           <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -154,10 +165,16 @@ function PillarsLevel({ graph }: { graph: CoverageGraph }) {
 // Level 2 — a pillar's use cases
 // ---------------------------------------------------------------------------
 
-function UseCasesLevel({ pillar }: { pillar: CoverageGraph["pillars"][number] }) {
+function UseCasesLevel({
+  pillar,
+  href,
+}: {
+  pillar: CoverageGraph["pillars"][number];
+  href: HrefFn;
+}) {
   return (
     <section className="space-y-3">
-      <BackLink href={coverageHref()} label="All pillars" />
+      <BackLink href={href()} label="All pillars" />
       <header className="rounded-md border border-gray-200 bg-white p-4">
         <h2 className="text-base font-semibold text-gray-900">{pillar.pillar}</h2>
         <div className="mt-2 max-w-xl">
@@ -186,7 +203,7 @@ function UseCasesLevel({ pillar }: { pillar: CoverageGraph["pillars"][number] })
                 <tr key={u.use_case_id} className="align-top">
                   <td className="px-4 py-3">
                     <Link
-                      href={coverageHref(pillar.pillar, u.use_case_id)}
+                      href={href(pillar.pillar, u.use_case_id)}
                       className="font-medium text-blue-700 hover:underline"
                     >
                       {u.name}
@@ -264,11 +281,19 @@ function AttentionFlags({ useCase: u }: { useCase: CoverageUseCase }) {
 // Level 3 — a use case: its outcomes, with the projects that support each
 // ---------------------------------------------------------------------------
 
-function UseCaseLevel({ pillar, useCase }: { pillar: string; useCase: CoverageUseCase }) {
+function UseCaseLevel({
+  pillar,
+  useCase,
+  href,
+}: {
+  pillar: string;
+  useCase: CoverageUseCase;
+  href: HrefFn;
+}) {
   const hasOutcomes = useCase.outcomes.length > 0;
   return (
     <section className="space-y-3">
-      <BackLink href={coverageHref(pillar)} label={pillar} />
+      <BackLink href={href(pillar)} label={pillar} />
       <header className="rounded-md border border-gray-200 bg-white p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           {pillar}

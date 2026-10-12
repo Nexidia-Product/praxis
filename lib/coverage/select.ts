@@ -34,10 +34,16 @@ export function resolveCoverageSelection(
 }
 
 /** Link to a drill-down level. */
-export function coverageHref(pillar?: string, useCaseId?: string): string {
+export function coverageHref(
+  pillar?: string,
+  useCaseId?: string,
+  products: readonly string[] = [],
+): string {
   const base = "/insights/program-coverage";
-  if (!pillar) return base;
-  const params = new URLSearchParams({ pillar });
-  if (useCaseId) params.set("useCase", useCaseId);
-  return `${base}?${params.toString()}`;
+  const params = new URLSearchParams();
+  if (pillar) params.set("pillar", pillar);
+  if (pillar && useCaseId) params.set("useCase", useCaseId);
+  if (products.length > 0) params.set("products", products.join(","));
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }

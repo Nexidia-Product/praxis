@@ -422,6 +422,7 @@ async function main() {
       custom_fields: {},
       outcomes: [],
       use_case_outcome_ids: [],
+      nice_product_ids: [],
       created_by: "user-1",
       updated_at: "2026-04-01T00:00:00Z",
       ...overrides,

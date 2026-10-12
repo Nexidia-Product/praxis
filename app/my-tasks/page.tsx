@@ -17,6 +17,7 @@ import {
   requirePermission,
 } from "@/lib/auth/permissions";
 import {
+  NiceProductRepository,
   ProjectRepository,
   TaskRepository,
   TemplateRepository,
@@ -40,7 +41,7 @@ export default async function MyTasksPage() {
   const userId = session.user.user_id;
   const userName = session.user.name ?? "";
 
-  const [allTasksRaw, allProjects, templates, users, savedOrder] = await Promise.all([
+  const [allTasksRaw, allProjects, templates, users, savedOrder, niceProducts] = await Promise.all([
     TaskRepository.getAll(),
     ProjectRepository.getAll(),
     TemplateRepository.getAll(),
@@ -48,6 +49,7 @@ export default async function MyTasksPage() {
     // Per-user checklist ordering. Defaults to [] if unset or the
     // ui_preferences column hasn't been migrated yet.
     getMyTasksOrder(userId).catch(() => [] as string[]),
+    NiceProductRepository.getAll(),
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -90,6 +92,7 @@ export default async function MyTasksPage() {
         initialTasks={myTasks}
         projects={projects}
         templates={templates}
+        niceProducts={niceProducts}
         currentUserRole={session.user.role}
         currentUserId={userId}
         permissions={permissions}

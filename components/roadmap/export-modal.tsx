@@ -533,6 +533,9 @@ function summarizeFilters(filters: RoadmapFilters): string {
   }
   if (filters.stage.length) parts.push(`Stage: ${filters.stage.join(", ")}`);
   if (filters.track.length) parts.push(`Track: ${filters.track.join(", ")}`);
+  if (filters.nice_product_ids?.length) {
+    parts.push(`Product alignment: ${filters.nice_product_ids.length} selected`);
+  }
   if (filters.search) parts.push(`Search: "${filters.search}"`);
   return parts.join("  ·  ");
 }

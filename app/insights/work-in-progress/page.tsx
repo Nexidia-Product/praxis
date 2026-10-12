@@ -24,6 +24,7 @@ import {
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import {
+  NiceProductRepository,
   ProjectGroupRepository,
   ProjectRepository,
   SettingsRepository,
@@ -48,7 +49,7 @@ export default async function WorkInProgressPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [allProjects, allTasks, settings, templates, groups, useCases, users] =
+  const [allProjects, allTasks, settings, templates, groups, useCases, users, niceProducts] =
     await Promise.all([
       ProjectRepository.getAll(),
       TaskRepository.getAll(),
@@ -57,6 +58,7 @@ export default async function WorkInProgressPage() {
       ProjectGroupRepository.getAll(),
       UseCaseRepository.getAll(),
       UserRepository.getAll(),
+      NiceProductRepository.getAll(),
     ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -126,6 +128,7 @@ export default async function WorkInProgressPage() {
         templates={templates}
         groups={groups}
         useCases={useCases}
+        niceProducts={niceProducts}
         outcomeProducts={settings.outcome_products}
         outcomeTypes={settings.outcome_types}
         quadrantLabels={settings.portfolio_quadrants}

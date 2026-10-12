@@ -26,6 +26,7 @@
  *   products       comma-separated application_product values
  *   programs       comma-separated program values
  *   leads          comma-separated user IDs
+ *   product        comma-separated NiCE product ids (`__none__` = no product)
  *   individual     user_id for the individual-contributor view
  *
  * Authorization (Section 5.15, Section 4.7):
@@ -184,6 +185,8 @@ function parseFilters(
   // checked above. An unrecognized value just matches nothing.
   const programs = csv(params, "programs");
   const leads = csv(params, "leads");
+  // NiCE product ids (or the `__none__` sentinel); unknown ids match nothing.
+  const niceProductIds = csv(params, "product");
   const individualUserId = params.get("individual");
 
   return {
@@ -194,6 +197,7 @@ function parseFilters(
       application_products: products,
       programs,
       project_leads: leads,
+      nice_product_ids: niceProductIds,
       individual_user_id: individualUserId && individualUserId.length > 0
         ? individualUserId
         : null,

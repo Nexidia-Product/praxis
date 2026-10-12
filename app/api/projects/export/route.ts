@@ -14,6 +14,7 @@
  * Filter parameters supported:
  *
  *   status, stage, priority, project_type, project_lead, application_product,
+ *   nice_product (product ids or "__none__"),
  *   program
  *     repeated `?status=A&status=B`-style multi-select
  *   target_from, target_to, search
@@ -45,6 +46,7 @@ import {
 } from "@/lib/projects/custom-filter";
 import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
+import { matchesProductFilter } from "@/lib/products/logic";
 import {
   ProjectRepository,
   SettingsRepository,
@@ -190,6 +192,7 @@ function applyFilters(
   const project_lead = readMulti(url, "project_lead");
   const application_product = readMulti(url, "application_product");
   const program = readMulti(url, "program");
+  const niceProduct = [...readMulti(url, "nice_product")];
   const search = (url.searchParams.get("search") ?? "").trim().toLowerCase();
   const targetFrom = url.searchParams.get("target_from") ?? "";
   const targetTo = url.searchParams.get("target_to") ?? "";
@@ -211,6 +214,7 @@ function applyFilters(
     ) {
       return false;
     }
+    if (!matchesProductFilter(p.nice_product_ids, niceProduct)) return false;
     if (program.size && !program.has(p.program)) {
       return false;
     }

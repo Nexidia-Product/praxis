@@ -14,13 +14,15 @@
 
 import { useMemo, useState } from "react";
 
-import type { Project, ProjectId, UseCase } from "@/lib/db";
+import type { NiceProduct, Project, ProjectId, UseCase } from "@/lib/db";
 
 interface Props {
   initialUseCases: UseCase[];
   projects: Project[];
   primaryOptions: string[];
   secondaryOptions: string[];
+  /** Full NiCE product catalogue (deprecated included). */
+  niceProducts: NiceProduct[];
 }
 
 interface UseCasePayload {
@@ -31,6 +33,8 @@ interface UseCasePayload {
   member_project_ids: ProjectId[];
   /** Outcomes of the use case; id is set for existing ones so project picks survive edits. */
   outcomes: { id?: string; text: string }[];
+  /** NiCE products the use case aligns to. */
+  nice_product_ids: string[];
   /** Move selected projects out of any other use case they are in. */
   move_projects: boolean;
 }
@@ -47,11 +51,17 @@ export function UseCasesAdmin({
   projects,
   primaryOptions,
   secondaryOptions,
+  niceProducts,
 }: Props) {
   const [useCases, setUseCases] = useState<UseCase[]>(initialUseCases);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<UseCase | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const productsById = useMemo(
+    () => new Map(niceProducts.map((p) => [p.product_id, p])),
+    [niceProducts],
+  );
 
   const projectsById = useMemo(() => {
     const m = new Map<ProjectId, Project>();
@@ -236,6 +246,21 @@ export function UseCasesAdmin({
                         No primary objective
                       </span>
                     )}
+                    {(uc.nice_product_ids ?? []).map((id) => (
+                      <span
+                        key={id}
+                        title="NiCE product"
+                        style={{
+                          border: "1px solid var(--border)",
+                          borderRadius: 4,
+                          padding: "1px 8px",
+                          fontSize: "var(--fs-xs)",
+                          color: "var(--t2)",
+                        }}
+                      >
+                        {productsById.get(id)?.name ?? "(unknown product)"}
+                      </span>
+                    ))}
                     {uc.secondary_objectives.map((o) => (
                       <span
                         key={o}
@@ -390,6 +415,7 @@ export function UseCasesAdmin({
           projects={projects}
           primaryOptions={primaryOptions}
           secondaryOptions={secondaryOptions}
+          niceProducts={niceProducts}
           useCases={useCases}
           onClose={() => setCreating(false)}
           onSubmit={handleCreate}
@@ -401,6 +427,7 @@ export function UseCasesAdmin({
           projects={projects}
           primaryOptions={primaryOptions}
           secondaryOptions={secondaryOptions}
+          niceProducts={niceProducts}
           useCases={useCases}
           onClose={() => setEditing(null)}
           onSubmit={(payload) => handleUpdate(editing.use_case_id, payload)}
@@ -427,6 +454,7 @@ interface FormModalProps {
   projects: Project[];
   primaryOptions: string[];
   secondaryOptions: string[];
+  niceProducts: NiceProduct[];
   useCases: UseCase[];
   onClose: () => void;
   onSubmit: (payload: UseCasePayload) => Promise<void>;
@@ -437,6 +465,7 @@ function UseCaseFormModal({
   projects,
   primaryOptions,
   secondaryOptions,
+  niceProducts,
   useCases,
   onClose,
   onSubmit,
@@ -453,6 +482,9 @@ function UseCaseFormModal({
   // the projects that picked them keep their selection when text changes.
   const [outcomes, setOutcomes] = useState<OutcomeDraft[]>(() =>
     (useCase?.outcomes ?? []).map((o) => ({ key: o.id, id: o.id, text: o.text })),
+  );
+  const [productIds, setProductIds] = useState<string[]>(
+    useCase?.nice_product_ids ?? [],
   );
   const [showAssigned, setShowAssigned] = useState(false);
   const [memberIds, setMemberIds] = useState<ProjectId[]>(
@@ -527,6 +559,18 @@ function UseCaseFormModal({
     (o) => !outcomes.some((d) => d.id === o.id) && supportersOf(o.id) > 0,
   );
 
+  // Active products, plus any deprecated one the use case already carries
+  // (kept visible so it can be removed; can't be newly ticked).
+  const selectableProducts = niceProducts
+    .filter((p) => !p.deprecated || productIds.includes(p.product_id))
+    .sort((a, b) => Number(a.deprecated) - Number(b.deprecated) || a.name.localeCompare(b.name));
+
+  function toggleProduct(id: string) {
+    setProductIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
   function toggleMember(id: ProjectId) {
     setMemberIds((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
@@ -543,6 +587,7 @@ function UseCaseFormModal({
         primary_objective: primary,
         secondary_objectives: secondary,
         member_project_ids: memberIds,
+        nice_product_ids: productIds,
         outcomes: outcomes
           .filter((o) => o.text.trim() !== "")
           .map((o) => ({ id: o.id, text: o.text.trim() })),
@@ -710,6 +755,46 @@ function UseCaseFormModal({
                 {removedWithSupport.length === 1 ? "it" : "them"}.
               </div>
             ) : null}
+          </fieldset>
+
+          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <legend style={LABEL_STYLE}>
+              NiCE products ({productIds.length})
+            </legend>
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--tm)", margin: "0 0 6px" }}>
+              The products this use case aligns to. Projects in the use case
+              choose which of these they align to.
+            </p>
+            {selectableProducts.length === 0 ? (
+              <div style={{ fontSize: "var(--fs-sm)", color: "var(--tm)", fontStyle: "italic" }}>
+                No products available. Add some under Admin → NiCE products.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+                {selectableProducts.map((p) => (
+                  <label
+                    key={p.product_id}
+                    title={p.description}
+                    style={{
+                      display: "inline-flex",
+                      gap: 6,
+                      alignItems: "center",
+                      fontSize: "var(--fs-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={productIds.includes(p.product_id)}
+                      onChange={() => toggleProduct(p.product_id)}
+                      disabled={busy}
+                    />
+                    {p.name}
+                    {p.deprecated ? " (deprecated)" : ""}
+                  </label>
+                ))}
+              </div>
+            )}
           </fieldset>
 
           <div>

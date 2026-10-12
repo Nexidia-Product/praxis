@@ -52,6 +52,7 @@ import type {
   Project,
   ProjectGroup,
   UseCase,
+  NiceProduct,
   ProjectId,
   ProjectStatus,
   StatusHistoryEntry,
@@ -64,6 +65,7 @@ import { DecisionLogTab } from "./decision-log-tab";
 import { DependencyChainPanel } from "./dependency-chain-panel";
 import { DocumentLinksEditor } from "./document-links-editor";
 import { HealthSparkline } from "./health-sparkline";
+import { ProductAlignment } from "./product-alignment";
 import { ImportMarkdownDialog } from "./import-markdown-dialog";
 
 interface ProjectQuickViewProps {
@@ -103,6 +105,10 @@ interface ProjectQuickViewProps {
    * managed on Admin -> Use cases.
    */
   useCasesForProject?: UseCase[];
+  /** NiCE product catalogue, for the Product alignment section. */
+  niceProducts?: NiceProduct[];
+  /** Called with the saved project after a Product alignment change. */
+  onProjectUpdated?: (project: Project) => void;
   /**
    * `{user_id, name}` pairs for every active user, threaded into the
    * Status tab's summary field so its `@`-mention picker can insert a
@@ -200,6 +206,8 @@ export function ProjectQuickView({
   priorityOptions,
   groupsForProject = [],
   useCasesForProject = [],
+  niceProducts = [],
+  onProjectUpdated,
   mentionableUsers = [],
   initialTab,
   aiEnabled = false,
@@ -617,6 +625,16 @@ export function ProjectQuickView({
                     Not documented yet.
                   </p>
                 )}
+              </Section>
+
+              <Section title="Product alignment">
+                <ProductAlignment
+                  project={project}
+                  useCase={useCasesForProject[0] ?? null}
+                  products={niceProducts}
+                  canEdit={canEdit}
+                  onUpdated={onProjectUpdated}
+                />
               </Section>
 
               {/* Step 8 (Section 5.13): 30-day health-score sparkline.

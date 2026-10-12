@@ -39,6 +39,7 @@ import {
   statusBadgeClass,
 } from "@/lib/projects/display";
 import { customFieldMatches } from "@/lib/projects/custom-filter";
+import { matchesProductFilter } from "@/lib/products/logic";
 import { rollupDependencyHealth } from "@/lib/projects/dependencies";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import {
@@ -49,6 +50,7 @@ import type {
   CustomFieldDefinition,
   PortfolioQuadrantLabels,
   Priority,
+  NiceProduct,
   Project,
   ProjectGroup,
   UseCase,
@@ -247,6 +249,8 @@ interface ProjectsTableProps {
   groups?: ProjectGroup[];
   /** Every use case; indexed per project for the quick view's read-only Use Case field. */
   useCases?: UseCase[];
+  /** NiCE product catalogue (Product alignment filter + quick view section). */
+  niceProducts?: NiceProduct[];
   /**
    * Names of every active user in the system. Threaded into the
    * project form modal's Project lead dropdown so a brand-new
@@ -278,6 +282,7 @@ export function ProjectsTable({
   aiEnabled,
   groups = [],
   useCases = [],
+  niceProducts = [],
   activeUserNames = [],
   mentionableUsers = [],
   outcomeProducts = [],
@@ -570,6 +575,8 @@ export function ProjectsTable({
       )
         return false;
       if (filters.program.length && !filters.program.includes(p.program))
+        return false;
+      if (!matchesProductFilter(p.nice_product_ids, filters.nice_product))
         return false;
       if (filters.portfolio_position.length) {
         const pos = computePortfolioPosition(p, quadrantLabels);
@@ -944,6 +951,7 @@ export function ProjectsTable({
         stageOptions={stageOptions}
         priorityOptions={enumOptions?.priority}
         customFields={customFields}
+        niceProducts={niceProducts}
         quadrantLabels={quadrantLabels}
       />
 
@@ -1346,6 +1354,8 @@ export function ProjectsTable({
           useCasesForProject={
             useCasesByProject.get(quickViewProject.project_id) ?? []
           }
+          niceProducts={niceProducts}
+          onProjectUpdated={applyUpdated}
           mentionableUsers={mentionableUsers}
           initialTab={quickViewInitialTab}
           aiEnabled={aiEnabled}

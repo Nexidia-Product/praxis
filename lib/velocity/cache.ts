@@ -49,6 +49,7 @@ function keyFor(filters: VelocityFilters, scope: string[] | "all"): string {
     application_products: filters.application_products,
     programs: filters.programs,
     project_leads: filters.project_leads,
+    nice_product_ids: filters.nice_product_ids ?? [],
     individual_user_id: filters.individual_user_id,
     scope,
   });

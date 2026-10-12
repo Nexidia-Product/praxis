@@ -17,23 +17,32 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
+import { NiceProductRepository } from "@/lib/db";
 import { loadCoverageGraph } from "@/lib/coverage/load";
 import { resolveCoverageSelection } from "@/lib/coverage/select";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
+import { ProgramCoverageFilter } from "@/components/insights/program-coverage-filter";
 import { ProgramCoverageView } from "@/components/insights/program-coverage-view";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: Promise<{ pillar?: string; useCase?: string }>;
+  searchParams: Promise<{ pillar?: string; useCase?: string; products?: string }>;
 }
 
 export default async function ProgramCoveragePage({ searchParams }: PageProps) {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const { pillar, useCase } = await searchParams;
+  const { pillar, useCase, products } = await searchParams;
+  const productFilter = (products ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  const graph = await loadCoverageGraph(session);
+  const [graph, niceProducts] = await Promise.all([
+    loadCoverageGraph(session, productFilter),
+    NiceProductRepository.getAll(),
+  ]);
   const selection = resolveCoverageSelection(graph, pillar, useCase);
 
   return (
@@ -47,7 +56,19 @@ export default async function ProgramCoveragePage({ searchParams }: PageProps) {
         title="Program coverage"
         subtitle="How the program is being executed: what is delivered, what is in progress, and what is still outstanding — by pillar, use case and outcome."
       />
-      <ProgramCoverageView graph={graph} selection={selection} />
+      <div className="mb-4">
+        <ProgramCoverageFilter
+          niceProducts={niceProducts}
+          products={productFilter}
+          pillar={pillar}
+          useCase={useCase}
+        />
+      </div>
+      <ProgramCoverageView
+        graph={graph}
+        selection={selection}
+        products={productFilter}
+      />
     </PolarisShell>
   );
 }

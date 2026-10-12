@@ -65,6 +65,7 @@ import type {
   VelocityRange,
   VelocityRangeKind,
 } from "./types";
+import { matchesProductFilter } from "@/lib/products/logic";
 
 // ---------------------------------------------------------------------------
 // Range resolution
@@ -132,6 +133,12 @@ export function applyProjectFilters(
     if (
       filters.project_leads.length > 0 &&
       !filters.project_leads.includes(p.project_lead)
+    ) {
+      return false;
+    }
+    if (
+      filters.nice_product_ids &&
+      !matchesProductFilter(p.nice_product_ids, filters.nice_product_ids)
     ) {
       return false;
     }

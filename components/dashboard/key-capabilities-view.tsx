@@ -30,8 +30,10 @@ import {
   latestStatusSummary,
   type ProjectTaskStats,
 } from "@/lib/key-capabilities";
-import type { Project } from "@/lib/db";
+import type { NiceProduct, Project } from "@/lib/db";
+import { matchesProductFilter } from "@/lib/products/logic";
 import { OutcomesList } from "@/components/projects/outcomes-list";
+import { ProductFilter } from "@/components/shared/product-filter";
 
 /** Display-only mirror of the service-enforced cap. */
 const MAX_PER_QUARTER = 2;
@@ -53,16 +55,22 @@ interface Props {
   currentQuarter: string;
   unflaggedProjects: PickItem[];
   canManage: boolean;
+  niceProducts?: NiceProduct[];
 }
 
 export function KeyCapabilitiesView({
-  cards,
+  cards: allCards,
   quarters,
   currentQuarter,
   unflaggedProjects,
   canManage,
+  niceProducts = [],
 }: Props) {
   const router = useRouter();
+  const [productFilter, setProductFilter] = useState<string[]>([]);
+  const cards = allCards.filter((c) =>
+    matchesProductFilter(c.project.nice_product_ids, productFilter),
+  );
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addSelection, setAddSelection] = useState<string>("");
@@ -104,6 +112,24 @@ export function KeyCapabilitiesView({
 
   return (
     <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ProductFilter
+          products={niceProducts}
+          selected={productFilter}
+          onChange={setProductFilter}
+        />
+        {productFilter.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setProductFilter([])}
+            className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
+
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm">
         <span>
@@ -278,8 +304,10 @@ export function KeyCapabilitiesView({
 
       {totalCount === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-          No key capabilities yet.
-          {canManage
+          {allCards.length > 0
+            ? "No key capabilities match the current filters."
+            : "No key capabilities yet."}
+          {allCards.length === 0 && canManage
             ? " Use “Add a key capability” above to designate a project."
             : ""}
         </p>

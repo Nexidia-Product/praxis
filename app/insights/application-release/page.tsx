@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/permissions";
 import {
   ProjectRepository,
+  NiceProductRepository,
   ReleaseCaveatRepository,
   TaskRepository,
   UseCaseRepository,
@@ -52,11 +53,12 @@ export default async function ApplicationReleasePage({
   const { permissions } = await getCurrentUserPermissions();
   const { date: requestedDate } = await searchParams;
 
-  const [allProjects, allTasks, useCases, users] = await Promise.all([
+  const [allProjects, allTasks, useCases, users, niceProducts] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
     UseCaseRepository.getAll(),
     UserRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -117,6 +119,7 @@ export default async function ApplicationReleasePage({
         selectedDate={selected}
         today={today}
         report={report}
+        niceProducts={niceProducts}
         canEditCaveats={permissions["projects.edit"] === true}
       />
     </PolarisShell>

@@ -52,6 +52,12 @@ export type { CreateReleaseCaveatInput } from "./release-caveats";
 export { UseCaseRepository } from "./use-cases";
 export type { CreateUseCaseInput, UpdateUseCaseInput } from "./use-cases";
 
+export { NiceProductRepository } from "./nice-products";
+export type {
+  CreateNiceProductInput,
+  UpdateNiceProductInput,
+} from "./nice-products";
+
 export { AuditLogRepository } from "./audit-log";
 export type { CreateAuditEntryInput, RecentAuditQuery } from "./audit-log";
 

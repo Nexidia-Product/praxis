@@ -11,12 +11,15 @@ import { ProjectRepository, UseCaseRepository } from "@/lib/db";
 import { filterProjectsByProgram, getAllowedPrograms } from "@/lib/projects/visibility";
 import { buildCoverageGraph, type CoverageGraph } from "./graph";
 
-export async function loadCoverageGraph(session: Session): Promise<CoverageGraph> {
+export async function loadCoverageGraph(
+  session: Session,
+  productFilter: string[] = [],
+): Promise<CoverageGraph> {
   const [allProjects, useCases] = await Promise.all([
     ProjectRepository.getAll(),
     UseCaseRepository.getAll(),
   ]);
   const allowed = await getAllowedPrograms(session);
   const visible = filterProjectsByProgram(allProjects, allowed);
-  return buildCoverageGraph({ projects: visible, useCases });
+  return buildCoverageGraph({ projects: visible, useCases, productFilter });
 }

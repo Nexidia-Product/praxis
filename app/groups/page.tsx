@@ -16,6 +16,7 @@ import {
   requirePagePermission,
 } from "@/lib/auth/permissions";
 import {
+  NiceProductRepository,
   ProjectGroupRepository,
   ProjectRepository,
   UserRepository,
@@ -30,10 +31,11 @@ export default async function GroupsPage() {
   const session = await requirePagePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
 
-  const [groups, allProjects, users] = await Promise.all([
+  const [groups, allProjects, users, niceProducts] = await Promise.all([
     ProjectGroupRepository.getAll(),
     ProjectRepository.getAll(),
     UserRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -64,6 +66,7 @@ export default async function GroupsPage() {
         projects={projects}
         userNamesById={userNamesById}
         canEdit={permissions["projects.edit"] === true}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

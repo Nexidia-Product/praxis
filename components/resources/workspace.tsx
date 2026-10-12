@@ -26,9 +26,15 @@ import type {
   ResourceRosterRow,
   ResourceScope,
 } from "@/lib/resources/roster";
-import type { ResourceSettings } from "@/lib/db";
+import type { NiceProduct, ResourceSettings } from "@/lib/db";
+import { ProductFilter } from "@/components/shared/product-filter";
 
 interface ResourcesWorkspaceProps {
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
+  /** Currently applied product filter (comes from `?product=`; the server
+   *  narrows projects + tasks by it before building the roster). */
+  productFilter?: string[];
   initialTab: "overview" | "capacity" | "performance";
   scope: ResourceScope;
   canViewAll: boolean;
@@ -47,6 +53,8 @@ interface ResourcesWorkspaceProps {
 }
 
 export function ResourcesWorkspace({
+  niceProducts = [],
+  productFilter = [],
   initialTab,
   scope,
   canViewAll,
@@ -74,8 +82,31 @@ export function ResourcesWorkspace({
     router.replace(`/insights/resources?${params.toString()}`);
   }
 
+  function setProductFilter(next: string[]): void {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (next.length > 0) params.set("product", next.join(","));
+    else params.delete("product");
+    router.replace(`/insights/resources?${params.toString()}`);
+  }
+
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <ProductFilter
+          products={niceProducts}
+          selected={productFilter}
+          onChange={setProductFilter}
+        />
+        {productFilter.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setProductFilter([])}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            Clear all
+          </button>
+        ) : null}
+      </div>
       <TabStrip current={initialTab} onChange={setTab} />
 
       {initialTab === "overview" ? (

@@ -54,6 +54,7 @@ export type NavKey =
   | "admin-configuration"
   | "admin-templates"
   | "admin-use-cases"
+  | "admin-products"
   | "admin-notifications"
   | "admin-audit-log"
   | "profile-notifications";
@@ -210,6 +211,13 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/admin/use-cases",
         icon: "◈",
         permission: "usecases.manage",
+      },
+      {
+        key: "admin-products",
+        label: "NiCE products",
+        href: "/admin/products",
+        icon: "▣",
+        permission: "products.manage",
       },
       {
         key: "admin-notifications",

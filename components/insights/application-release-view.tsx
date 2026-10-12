@@ -26,6 +26,9 @@ import type {
   ReleaseProjectEntry,
   ReleaseReport,
 } from "@/lib/releases/report";
+import { ProductFilter } from "@/components/shared/product-filter";
+import { matchesProductFilter } from "@/lib/products/logic";
+import type { NiceProduct } from "@/lib/db";
 import { OutcomesList } from "@/components/projects/outcomes-list";
 
 interface Props {
@@ -35,6 +38,7 @@ interface Props {
   report: ReleaseReport | null;
   /** Whether the viewer may add/edit/delete release caveats. */
   canEditCaveats: boolean;
+  niceProducts: NiceProduct[];
 }
 
 function formatDate(iso: string): string {
@@ -54,8 +58,16 @@ export function ApplicationReleaseView({
   today,
   report,
   canEditCaveats,
+  niceProducts,
 }: Props) {
   const router = useRouter();
+  const [productFilter, setProductFilter] = useState<string[]>([]);
+  const entries = report
+    ? report.entries.filter((e) =>
+        matchesProductFilter(e.project.nice_product_ids, productFilter),
+      )
+    : [];
+  const filtersActive = productFilter.length > 0;
 
   return (
     <div className="space-y-4">
@@ -96,34 +108,50 @@ export function ApplicationReleaseView({
                 : "Upcoming release"}
           </span>
         ) : null}
+        <ProductFilter
+          products={niceProducts}
+          selected={productFilter}
+          onChange={setProductFilter}
+        />
+        {filtersActive ? (
+          <button
+            type="button"
+            onClick={() => setProductFilter([])}
+            className="text-xs text-gray-600 underline hover:text-gray-900"
+          >
+            Clear filters
+          </button>
+        ) : null}
       </div>
 
       {report ? (
         <>
           {/* Summary */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm">
-            <Summary value={report.entries.length} label="projects" />
+            <Summary value={entries.length} label="projects" />
             <Summary
-              value={report.missedCount}
+              value={entries.filter((e) => e.missedDelivery).length}
               label="missed delivery"
-              danger={report.missedCount > 0}
+              danger={entries.some((e) => e.missedDelivery)}
             />
             <Summary
-              value={report.atRiskCount}
+              value={entries.filter((e) => e.atRisk && !e.missedDelivery).length}
               label="at risk"
-              danger={report.atRiskCount > 0}
+              danger={entries.some((e) => e.atRisk && !e.missedDelivery)}
             />
             <Summary
-              value={report.blockedCount}
+              value={entries.filter((e) => e.blockers.length > 0).length}
               label="with blockers"
-              danger={report.blockedCount > 0}
+              danger={entries.some((e) => e.blockers.length > 0)}
             />
-            <Summary value={report.deliveredCount} label="delivered" />
+            <Summary value={entries.filter((e) => e.delivered).length} label="delivered" />
           </div>
 
-          {report.entries.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-              No projects are aligned to this release date.
+              {filtersActive
+                ? "No projects match the current filters."
+                : "No projects are aligned to this release date."}
             </p>
           ) : (
             <div className="space-y-2">
@@ -136,7 +164,7 @@ export function ApplicationReleaseView({
                 <span>Progress</span>
                 <span>Risk, blockers &amp; status</span>
               </div>
-              {report.entries.map((entry) => (
+              {entries.map((entry) => (
                 <ReleaseRow
                   key={entry.project.project_id}
                   entry={entry}

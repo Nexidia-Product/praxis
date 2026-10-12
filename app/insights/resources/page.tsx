@@ -20,7 +20,9 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
+import { matchesProductFilter } from "@/lib/products/logic";
 import {
+  NiceProductRepository,
   ProjectRepository,
   SettingsRepository,
   TaskRepository,
@@ -76,15 +78,31 @@ export default async function ResourcesPage({
       ? "everyone"
       : "my_team";
 
-  const [allProjects, allTasks, publicUsers, settings] = await Promise.all([
-    ProjectRepository.getAll(),
-    TaskRepository.getAll(),
-    UserRepository.getAllPublic(),
-    SettingsRepository.get(),
-  ]);
+  // Product alignment filter (`?product=a,b`, OR semantics). Applied to
+  // the projects before the roster is built, so every tab's numbers
+  // reflect only work on projects aligned to the chosen products (tasks
+  // follow their project).
+  const productFilter =
+    typeof params.product === "string"
+      ? params.product
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      : [];
+
+  const [allProjects, allTasks, publicUsers, settings, niceProducts] =
+    await Promise.all([
+      ProjectRepository.getAll(),
+      TaskRepository.getAll(),
+      UserRepository.getAllPublic(),
+      SettingsRepository.get(),
+      NiceProductRepository.getAll(),
+    ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
-  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms).filter(
+    (p) => matchesProductFilter(p.nice_product_ids, productFilter),
+  );
   const visibleProjectIds = new Set(projects.map((p) => p.project_id));
   const tasks = filterTasksByVisibleProjects(allTasks, visibleProjectIds);
 
@@ -143,6 +161,8 @@ export default async function ResourcesPage({
         subtitle="Capacity, performance, and gaps across the team. Workload buckets and performance scores tunable from Admin → Resource management → Resource thresholds."
       />
       <ResourcesWorkspace
+        niceProducts={niceProducts}
+        productFilter={productFilter}
         initialTab={tab}
         scope={scope}
         canViewAll={permissions["resources.view_all"] === true}

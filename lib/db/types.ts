@@ -44,6 +44,7 @@ export type DecisionEntryId = string;
 export type AuditEntryId = string;
 export type ProjectGroupId = string;
 export type UseCaseId = string;
+export type NiceProductId = string;
 export type ReleaseCaveatId = string;
 
 /** ISO 8601 timestamp string (e.g. `2026-04-23T14:30:00Z`). */
@@ -489,6 +490,14 @@ export interface Project {
    */
   use_case_outcome_ids: string[];
 
+  /**
+   * Ids of the NiCE products this project aligns to (`NiceProduct`). Only
+   * ever references products of the use case the project belongs to; empty
+   * when it belongs to none. Maintained by `lib/use-cases/service.ts`
+   * (reconcile) and validated on write.
+   */
+  nice_product_ids: string[];
+
   // ---- AI fields (Section 5.16) ----
   ai_complexity_score: ComplexityScore | null;
   /** Free-form, e.g. `"4-6 weeks"`. */
@@ -839,7 +848,27 @@ export interface UseCase {
   member_project_ids: ProjectId[];
   /** Outcomes this use case is meant to achieve; projects pick which they support. */
   outcomes: UseCaseOutcome[];
+  /** NiCE products this use case aligns to (`NiceProduct.product_id`). */
+  nice_product_ids: NiceProductId[];
   created_by: UserId | null;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
+}
+
+// ---------------------------------------------------------------------------
+// NiCE products
+// ---------------------------------------------------------------------------
+
+/**
+ * An admin-managed NiCE product. Never deleted: a retired product is
+ * flagged `deprecated`, which hides it from new selections while keeping
+ * existing alignments intact.
+ */
+export interface NiceProduct {
+  product_id: NiceProductId;
+  name: string;
+  description: string;
+  deprecated: boolean;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }

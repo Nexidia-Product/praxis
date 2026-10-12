@@ -28,6 +28,7 @@ import { useMemo, useState } from "react";
 
 import { isOpenStatus } from "@/lib/tasks/display";
 import type {
+  NiceProduct,
   Project,
   Task,
   TaskStatus,
@@ -45,6 +46,8 @@ interface MyTasksViewProps {
   initialTasks: Task[];
   projects: Project[];
   templates?: TaskTemplate[];
+  /** NiCE products for the list view's "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
   currentUserRole: UserRole;
   /** The signed-in user's id — threaded through for author-only finding edits. */
   currentUserId?: string;
@@ -61,6 +64,7 @@ export function MyTasksView({
   initialTasks,
   projects,
   templates,
+  niceProducts = [],
   currentUserRole,
   currentUserId,
   permissions,
@@ -204,6 +208,7 @@ export function MyTasksView({
           initialTasks={tasks}
           projects={projects}
           templates={templates}
+          niceProducts={niceProducts}
           currentUserRole={currentUserRole}
           currentUserId={currentUserId}
           permissions={permissions}

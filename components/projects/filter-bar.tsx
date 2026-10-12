@@ -27,10 +27,12 @@ import {
   PROJECT_STATUSES,
   PROJECT_TYPES,
 } from "@/lib/projects/display";
+import { ProductFilter } from "@/components/shared/product-filter";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import { PORTFOLIO_POSITION_KEYS } from "@/lib/projects/portfolio-position";
 import type {
   CustomFieldDefinition,
+  NiceProduct,
   PortfolioQuadrantLabels,
   Priority,
   ProjectStatus,
@@ -75,6 +77,11 @@ export interface ProjectFilters {
   application_product: string[];
   program: string[];
   /**
+   * Multi-select on NiCE product alignment (`Project.nice_product_ids`);
+   * values are product ids plus the `NO_PRODUCT` sentinel. OR semantics.
+   */
+  nice_product: string[];
+  /**
    * Multi-select on the strategic-position bucket keys (quick_win,
    * major_bet, fill_in, deprioritize, unknown). The filter operates
    * on the *bucket key*, not the user-facing label, so renaming the
@@ -99,6 +106,7 @@ export const EMPTY_FILTERS: ProjectFilters = {
   project_lead: [],
   application_product: [],
   program: [],
+  nice_product: [],
   portfolio_position: [],
   target_from: "",
   target_to: "",
@@ -134,6 +142,7 @@ export function filtersToQueryString(filters: ProjectFilters): string {
   for (const a of filters.application_product)
     params.append("application_product", a);
   for (const g of filters.program) params.append("program", g);
+  for (const n of filters.nice_product) params.append("nice_product", n);
   for (const pos of filters.portfolio_position)
     params.append("portfolio_position", pos);
   if (filters.target_from) params.set("target_from", filters.target_from);
@@ -172,6 +181,7 @@ export function isFilterActive(filters: ProjectFilters): boolean {
     filters.project_lead.length > 0 ||
     filters.application_product.length > 0 ||
     filters.program.length > 0 ||
+    filters.nice_product.length > 0 ||
     filters.portfolio_position.length > 0 ||
     filters.target_from !== "" ||
     filters.target_to !== "" ||
@@ -340,6 +350,8 @@ interface ProjectFilterBarProps {
   priorityOptions?: EnumOption[];
   /** Admin-defined custom field definitions, rendered as their own filters. */
   customFields: CustomFieldDefinition[];
+  /** NiCE product catalogue for the Product alignment filter. */
+  niceProducts?: NiceProduct[];
   /**
    * User-facing labels for the four strategic-position buckets. Used
    * by the Position dropdown to render renamed labels while still
@@ -358,6 +370,7 @@ export function ProjectFilterBar({
   statusOptions,
   priorityOptions,
   customFields,
+  niceProducts = [],
   quadrantLabels,
 }: ProjectFilterBarProps) {
   // Resolve to a `string[]` of IDs for the multi-select dropdowns.
@@ -451,6 +464,11 @@ export function ProjectFilterBar({
           options={programOptions}
           selected={filters.program}
           onChange={(v) => update("program", v)}
+        />
+        <ProductFilter
+          products={niceProducts}
+          selected={filters.nice_product}
+          onChange={(v) => update("nice_product", v)}
         />
 
         <div

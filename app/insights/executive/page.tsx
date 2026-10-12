@@ -25,6 +25,7 @@ import {
   scopeOptions,
   upcomingReleases,
 } from "@/lib/executive/portfolio";
+import { NiceProductRepository } from "@/lib/db";
 import { loadExecutiveData } from "@/lib/executive/load";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import { ExecutiveView } from "@/components/insights/executive-view";
@@ -32,15 +33,22 @@ import { ExecutiveView } from "@/components/insights/executive-view";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: Promise<{ scope?: string }>;
+  searchParams: Promise<{ scope?: string; products?: string }>;
 }
 
 export default async function ExecutivePage({ searchParams }: PageProps) {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const { scope: requestedScope } = await searchParams;
+  const { scope: requestedScope, products } = await searchParams;
+  const productFilter = (products ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  const { today, entries, noPillarCount } = await loadExecutiveData(session);
+  const [{ today, entries, noPillarCount }, niceProducts] = await Promise.all([
+    loadExecutiveData(session, productFilter),
+    NiceProductRepository.getAll(),
+  ]);
 
   const options = scopeOptions(entries, today, formatQuarter);
   const scope =
@@ -68,6 +76,8 @@ export default async function ExecutivePage({ searchParams }: PageProps) {
         today={today}
         upcoming={upcoming}
         noPillarCount={noPillarCount}
+        niceProducts={niceProducts}
+        productFilter={productFilter}
         canExport={permissions["roadmap.export"] === true}
       />
     </PolarisShell>

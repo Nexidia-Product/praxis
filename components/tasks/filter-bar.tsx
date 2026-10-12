@@ -21,7 +21,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/tasks/display";
-import type { Priority, TaskStatus } from "@/lib/db";
+import type { NiceProduct, Priority, TaskStatus } from "@/lib/db";
+import { ProductFilter } from "@/components/shared/product-filter";
 
 // ---------------------------------------------------------------------------
 // Filter state
@@ -32,6 +33,8 @@ export interface TaskFilters {
   priority: Priority[];
   project_id: string[];
   responsible: string[];
+  /** NiCE product ids (or NO_PRODUCT) — matched against the task's project. */
+  product_ids: string[];
   /** Tri-state. "" = either, "yes" = blocked only, "no" = unblocked only. */
   blocked: "" | "yes" | "no";
   due_from: string; // YYYY-MM-DD or ""
@@ -53,6 +56,7 @@ export const EMPTY_TASK_FILTERS: TaskFilters = {
   priority: [],
   project_id: [],
   responsible: [],
+  product_ids: [],
   blocked: "",
   due_from: "",
   due_to: "",
@@ -66,6 +70,7 @@ export function isTaskFilterActive(f: TaskFilters): boolean {
     f.priority.length > 0 ||
     f.project_id.length > 0 ||
     f.responsible.length > 0 ||
+    f.product_ids.length > 0 ||
     f.blocked !== "" ||
     f.due_from !== "" ||
     f.due_to !== "" ||
@@ -203,6 +208,8 @@ interface TaskFilterBarProps {
   projectOptions: string[];
   /** Distinct responsible values in the current dataset. */
   responsibleOptions: string[];
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
   /** When true, suppress the "Assigned to" dropdown (used on /my-tasks). */
   hideResponsible?: boolean;
   /**
@@ -218,6 +225,7 @@ export function TaskFilterBar({
   onChange,
   projectOptions,
   responsibleOptions,
+  niceProducts = [],
   hideResponsible,
   showAdminToggle,
 }: TaskFilterBarProps) {
@@ -247,6 +255,11 @@ export function TaskFilterBar({
         options={projectOptions}
         selected={filters.project_id}
         onChange={(v) => update("project_id", v)}
+      />
+      <ProductFilter
+        products={niceProducts}
+        selected={filters.product_ids}
+        onChange={(v) => update("product_ids", v)}
       />
       {!hideResponsible ? (
         <MultiSelect
