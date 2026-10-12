@@ -8,6 +8,7 @@
  */
 
 import {
+  NiceProductRepository,
   ProjectRepository,
   UseCaseRepository,
   type ProjectId,
@@ -18,6 +19,10 @@ import {
 import { audit } from "@/lib/audit/service";
 import { OBJECTIVES, SECONDARY_OBJECTIVE_OPTIONS } from "@/lib/projects/display";
 import { randomUUID } from "node:crypto";
+import {
+  reconcileProductLinks,
+  validateUseCaseProductIds,
+} from "@/lib/products/logic";
 import {
   normalizeUseCaseOutcomes,
   reconcileOutcomeLinks,
@@ -54,6 +59,12 @@ export interface UseCasePayload {
    */
   outcomes?: unknown;
   /**
+   * NiCE products the use case aligns to (`NiceProduct.product_id`s).
+   * Deprecated products can be kept but not newly added. Omit to leave
+   * the stored alignment untouched.
+   */
+  nice_product_ids?: unknown;
+  /**
    * When true, projects in `member_project_ids` that currently belong to
    * a different use case are moved here (removed from the old one)
    * instead of being rejected. Used to correct a wrong assignment.
@@ -77,6 +88,7 @@ export async function createUseCase(
   const move = payload.move_projects === true;
   const members = await validateMembers(payload.member_project_ids, null, move);
   const outcomes = validateOutcomes(payload.outcomes);
+  const productIds = await validateProductIds(payload.nice_product_ids, []);
 
   const created = await UseCaseRepository.create({
     name,
@@ -85,6 +97,7 @@ export async function createUseCase(
     secondary_objectives: secondary,
     member_project_ids: members,
     outcomes,
+    nice_product_ids: productIds,
     created_by: actor.userId,
   });
 
@@ -92,6 +105,7 @@ export async function createUseCase(
   await syncMemberObjectives(created, actor);
   // Projects moved in from another use case drop that use case's outcome picks.
   await reconcileProjectOutcomeLinks(actor);
+  await reconcileProjectProductLinks(actor);
 
   await audit({
     actorId: actor.userId,
@@ -100,7 +114,7 @@ export async function createUseCase(
     entityId: created.use_case_id,
     entityLabel: `Use case: ${created.name}`,
     action: "create",
-    summary: `Created use case "${created.name}" (primary: ${primary}, ${secondary.length} secondary, ${members.length} project(s), ${outcomes.length} outcome(s)).`,
+    summary: `Created use case "${created.name}" (primary: ${primary}, ${secondary.length} secondary, ${members.length} project(s), ${outcomes.length} outcome(s), ${productIds.length} product(s)).`,
   });
   return created;
 }
@@ -148,6 +162,12 @@ export async function updateUseCase(
   if (payload.outcomes !== undefined) {
     patch.outcomes = validateOutcomes(payload.outcomes);
   }
+  if (payload.nice_product_ids !== undefined) {
+    patch.nice_product_ids = await validateProductIds(
+      payload.nice_product_ids,
+      before.nice_product_ids ?? [],
+    );
+  }
   if (Object.keys(patch).length === 0) return before;
 
   const after = await UseCaseRepository.update(id, patch);
@@ -161,6 +181,7 @@ export async function updateUseCase(
   await syncMemberObjectives(after, actor);
   // Outcomes removed, or projects moved/removed: drop picks that no longer apply.
   await reconcileProjectOutcomeLinks(actor);
+  await reconcileProjectProductLinks(actor);
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -182,6 +203,7 @@ export async function deleteUseCase(
   await UseCaseRepository.delete(id);
   // Its former members are in no use case now, so their outcome picks go.
   await reconcileProjectOutcomeLinks(actor);
+  await reconcileProjectProductLinks(actor);
   await audit({
     actorId: actor.userId,
     actorName: actor.userName,
@@ -246,6 +268,17 @@ export async function pruneProjectFromUseCases(
 // ---------------------------------------------------------------------------
 // Validators
 // ---------------------------------------------------------------------------
+
+async function validateProductIds(raw: unknown, existing: readonly string[]) {
+  if (raw === undefined || raw === null) return [];
+  const result = validateUseCaseProductIds(
+    raw,
+    await NiceProductRepository.getAll(),
+    existing,
+  );
+  if (!result.ok) throw new ValidationError(result.error);
+  return result.value;
+}
 
 function validateOutcomes(raw: unknown) {
   const result = normalizeUseCaseOutcomes(raw, randomUUID);
@@ -435,6 +468,33 @@ export async function reconcileProjectOutcomeLinks(actor: ActorCtx): Promise<voi
 }
 
 /**
+ * Drop project NiCE product picks that no longer point at a product of the
+ * use case the project belongs to. Mirrors `reconcileProjectOutcomeLinks`.
+ */
+export async function reconcileProjectProductLinks(actor: ActorCtx): Promise<void> {
+  const [projects, useCases] = await Promise.all([
+    ProjectRepository.getAll(),
+    UseCaseRepository.getAll(),
+  ]);
+  const byId = new Map(projects.map((p) => [p.project_id, p]));
+  for (const change of reconcileProductLinks(projects, useCases)) {
+    const project = byId.get(change.project_id);
+    await ProjectRepository.update(change.project_id, {
+      nice_product_ids: change.nice_product_ids,
+    });
+    await audit({
+      actorId: actor.userId,
+      actorName: actor.userName,
+      entityType: "Project",
+      entityId: change.project_id,
+      entityLabel: project?.name ?? change.project_id,
+      action: "update",
+      summary: `NiCE product alignment: ${project?.nice_product_ids?.length ?? 0} → ${change.nice_product_ids.length} (products removed from the use case, or the project left it).`,
+    });
+  }
+}
+
+/**
  * Remove `ids` from every use case other than `dest`, auditing each
  * source use case that lost projects.
  */
@@ -502,6 +562,12 @@ function summarizeChange(before: UseCase, after: UseCase): string {
     parts.push(`outcomes removed: ${outRemoved.map((o) => `"${o.text}"`).join(", ")}`);
   }
   if (outRenamed.length > 0) parts.push(`${outRenamed.length} outcome(s) renamed`);
+  const prodBefore = before.nice_product_ids ?? [];
+  const prodAfter = after.nice_product_ids ?? [];
+  const prodAdded = prodAfter.filter((id) => !prodBefore.includes(id));
+  const prodRemoved = prodBefore.filter((id) => !prodAfter.includes(id));
+  if (prodAdded.length > 0) parts.push(`NiCE products added: ${prodAdded.length}`);
+  if (prodRemoved.length > 0) parts.push(`NiCE products removed: ${prodRemoved.length}`);
   const added = after.member_project_ids.filter(
     (id) => !before.member_project_ids.includes(id),
   );

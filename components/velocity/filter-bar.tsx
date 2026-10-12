@@ -33,7 +33,8 @@ import type {
   VelocityFilters,
   VelocityRangeKind,
 } from "@/lib/velocity/types";
-import type { ProjectType, UserId, UserRole } from "@/lib/db";
+import type { NiceProduct, ProjectType, UserId, UserRole } from "@/lib/db";
+import { ProductFilter } from "@/components/shared/product-filter";
 
 const RANGE_OPTIONS: { value: VelocityRangeKind; label: string }[] = [
   { value: "30d", label: "30 days" },
@@ -54,6 +55,8 @@ interface VelocityFilterBarProps {
     programs: string[];
     project_leads: { user_id: UserId; label: string }[];
   };
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
   currentUserId: UserId;
   currentUserRole: UserRole;
   /** Optional values for the custom-range start / end date inputs. */
@@ -67,6 +70,7 @@ export function VelocityFilterBar({
   value,
   onChange,
   options,
+  niceProducts = [],
   currentUserId,
   currentUserRole,
   customStart,
@@ -223,6 +227,21 @@ export function VelocityFilterBar({
           </select>
         </div>
 
+        {/* NiCE product alignment */}
+        <div>
+          <span className="block text-xs font-medium text-gray-700">
+            Product alignment
+          </span>
+          <div className="mt-1">
+            <ProductFilter
+              label="Products"
+              products={niceProducts}
+              selected={value.nice_product_ids ?? []}
+              onChange={(next) => onChange({ ...value, nice_product_ids: next })}
+            />
+          </div>
+        </div>
+
         {/* Program */}
         <div>
           <label
@@ -316,6 +335,7 @@ export function VelocityFilterBar({
                 application_products: [],
                 programs: [],
                 project_leads: [],
+                nice_product_ids: [],
                 individual_user_id: null,
               })
             }

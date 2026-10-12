@@ -458,6 +458,7 @@ function transformProjects(
       custom_fields: {},
       outcomes: [],
       use_case_outcome_ids: [],
+      nice_product_ids: [],
       created_by: SEED_USER_ID,
       updated_at: SEED_TIMESTAMP,
     });

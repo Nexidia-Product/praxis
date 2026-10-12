@@ -15,7 +15,7 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
-import { UserRepository } from "@/lib/db";
+import { NiceProductRepository, UserRepository } from "@/lib/db";
 import { getAllowedPrograms, getDefaultProgram } from "@/lib/projects/visibility";
 import { VelocityDashboard } from "@/components/velocity/dashboard";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
@@ -26,7 +26,10 @@ export default async function VelocityPage() {
   const session = await requirePermission("velocity.view");
   const { permissions } = await getCurrentUserPermissions();
   const allowedPrograms = await getAllowedPrograms(session);
-  const currentUser = await UserRepository.getById(session.user.user_id);
+  const [currentUser, niceProducts] = await Promise.all([
+    UserRepository.getById(session.user.user_id),
+    NiceProductRepository.getAll(),
+  ]);
   const defaultProgram = getDefaultProgram(
     { primary_program: currentUser?.primary_program ?? null },
     allowedPrograms,
@@ -50,6 +53,7 @@ export default async function VelocityPage() {
         currentUserId={session.user.user_id}
         currentUserRole={session.user.role}
         defaultProgram={defaultProgram}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

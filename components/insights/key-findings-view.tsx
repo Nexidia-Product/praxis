@@ -18,8 +18,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { ProductFilter } from "@/components/shared/product-filter";
+import { matchesProductFilter } from "@/lib/products/logic";
 import type {
   KeyFindingEntry,
+  NiceProduct,
   Project,
   ProjectFindingSummary,
   Task,
@@ -27,6 +30,7 @@ import type {
 
 interface KeyFindingsViewProps {
   projects: Project[];
+  niceProducts: NiceProduct[];
   /** Whether AI is enabled; gates the Generate/Regenerate summary button. */
   aiEnabled: boolean;
 }
@@ -41,10 +45,25 @@ interface Row {
 }
 
 export function KeyFindingsView({
-  projects,
+  projects: allProjects,
+  niceProducts,
   aiEnabled,
 }: KeyFindingsViewProps) {
   const [projectId, setProjectId] = useState("");
+  const [productFilter, setProductFilter] = useState<string[]>([]);
+  const projects = useMemo(
+    () =>
+      allProjects.filter((p) =>
+        matchesProductFilter(p.nice_product_ids, productFilter),
+      ),
+    [allProjects, productFilter],
+  );
+  // Drop the selection if the filter excludes the chosen project.
+  useEffect(() => {
+    if (projectId && !projects.some((p) => p.project_id === projectId)) {
+      setProjectId("");
+    }
+  }, [projects, projectId]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +234,20 @@ export function KeyFindingsView({
             />
           </div>
         </div>
+        <ProductFilter
+          products={niceProducts}
+          selected={productFilter}
+          onChange={setProductFilter}
+        />
+        {productFilter.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setProductFilter([])}
+            className="pb-2 text-xs text-gray-600 underline hover:text-gray-900"
+          >
+            Clear filters
+          </button>
+        ) : null}
         {projectId && !loading && !error ? (
           <label className="flex items-center gap-2 pb-1.5 text-sm text-gray-700">
             <input
@@ -316,7 +349,9 @@ export function KeyFindingsView({
 
       {!projectId ? (
         <p className="text-sm text-gray-500">
-          Select a project to review its task key findings.
+          {productFilter.length > 0 && projects.length === 0
+            ? "No projects match the current filters."
+            : "Select a project to review its task key findings."}
         </p>
       ) : loading ? (
         <p className="text-sm text-gray-500">Loading…</p>

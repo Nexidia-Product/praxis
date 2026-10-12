@@ -15,7 +15,11 @@ import {
   getCurrentUserPermissions,
   requirePermission,
 } from "@/lib/auth/permissions";
-import { ProjectRepository, TaskRepository } from "@/lib/db";
+import {
+  NiceProductRepository,
+  ProjectRepository,
+  TaskRepository,
+} from "@/lib/db";
 import { todayIso } from "@/lib/db/store";
 import {
   computeProjectTaskStats,
@@ -43,9 +47,10 @@ export default async function KeyCapabilitiesPage() {
   const { permissions } = await getCurrentUserPermissions();
   const canManage = permissions["key_capabilities.manage"] === true;
 
-  const [allProjects, allTasks] = await Promise.all([
+  const [allProjects, allTasks, niceProducts] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -115,6 +120,7 @@ export default async function KeyCapabilitiesPage() {
         currentQuarter={currentQuarter}
         unflaggedProjects={unflaggedProjects}
         canManage={canManage}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

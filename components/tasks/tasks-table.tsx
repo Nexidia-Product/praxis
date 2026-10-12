@@ -36,7 +36,9 @@ import {
   taskUrgency,
   todayLocal,
 } from "@/lib/tasks/display";
+import { matchesProductFilter } from "@/lib/products/logic";
 import type {
+  NiceProduct,
   Priority,
   Project,
   Task,
@@ -168,6 +170,8 @@ interface TasksTableProps {
    * button is hidden.
    */
   templates?: TaskTemplate[];
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
   currentUserRole: UserRole;
   /**
    * The signed-in user's id. Threaded to the task modal so the Key
@@ -242,6 +246,7 @@ export function TasksTable({
   initialTasks,
   projects,
   templates,
+  niceProducts = [],
   currentUserRole,
   currentUserId,
   permissions,
@@ -416,6 +421,15 @@ export function TasksTable({
       if (filters.project_id.length && !filters.project_id.includes(t.project_id)) {
         return false;
       }
+      if (
+        filters.product_ids.length &&
+        !matchesProductFilter(
+          projectsById.get(t.project_id)?.nice_product_ids,
+          filters.product_ids,
+        )
+      ) {
+        return false;
+      }
       if (filters.responsible.length) {
         const hit =
           filters.responsible.includes(t.responsible) ||
@@ -437,7 +451,7 @@ export function TasksTable({
       }
       return true;
     });
-  }, [adminFilteredTasks, filters, statusGroup, today]);
+  }, [adminFilteredTasks, filters, statusGroup, today, projectsById]);
 
   // ---- Sorting. ----
   // Default ("urgency"): urgency → priority → target date → task_id, so
@@ -824,6 +838,7 @@ export function TasksTable({
         onChange={setFilters}
         projectOptions={projectOptions}
         responsibleOptions={responsibleOptions}
+        niceProducts={niceProducts}
         hideResponsible={scopeToUser}
         showAdminToggle={enableAdminFilter}
       />

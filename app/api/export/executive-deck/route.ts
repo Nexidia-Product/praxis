@@ -11,6 +11,7 @@
  *     sections: DeckSection[]       // which slide groups to include
  *     detail:   "summary" | "detailed",
  *     title?:   string
+ *     products?: string[]           // on-screen Product alignment filter
  *   }
  *
  * Gated by `roadmap.export`, same as the roadmap deck. The data is loaded
@@ -94,12 +95,26 @@ function parseOptions(raw: unknown): DeckOptions {
   };
 }
 
+/** Optional product alignment filter: a list of product ids / "No product". */
+function parseProducts(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") return [];
+  const p = (raw as Record<string, unknown>).products;
+  if (p === undefined || p === null) return [];
+  if (!Array.isArray(p) || p.some((v) => typeof v !== "string")) {
+    throw new ValidationError("`products` must be a list of strings.");
+  }
+  return p as string[];
+}
+
 export const POST = withAuth(async (request: Request) => {
   const session = await requirePermission("roadmap.export");
 
   let options: DeckOptions;
+  let products: string[];
   try {
-    options = parseOptions(await request.json());
+    const body = await request.json();
+    options = parseOptions(body);
+    products = parseProducts(body);
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
@@ -107,7 +122,10 @@ export const POST = withAuth(async (request: Request) => {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { today, entries, noPillarCount } = await loadExecutiveData(session);
+  const { today, entries, noPillarCount } = await loadExecutiveData(
+    session,
+    products,
+  );
   const plan = buildDeckPlan({ entries, today, noPillarCount, options });
 
   const settings = await SettingsRepository.get();

@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import {
+  NiceProductRepository,
   ProjectGroupRepository,
   ProjectRepository,
   SettingsRepository,
@@ -38,13 +39,14 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await requirePermission("projects.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings, templates, groups, useCases, users] = await Promise.all([
+  const [allProjects, settings, templates, groups, useCases, users, niceProducts] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     ProjectGroupRepository.getAll(),
     UseCaseRepository.getAll(),
     UserRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
@@ -118,6 +120,7 @@ export default async function ProjectsPage() {
         aiEnabled={isAiEnabled()}
         groups={groups}
         useCases={useCases}
+        niceProducts={niceProducts}
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}
         outcomeProducts={settings.outcome_products}

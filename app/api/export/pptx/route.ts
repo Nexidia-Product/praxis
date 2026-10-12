@@ -141,6 +141,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
       project_lead: [],
       application_product: [],
       program: [],
+      nice_product_ids: [],
       search: "",
     };
   }
@@ -161,6 +162,7 @@ function parseFilters(raw: unknown): RoadmapFilters {
     project_lead: arr(f.project_lead),
     application_product: arr(f.application_product),
     program: arr(f.program),
+    nice_product_ids: arr(f.nice_product_ids),
     search: typeof f.search === "string" ? f.search : "",
   };
 }
@@ -271,6 +273,9 @@ function summarizeFilters(filters: RoadmapFilters): string {
   }
   if (filters.stage.length) parts.push(`Stage: ${filters.stage.join(", ")}`);
   if (filters.track.length) parts.push(`Track: ${filters.track.join(", ")}`);
+  if (filters.nice_product_ids?.length) {
+    parts.push(`Product alignment: ${filters.nice_product_ids.length} selected`);
+  }
   if (filters.search) parts.push(`"${filters.search}"`);
   return parts.join("  ·  ");
 }

@@ -15,6 +15,7 @@ import {
   getAllowedPrograms,
   filterProjectsByProgram,
 } from "@/lib/projects/visibility";
+import { matchesProductFilter } from "@/lib/products/logic";
 import { buildProjectEntries, type ReleaseProjectEntry } from "@/lib/releases/report";
 import { countNoPillar, isExecEligible } from "./portfolio";
 
@@ -26,7 +27,15 @@ export interface ExecutiveData {
   noPillarCount: number;
 }
 
-export async function loadExecutiveData(session: Session): Promise<ExecutiveData> {
+/**
+ * `productFilter` is the on-screen "Product alignment" filter (OR; empty =
+ * all). It narrows the portfolio by each project's own `nice_product_ids`,
+ * so the view and the deck export stay in step.
+ */
+export async function loadExecutiveData(
+  session: Session,
+  productFilter: string[] = [],
+): Promise<ExecutiveData> {
   const [allProjects, allTasks, useCases, users] = await Promise.all([
     ProjectRepository.getAll(),
     TaskRepository.getAll(),
@@ -35,7 +44,9 @@ export async function loadExecutiveData(session: Session): Promise<ExecutiveData
   ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
-  const visible = filterProjectsByProgram(allProjects, allowedPrograms);
+  const visible = filterProjectsByProgram(allProjects, allowedPrograms).filter(
+    (p) => matchesProductFilter(p.nice_product_ids, productFilter),
+  );
 
   const userNamesById: Record<string, string> = {};
   for (const u of users) userNamesById[u.user_id] = u.name;

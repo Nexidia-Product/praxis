@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import {
+  NiceProductRepository,
   ProjectRepository,
   SettingsRepository,
   TemplateRepository,
@@ -37,12 +38,13 @@ export const dynamic = "force-dynamic";
 export default async function RoadmapPage() {
   const session = await requirePermission("roadmap.view");
   const { permissions } = await getCurrentUserPermissions();
-  const [allProjects, settings, templates, users, useCases] = await Promise.all([
+  const [allProjects, settings, templates, users, useCases, niceProducts] = await Promise.all([
     ProjectRepository.getAll(),
     SettingsRepository.get(),
     TemplateRepository.getAll(),
     UserRepository.getAll(),
     UseCaseRepository.getAll(),
+    NiceProductRepository.getAll(),
   ]);
 
   // Active-user names for the project form's Project lead dropdown
@@ -126,6 +128,7 @@ export default async function RoadmapPage() {
         activeUserNames={activeUserNames}
         mentionableUsers={mentionableUsers}
         defaultProgram={defaultProgram}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

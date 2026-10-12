@@ -54,6 +54,7 @@ import type {
   CustomFieldDefinition,
   PortfolioQuadrantLabels,
   Priority,
+  NiceProduct,
   Project,
   ProjectGroup,
   UseCase,
@@ -74,6 +75,7 @@ import {
   EMPTY_FILTERS,
   type ProjectFilters,
 } from "@/components/projects/filter-bar";
+import { matchesProductFilter } from "@/lib/products/logic";
 
 /** The two project statuses this dashboard scopes to, in display order. */
 const WIP_STATUSES: ProjectStatus[] = ["In Progress", "In Planning"];
@@ -104,6 +106,8 @@ interface Props {
   templates: TaskTemplate[];
   groups: ProjectGroup[];
   useCases: UseCase[];
+  /** NiCE product catalogue (Product alignment filter + quick view section). */
+  niceProducts?: NiceProduct[];
   /** Admin-managed outcome product / type lists for the project form's outcome dropdowns. */
   outcomeProducts?: string[];
   outcomeTypes?: string[];
@@ -129,6 +133,7 @@ export function WorkInProgressView({
   templates,
   groups,
   useCases,
+  niceProducts = [],
   outcomeProducts = [],
   outcomeTypes = [],
   quadrantLabels,
@@ -454,6 +459,9 @@ export function WorkInProgressView({
       ) {
         return false;
       }
+      if (!matchesProductFilter(p.nice_product_ids, filters.nice_product)) {
+        return false;
+      }
       if (filters.program.length && !filters.program.includes(p.program)) {
         return false;
       }
@@ -690,6 +698,7 @@ export function WorkInProgressView({
         statusOptions={enumOptions.status}
         priorityOptions={enumOptions.priority}
         customFields={customFields}
+        niceProducts={niceProducts}
         quadrantLabels={quadrantLabels}
       />
 
@@ -793,6 +802,8 @@ export function WorkInProgressView({
           useCasesForProject={
             useCasesByProject.get(quickViewProject.project_id) ?? []
           }
+          niceProducts={niceProducts}
+          onProjectUpdated={applyUpdatedProject}
           mentionableUsers={mentionableUsers}
           onClose={() => setQuickViewId(null)}
           onEdit={() => {

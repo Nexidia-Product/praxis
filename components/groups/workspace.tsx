@@ -19,7 +19,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-import type { Project, ProjectGroup, ProjectId } from "@/lib/db";
+import { ProductFilter } from "@/components/shared/product-filter";
+import type { NiceProduct, Project, ProjectGroup, ProjectId } from "@/lib/db";
+import { matchesProductFilter } from "@/lib/products/logic";
 import {
   HEALTH_BADGE,
   HEALTH_DOT,
@@ -31,6 +33,7 @@ interface Props {
   projects: Project[];
   userNamesById: Record<string, string>;
   canEdit: boolean;
+  niceProducts?: NiceProduct[];
 }
 
 // Member-detail column metadata. Centralized so the header and rows
@@ -50,6 +53,7 @@ export function GroupsWorkspace({
   projects,
   userNamesById,
   canEdit,
+  niceProducts = [],
 }: Props) {
   const [groups, setGroups] = useState<ProjectGroup[]>(initialGroups);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -462,6 +466,7 @@ export function GroupsWorkspace({
       {creating ? (
         <GroupFormModal
           projects={projects}
+          niceProducts={niceProducts}
           onClose={() => setCreating(false)}
           onSubmit={handleCreate}
         />
@@ -470,6 +475,7 @@ export function GroupsWorkspace({
         <GroupFormModal
           group={editing}
           projects={projects}
+          niceProducts={niceProducts}
           onClose={() => setEditing(null)}
           onSubmit={(payload) => handleUpdate(editing.group_id, payload)}
         />
@@ -491,6 +497,7 @@ interface FormPayload {
 interface GroupFormModalProps {
   group?: ProjectGroup;
   projects: Project[];
+  niceProducts: NiceProduct[];
   onClose: () => void;
   onSubmit: (payload: FormPayload) => Promise<void>;
 }
@@ -498,6 +505,7 @@ interface GroupFormModalProps {
 function GroupFormModal({
   group,
   projects,
+  niceProducts,
   onClose,
   onSubmit,
 }: GroupFormModalProps) {
@@ -507,6 +515,7 @@ function GroupFormModal({
     group?.member_project_ids ?? [],
   );
   const [pickerQuery, setPickerQuery] = useState("");
+  const [productFilter, setProductFilter] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -526,13 +535,14 @@ function GroupFormModal({
   // chip and clicking its ×.
   const candidateProjects = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
-    if (q === "") return sortedProjects;
     return sortedProjects.filter(
       (p) =>
-        p.project_id.toLowerCase().includes(q) ||
-        p.name.toLowerCase().includes(q),
+        matchesProductFilter(p.nice_product_ids, productFilter) &&
+        (q === "" ||
+          p.project_id.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q)),
     );
-  }, [sortedProjects, pickerQuery]);
+  }, [sortedProjects, pickerQuery, productFilter]);
 
   const memberIdSet = useMemo(() => new Set(memberIds), [memberIds]);
 
@@ -718,6 +728,13 @@ function GroupFormModal({
               placeholder="Filter list… (optional)"
               style={{ width: "100%", marginBottom: 6 }}
             />
+            <div style={{ marginBottom: 6 }}>
+              <ProductFilter
+                products={niceProducts}
+                selected={productFilter}
+                onChange={setProductFilter}
+              />
+            </div>
             {/* Full project list with checkboxes. Selected projects
                 show as checked here AND as chips above so removal can
                 happen from whichever surface is more convenient. The
@@ -745,7 +762,7 @@ function GroupFormModal({
                     fontStyle: "italic",
                   }}
                 >
-                  {pickerQuery.trim() !== ""
+                  {pickerQuery.trim() !== "" || productFilter.length > 0
                     ? "No projects match the filter."
                     : "No projects in the system yet."}
                 </div>

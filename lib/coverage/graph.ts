@@ -45,6 +45,7 @@
 
 import type { OutcomeDelivery, Project, ProjectId, UseCase } from "@/lib/db";
 import { EXEC_PILLARS, isExecCandidate, phaseOf } from "@/lib/executive/portfolio";
+import { matchesProductFilter } from "@/lib/products/logic";
 import { deliveryTargetIds } from "@/lib/projects/outcome-delivery";
 
 /**
@@ -229,12 +230,21 @@ export interface BuildCoverageInput {
   /** Every project (any program/status): delivery targets are resolved against all of them. */
   projects: Project[];
   useCases: UseCase[];
+  /**
+   * Product alignment filter (OR; empty = all). Applies to MEMBER projects
+   * (by the project's own `nice_product_ids`); use cases left with no member
+   * project are dropped so counts and gap flags stay coherent. Delivery
+   * projects are explicit links and are resolved regardless.
+   */
+  productFilter?: string[];
 }
 
 export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
   const byId = new Map<ProjectId, Project>(input.projects.map((p) => [p.project_id, p]));
+  const productFilter = input.productFilter ?? [];
   const isMember = (p: Project) =>
     isExecCandidate(p) &&
+    matchesProductFilter(p.nice_product_ids, productFilter) &&
     p.status !== "Canceled" &&
     !COVERAGE_EXCLUDED_TRACKS.has(p.track);
 
@@ -302,6 +312,14 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
     const useCases: CoverageUseCase[] = pillarUseCases
       .filter((u) => u.primary_objective === pillar)
       .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(
+        (u) =>
+          productFilter.length === 0 ||
+          u.member_project_ids.some((id) => {
+            const p = byId.get(id);
+            return p !== undefined && isMember(p);
+          }),
+      )
       .map((u) => {
         const projects: CoverageProject[] = [];
         const definedOutcomeIds = new Set((u.outcomes ?? []).map((o) => o.id));

@@ -15,7 +15,7 @@ import {
   requirePermission,
 } from "@/lib/auth/permissions";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
-import { ProjectRepository } from "@/lib/db";
+import { NiceProductRepository, ProjectRepository } from "@/lib/db";
 import { getAllowedPrograms, filterProjectsByProgram } from "@/lib/projects/visibility";
 import { PolarisShell, PolarisPageHeader } from "@/components/polaris/Shell";
 import { KeyFindingsView } from "@/components/insights/key-findings-view";
@@ -27,10 +27,11 @@ export default async function KeyFindingsPage() {
   const { permissions } = await getCurrentUserPermissions();
 
   const allowedPrograms = await getAllowedPrograms(session);
-  const projects = filterProjectsByProgram(
-    await ProjectRepository.getAll(),
-    allowedPrograms,
-  );
+  const [allProjects, niceProducts] = await Promise.all([
+    ProjectRepository.getAll(),
+    NiceProductRepository.getAll(),
+  ]);
+  const projects = filterProjectsByProgram(allProjects, allowedPrograms);
   // Stable seed order (YYYY-NNN); the picker re-sorts by name itself.
   projects.sort((a, b) => (a.project_id < b.project_id ? -1 : 1));
 
@@ -45,7 +46,11 @@ export default async function KeyFindingsPage() {
         title="Key findings"
         subtitle="Review the latest key finding recorded on each task in a project."
       />
-      <KeyFindingsView projects={projects} aiEnabled={isAiEnabled()} />
+      <KeyFindingsView
+        projects={projects}
+        niceProducts={niceProducts}
+        aiEnabled={isAiEnabled()}
+      />
     </PolarisShell>
   );
 }

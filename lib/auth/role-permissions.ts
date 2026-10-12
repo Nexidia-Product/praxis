@@ -81,7 +81,8 @@ export type PermissionKey =
   | "admin.ai.manage"
   | "admin.notifications.run_sweep"
   | "admin.audit_log.view"
-  | "usecases.manage";
+  | "usecases.manage"
+  | "products.manage";
 
 // ---------------------------------------------------------------------------
 // Catalog entries — the read-only metadata for each permission
@@ -331,6 +332,13 @@ export const PERMISSION_CATALOG: ReadonlyArray<PermissionDefinition> = [
     label: "Manage use cases",
     description:
       "Create, edit, and delete top-level use cases, including their objectives and associated projects. Admin-only by default.",
+    category: "Administration",
+  },
+  {
+    key: "products.manage",
+    label: "Manage NiCE products",
+    description:
+      "Add, rename, and deprecate the NiCE products that use cases and projects align to. Admin-only by default.",
     category: "Administration",
   },
 ] as const;

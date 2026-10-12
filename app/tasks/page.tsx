@@ -15,6 +15,7 @@ import {
   requirePermission,
 } from "@/lib/auth/permissions";
 import {
+  NiceProductRepository,
   ProjectRepository,
   TaskRepository,
   TemplateRepository,
@@ -41,12 +42,14 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const projectFilter =
     typeof params.project === "string" ? params.project : null;
 
-  const [allTasks, allProjects, templates, users] = await Promise.all([
-    TaskRepository.getAll(),
-    ProjectRepository.getAll(),
-    TemplateRepository.getAll(),
-    UserRepository.getAll(),
-  ]);
+  const [allTasks, allProjects, templates, users, niceProducts] =
+    await Promise.all([
+      TaskRepository.getAll(),
+      ProjectRepository.getAll(),
+      TemplateRepository.getAll(),
+      UserRepository.getAll(),
+      NiceProductRepository.getAll(),
+    ]);
 
   const allowedPrograms = await getAllowedPrograms(session);
   const projects = filterProjectsByProgram(allProjects, allowedPrograms);
@@ -86,6 +89,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         initialTasks={tasks}
         projects={projects}
         templates={templates}
+        niceProducts={niceProducts}
         currentUserRole={session.user.role}
         currentUserId={session.user.user_id}
         permissions={permissions}

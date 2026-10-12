@@ -11,6 +11,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { ProductFilter } from "@/components/shared/product-filter";
+import type { NiceProduct } from "@/lib/db";
 import {
   PORTFOLIO_PROJECT_TYPES,
   PRIORITIES,
@@ -41,6 +43,8 @@ interface RoadmapFilterBarProps {
   /** Optional: render a checkbox to include closed projects. Default off. */
   includeClosed?: boolean;
   onIncludeClosedChange?: (next: boolean) => void;
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
 }
 
 export function RoadmapFilterBar({
@@ -53,6 +57,7 @@ export function RoadmapFilterBar({
   stageOptions,
   includeClosed,
   onIncludeClosedChange,
+  niceProducts = [],
 }: RoadmapFilterBarProps) {
   const set = <K extends keyof RoadmapFilters>(
     key: K,
@@ -68,6 +73,7 @@ export function RoadmapFilterBar({
     filters.project_lead.length +
     filters.application_product.length +
     filters.program.length +
+    filters.nice_product_ids.length +
     (filters.search ? 1 : 0);
 
   return (
@@ -133,6 +139,11 @@ export function RoadmapFilterBar({
           onChange={(v) => set("program", v)}
         />
       )}
+      <ProductFilter
+        products={niceProducts}
+        selected={filters.nice_product_ids}
+        onChange={(v) => set("nice_product_ids", v)}
+      />
       {includeClosed !== undefined && onIncludeClosedChange && (
         <label className="ml-auto flex items-center gap-1.5 text-xs text-gray-700">
           <input
@@ -157,6 +168,7 @@ export function RoadmapFilterBar({
               project_lead: [],
               application_product: [],
               program: [],
+              nice_product_ids: [],
               search: "",
             })
           }

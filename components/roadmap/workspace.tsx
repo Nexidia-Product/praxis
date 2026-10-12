@@ -49,6 +49,7 @@ import type { RoadmapView } from "@/lib/roadmap/views";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
+  NiceProduct,
   PortfolioQuadrantLabels,
   Project,
   ProjectStatus,
@@ -128,6 +129,8 @@ interface RoadmapWorkspaceProps {
    * that don't pass it (e.g. tests).
    */
   defaultProgram?: string;
+  /** NiCE products for the Product alignment filter and the quick view. */
+  niceProducts?: NiceProduct[];
 }
 
 export function RoadmapWorkspace({
@@ -146,6 +149,7 @@ export function RoadmapWorkspace({
   activeUserNames = [],
   mentionableUsers = [],
   defaultProgram = "Innovation",
+  niceProducts = [],
 }: RoadmapWorkspaceProps) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   // Project being edited. When non-null, ProjectFormModal is mounted
@@ -276,6 +280,20 @@ export function RoadmapWorkspace({
       includeClosed: showClosed,
     });
   }, [projects, filters, includeClosed, view]);
+
+  // project_id -> use cases it belongs to (for the quick view's product
+  // alignment, which picks from the use case's products).
+  const useCasesByProject = useMemo(() => {
+    const m = new Map<string, UseCase[]>();
+    for (const u of useCases ?? []) {
+      for (const pid of u.member_project_ids) {
+        const list = m.get(pid) ?? [];
+        list.push(u);
+        m.set(pid, list);
+      }
+    }
+    return m;
+  }, [useCases]);
 
   // ---- Mutations. ----------------------------------------------------
 
@@ -424,6 +442,7 @@ export function RoadmapWorkspace({
         programOptions={programOptions}
         trackOptions={trackOptions}
         stageOptions={stageOptions}
+        niceProducts={niceProducts}
         includeClosed={showIncludeClosed ? includeClosed : undefined}
         onIncludeClosedChange={
           showIncludeClosed ? setIncludeClosed : undefined
@@ -497,6 +516,11 @@ export function RoadmapWorkspace({
           // hidden by the active filter.
           allProjects={projects}
           mentionableUsers={mentionableUsers}
+          niceProducts={niceProducts}
+          useCasesForProject={
+            useCasesByProject.get(quickViewProject.project_id) ?? []
+          }
+          onProjectUpdated={applyUpdated}
           onClose={() => setQuickViewId(null)}
           // Edit pops the standard project form modal (same component
           // the Projects page uses). We close the quick view first so

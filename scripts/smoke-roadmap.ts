@@ -115,6 +115,7 @@ async function main() {
       custom_fields: {},
       outcomes: [],
       use_case_outcome_ids: [],
+      nice_product_ids: [],
       created_by: "alex",
       updated_at: "2026-01-15T00:00:00Z",
     };

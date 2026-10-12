@@ -34,7 +34,7 @@ import {
   TaskThroughputChart,
 } from "@/components/velocity/charts";
 import { VelocityFilterBar } from "@/components/velocity/filter-bar";
-import type { UserId, UserRole } from "@/lib/db";
+import type { NiceProduct, UserId, UserRole } from "@/lib/db";
 import type {
   VelocityFilters,
   VelocityMetrics,
@@ -46,6 +46,8 @@ interface VelocityDashboardProps {
   /** Current user's resolved default program (see `getDefaultProgram` in
    *  `lib/projects/visibility.ts`). Defaults to "Innovation". */
   defaultProgram?: string;
+  /** NiCE products for the "Product alignment" filter. */
+  niceProducts?: NiceProduct[];
 }
 
 function buildDefaultFilters(defaultProgram: string): VelocityFilters {
@@ -55,6 +57,7 @@ function buildDefaultFilters(defaultProgram: string): VelocityFilters {
     application_products: [],
     programs: [defaultProgram],
     project_leads: [],
+    nice_product_ids: [],
     individual_user_id: null,
   };
 }
@@ -63,6 +66,7 @@ export function VelocityDashboard({
   currentUserId,
   currentUserRole,
   defaultProgram = "Innovation",
+  niceProducts = [],
 }: VelocityDashboardProps) {
   const [filters, setFilters] = useState<VelocityFilters>(() =>
     buildDefaultFilters(defaultProgram),
@@ -99,6 +103,9 @@ export function VelocityDashboard({
     }
     if (filters.project_leads.length > 0) {
       params.set("leads", filters.project_leads.join(","));
+    }
+    if (filters.nice_product_ids && filters.nice_product_ids.length > 0) {
+      params.set("product", filters.nice_product_ids.join(","));
     }
     if (filters.individual_user_id) {
       params.set("individual", filters.individual_user_id);
@@ -162,6 +169,7 @@ export function VelocityDashboard({
           programs: metrics?.filter_options.programs ?? [],
           project_leads: metrics?.filter_options.project_leads ?? [],
         }}
+        niceProducts={niceProducts}
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
         customStart={customStart}
