@@ -68,6 +68,7 @@ export default async function ProgramCoveragePage({ searchParams }: PageProps) {
         graph={graph}
         selection={selection}
         products={productFilter}
+        niceProducts={niceProducts}
       />
     </PolarisShell>
   );

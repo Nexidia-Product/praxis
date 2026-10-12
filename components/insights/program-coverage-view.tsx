@@ -10,6 +10,7 @@
 
 import Link from "next/link";
 
+import type { NiceProduct } from "@/lib/db";
 import type {
   BucketCounts,
   CoverageOutcome,
@@ -78,31 +79,39 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** product_id -> product, for naming the aligned products at every level. */
+type ProductLookup = ReadonlyMap<string, NiceProduct>;
+
 export function ProgramCoverageView({
   graph,
   selection,
   products = [],
+  niceProducts = [],
 }: {
   graph: CoverageGraph;
   selection: CoverageSelection;
   /** Active product filter, carried through drill-down links. */
   products?: string[];
+  /** The NiCE product catalogue, to name product alignments. */
+  niceProducts?: NiceProduct[];
 }) {
+  const lookup: ProductLookup = new Map(niceProducts.map((p) => [p.product_id, p]));
   const href = (pillar?: string, useCaseId?: string) =>
     coverageHref(pillar, useCaseId, products);
   return (
     <div className="pc-root space-y-5">
       <style>{CSS}</style>
 
-      {selection.level === 1 ? <PillarsLevel graph={graph} href={href} /> : null}
+      {selection.level === 1 ? <PillarsLevel graph={graph} href={href} lookup={lookup} /> : null}
       {selection.level === 2 ? (
-        <UseCasesLevel pillar={selection.pillar} href={href} />
+        <UseCasesLevel pillar={selection.pillar} href={href} lookup={lookup} />
       ) : null}
       {selection.level === 3 ? (
         <UseCaseLevel
           pillar={selection.pillar.pillar}
           useCase={selection.useCase}
           href={href}
+          lookup={lookup}
         />
       ) : null}
 
@@ -130,7 +139,15 @@ export function ProgramCoverageView({
 
 type HrefFn = (pillar?: string, useCaseId?: string) => string;
 
-function PillarsLevel({ graph, href }: { graph: CoverageGraph; href: HrefFn }) {
+function PillarsLevel({
+  graph,
+  href,
+  lookup,
+}: {
+  graph: CoverageGraph;
+  href: HrefFn;
+  lookup: ProductLookup;
+}) {
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
       {graph.pillars.map((p) => (
@@ -150,6 +167,7 @@ function PillarsLevel({ graph, href }: { graph: CoverageGraph; href: HrefFn }) {
             <StatusBar counts={p.counts} />
           </div>
           <CountsLine counts={p.counts} />
+          <ProductLine ids={p.productIds} lookup={lookup} max={3} />
           {p.gapCount > 0 ? (
             <div className="mt-2">
               <Flag>{plural(p.gapCount, "outcome")} with no supporting project</Flag>
@@ -168,9 +186,11 @@ function PillarsLevel({ graph, href }: { graph: CoverageGraph; href: HrefFn }) {
 function UseCasesLevel({
   pillar,
   href,
+  lookup,
 }: {
   pillar: CoverageGraph["pillars"][number];
   href: HrefFn;
+  lookup: ProductLookup;
 }) {
   return (
     <section className="space-y-3">
@@ -181,6 +201,7 @@ function UseCasesLevel({
           <StatusBar counts={pillar.counts} />
           <CountsLine counts={pillar.counts} />
         </div>
+        <ProductLine ids={pillar.productIds} lookup={lookup} />
       </header>
 
       {pillar.useCases.length === 0 ? (
@@ -195,6 +216,7 @@ function UseCasesLevel({
                 <th className="px-4 py-2 font-semibold">Use case</th>
                 <th className="px-4 py-2 font-semibold">Projects</th>
                 <th className="px-4 py-2 font-semibold">Outcomes</th>
+                <th className="px-4 py-2 font-semibold">Products</th>
                 <th className="px-4 py-2 font-semibold">Needs attention</th>
               </tr>
             </thead>
@@ -240,6 +262,13 @@ function UseCasesLevel({
                     </div>
                   </td>
                   <td className="px-4 py-3">
+                    <ProductChips
+                      ids={u.productIds}
+                      lookup={lookup}
+                      dimmed={u.uncoveredProductIds}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
                     <AttentionFlags useCase={u} />
                   </td>
                 </tr>
@@ -264,6 +293,12 @@ function AttentionFlags({ useCase: u }: { useCase: CoverageUseCase }) {
   if (u.outcomes.length > 0 && u.unlinkedProjects.length > 0) {
     flags.push(`${plural(u.unlinkedProjects.length, "project")} not linked to an outcome`);
   }
+  if (u.projects.length > 0 && u.productIds.length === 0) {
+    flags.push("No NiCE products aligned");
+  }
+  if (u.productIds.length > 0 && u.uncoveredProductIds.length > 0) {
+    flags.push(`${plural(u.uncoveredProductIds.length, "product")} not selected on any project`);
+  }
   if (u.projectOutcomeGapCount > 0) {
     flags.push(`${plural(u.projectOutcomeGapCount, "project outcome")} without a delivery project`);
   }
@@ -285,10 +320,12 @@ function UseCaseLevel({
   pillar,
   useCase,
   href,
+  lookup,
 }: {
   pillar: string;
   useCase: CoverageUseCase;
   href: HrefFn;
+  lookup: ProductLookup;
 }) {
   const hasOutcomes = useCase.outcomes.length > 0;
   return (
@@ -308,6 +345,12 @@ function UseCaseLevel({
           <StatusBar counts={useCase.counts} />
           <CountsLine counts={useCase.counts} />
         </div>
+        <ProductLine
+          ids={useCase.productIds}
+          lookup={lookup}
+          dimmed={useCase.uncoveredProductIds}
+          note="Dashed products are not selected on any project yet."
+        />
         <div className="mt-2">
           <AttentionFlags useCase={useCase} />
         </div>
@@ -327,7 +370,7 @@ function UseCaseLevel({
       ) : (
         <ul className="space-y-3">
           {useCase.outcomes.map((o) => (
-            <UseCaseOutcomeCard key={o.id} outcome={o} />
+            <UseCaseOutcomeCard key={o.id} outcome={o} lookup={lookup} />
           ))}
         </ul>
       )}
@@ -344,7 +387,7 @@ function UseCaseLevel({
             </h3>
             <ul className="space-y-2">
               {useCase.unlinkedProjects.map((p) => (
-                <ProjectCard key={p.ref.project_id} project={p} />
+                <ProjectCard key={p.ref.project_id} project={p} lookup={lookup} />
               ))}
             </ul>
           </section>
@@ -356,7 +399,7 @@ function UseCaseLevel({
           </h3>
           <ul className="space-y-2">
             {useCase.projects.map((p) => (
-              <ProjectCard key={p.ref.project_id} project={p} />
+              <ProjectCard key={p.ref.project_id} project={p} lookup={lookup} />
             ))}
           </ul>
         </section>
@@ -365,7 +408,13 @@ function UseCaseLevel({
   );
 }
 
-function UseCaseOutcomeCard({ outcome }: { outcome: CoverageUseCaseOutcome }) {
+function UseCaseOutcomeCard({
+  outcome,
+  lookup,
+}: {
+  outcome: CoverageUseCaseOutcome;
+  lookup: ProductLookup;
+}) {
   return (
     <li className="rounded-md border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-100 px-4 py-3">
@@ -375,6 +424,11 @@ function UseCaseOutcomeCard({ outcome }: { outcome: CoverageUseCaseOutcome }) {
         {outcome.gap === "noSupport" ? <Flag>No project supports this yet</Flag> : null}
         <Chip bucket={outcome.bucket} />
       </div>
+      {outcome.productIds.length > 0 ? (
+        <div className="border-b border-gray-100 px-4 py-2">
+          <ProductChips ids={outcome.productIds} lookup={lookup} />
+        </div>
+      ) : null}
       {outcome.projects.length === 0 ? (
         <p className="px-4 py-3 text-sm italic text-gray-400">
           Choose this outcome on a project in the use case to align it here.
@@ -382,7 +436,7 @@ function UseCaseOutcomeCard({ outcome }: { outcome: CoverageUseCaseOutcome }) {
       ) : (
         <ul className="space-y-2 bg-gray-50/60 p-3">
           {outcome.projects.map((p) => (
-            <ProjectCard key={p.ref.project_id} project={p} />
+            <ProjectCard key={p.ref.project_id} project={p} lookup={lookup} />
           ))}
         </ul>
       )}
@@ -390,7 +444,13 @@ function UseCaseOutcomeCard({ outcome }: { outcome: CoverageUseCaseOutcome }) {
   );
 }
 
-function ProjectCard({ project }: { project: CoverageProject }) {
+function ProjectCard({
+  project,
+  lookup,
+}: {
+  project: CoverageProject;
+  lookup: ProductLookup;
+}) {
   const r = project.ref;
   return (
     <li className="rounded-md border border-gray-200 bg-white">
@@ -411,6 +471,14 @@ function ProjectCard({ project }: { project: CoverageProject }) {
             ? ` · supports ${project.supportedOutcomeIds.length} outcomes`
             : ""}
         </span>
+      </div>
+
+      <div className="px-4 pb-2.5">
+        {project.productIds.length > 0 ? (
+          <ProductChips ids={project.productIds} lookup={lookup} />
+        ) : (
+          <span className="text-xs italic text-gray-400">No product selected</span>
+        )}
       </div>
 
       {project.noOutcomes ? (
@@ -485,6 +553,83 @@ function OutcomeRow({ outcome: o }: { outcome: CoverageOutcome }) {
 // ---------------------------------------------------------------------------
 // Shared bits
 // ---------------------------------------------------------------------------
+
+/**
+ * Product tags. `dimmed` marks products offered by a use case that no
+ * project has picked yet (dashed outline). `max` collapses the rest into
+ * "+N more" for tight spots.
+ */
+function ProductChips({
+  ids,
+  lookup,
+  dimmed = [],
+  max,
+}: {
+  ids: readonly string[];
+  lookup: ProductLookup;
+  dimmed?: readonly string[];
+  max?: number;
+}) {
+  if (ids.length === 0) {
+    return <span className="text-xs text-gray-400">—</span>;
+  }
+  const items = ids
+    .map((id) => ({ id, p: lookup.get(id) }))
+    .sort((a, b) => (a.p?.name ?? a.id).localeCompare(b.p?.name ?? b.id));
+  const shown = max !== undefined ? items.slice(0, max) : items;
+  const hidden = items.length - shown.length;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map(({ id, p }) => {
+        const off = dimmed.includes(id);
+        const name = p ? `${p.name}${p.deprecated ? " (deprecated)" : ""}` : id;
+        return (
+          <span
+            key={id}
+            title={off ? `${name} — not selected on any project yet` : name}
+            className={`inline-block rounded px-1.5 py-0.5 text-[11px] ${
+              off
+                ? "border border-dashed border-gray-400 text-gray-500"
+                : "bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-200"
+            }`}
+          >
+            {name}
+          </span>
+        );
+      })}
+      {hidden > 0 ? (
+        <span className="text-[11px] text-gray-500">+{hidden} more</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Labelled product row for headers and cards. */
+function ProductLine({
+  ids,
+  lookup,
+  dimmed,
+  max,
+  note,
+}: {
+  ids: readonly string[];
+  lookup: ProductLookup;
+  dimmed?: readonly string[];
+  max?: number;
+  note?: string;
+}) {
+  return (
+    <div className="mt-2">
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+        NiCE products
+      </div>
+      <ProductChips ids={ids} lookup={lookup} dimmed={dimmed} max={max} />
+      {note && dimmed && dimmed.length > 0 ? (
+        <div className="mt-1 text-[11px] text-gray-400">{note}</div>
+      ) : null}
+    </div>
+  );
+}
 
 function BackLink({ href, label }: { href: string; label: string }) {
   return (
