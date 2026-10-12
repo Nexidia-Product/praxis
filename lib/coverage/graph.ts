@@ -119,6 +119,8 @@ export interface CoverageProject {
   noOutcomes: boolean;
   /** Ids of the use case outcomes this project supports (only ones the use case defines). */
   supportedOutcomeIds: string[];
+  /** NiCE products the project is aligned to (`NiceProduct.product_id`). */
+  productIds: string[];
 }
 
 /** An outcome defined on a use case, with the projects that support it. */
@@ -130,6 +132,8 @@ export interface CoverageUseCaseOutcome {
   gap: "noSupport" | null;
   /** Supporting member projects, in the use case's member order. */
   projects: CoverageProject[];
+  /** NiCE products its supporting projects are aligned to (union). */
+  productIds: string[];
 }
 
 export interface CoverageUseCase {
@@ -146,6 +150,12 @@ export interface CoverageUseCase {
   counts: BucketCounts;
   /** Use case outcomes with no supporting project. */
   gapCount: number;
+  /** NiCE products the use case is aligned to. */
+  productIds: string[];
+  /** Of those, the ones at least one member project has picked. */
+  coveredProductIds: string[];
+  /** Products the use case offers that no member project has picked yet. */
+  uncoveredProductIds: string[];
   /** Projects' own outcomes that are unplanned, canceled or missing a delivery project. */
   projectOutcomeGapCount: number;
   warnings: string[];
@@ -157,6 +167,8 @@ export interface CoveragePillar {
   counts: BucketCounts;
   projectCount: number;
   gapCount: number;
+  /** NiCE products any of its use cases align to (union). */
+  productIds: string[];
 }
 
 export interface CoverageGraph {
@@ -189,6 +201,12 @@ export function rollupBuckets(buckets: OutcomeBucket[]): OutcomeBucket {
   if (buckets.every((b) => b === "delivered")) return "delivered";
   if (buckets.every((b) => b === "notStarted")) return "notStarted";
   return "inProgress";
+}
+
+function unionIds(lists: ReadonlyArray<readonly string[]>): string[] {
+  const out = new Set<string>();
+  for (const l of lists) for (const id of l) out.add(id);
+  return [...out];
 }
 
 function sumCounts(list: BucketCounts[]): BucketCounts {
@@ -351,6 +369,7 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
             supportedOutcomeIds: (p.use_case_outcome_ids ?? []).filter((oid) =>
               definedOutcomeIds.has(oid),
             ),
+            productIds: p.nice_product_ids ?? [],
           });
         }
 
@@ -363,6 +382,7 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
             bucket: rollupBuckets(supporters.map((p) => p.bucket)),
             gap: supporters.length === 0 ? "noSupport" : null,
             projects: supporters,
+            productIds: unionIds(supporters.map((p) => p.productIds)),
           };
         });
         const ucCounts = emptyCounts();
@@ -384,6 +404,9 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
           }
         }
 
+        const productIds = u.nice_product_ids ?? [];
+        const picked = new Set(projects.flatMap((p) => p.productIds));
+
         return {
           use_case_id: u.use_case_id,
           name: u.name,
@@ -393,6 +416,9 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
           unlinkedProjects: projects.filter((p) => p.supportedOutcomeIds.length === 0),
           counts: ucCounts,
           gapCount: ucOutcomes.filter((o) => o.gap !== null).length,
+          productIds,
+          coveredProductIds: productIds.filter((id) => picked.has(id)),
+          uncoveredProductIds: productIds.filter((id) => !picked.has(id)),
           projectOutcomeGapCount: projects.reduce(
             (n, p) => n + p.outcomes.filter((o) => o.gap !== null).length,
             0,
@@ -407,6 +433,7 @@ export function buildCoverageGraph(input: BuildCoverageInput): CoverageGraph {
       counts: sumCounts(useCases.map((u) => u.counts)),
       projectCount: useCases.reduce((n, u) => n + u.projects.length, 0),
       gapCount: useCases.reduce((n, u) => n + u.gapCount, 0),
+      productIds: unionIds(useCases.map((u) => u.productIds)),
     };
   });
 

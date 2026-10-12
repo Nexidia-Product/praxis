@@ -347,4 +347,35 @@ assert.equal(
   "/insights/program-coverage?pillar=Customer+Experience&useCase=uc-1",
 );
 
+// ---- product alignment at each level ----
+{
+  const pg = buildCoverageGraph({
+    projects: [
+      mk({ project_id: "2026-901", nice_product_ids: ["p-a"], use_case_outcome_ids: ["o1"] }),
+      mk({ project_id: "2026-902", nice_product_ids: ["p-a", "p-b"], use_case_outcome_ids: ["o2"] }),
+      mk({ project_id: "2026-903", nice_product_ids: [] }),
+    ],
+    useCases: [
+      uc({
+        use_case_id: "uc-p",
+        member_project_ids: ["2026-901", "2026-902", "2026-903"],
+        nice_product_ids: ["p-a", "p-b", "p-c"],
+        outcomes: [
+          { id: "o1", text: "One" },
+          { id: "o2", text: "Two" },
+        ],
+      }),
+    ],
+  });
+  const p0 = pg.pillars[0];
+  const puc = p0.useCases[0];
+  assert.deepEqual(puc.productIds, ["p-a", "p-b", "p-c"]);
+  assert.deepEqual(puc.coveredProductIds, ["p-a", "p-b"]);
+  assert.deepEqual(puc.uncoveredProductIds, ["p-c"], "offered by the use case, picked by no project");
+  assert.deepEqual(p0.productIds, ["p-a", "p-b", "p-c"]);
+  assert.deepEqual(puc.projects.map((p) => p.productIds), [["p-a"], ["p-a", "p-b"], []]);
+  assert.deepEqual(puc.outcomes[0].productIds, ["p-a"]);
+  assert.deepEqual(puc.outcomes[1].productIds, ["p-a", "p-b"]);
+}
+
 console.log("smoke-coverage: all assertions passed");
