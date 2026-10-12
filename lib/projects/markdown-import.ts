@@ -29,6 +29,8 @@ const KNOWN_HEADINGS = new Set([
   "Definition of Done",
   "Supports",
   "Benefits",
+  "Use Case Outcomes",
+  "Product Alignment",
   "Dependencies",
   "Outcomes",
 ]);
@@ -123,6 +125,10 @@ function parseOutcomes(body: string, vocab: OutcomeVocabulary, warnings: string[
     const bullet = /^[-*]\s+(.*)$/.exec(rawLine);
     if (bullet) {
       bullets.push(bullet[1].trim());
+    } else if (/^[ \t]+Delivery:/.test(rawLine)) {
+      // Delivery link line the exporter writes under each outcome; the
+      // existing link is kept as-is (see buildImportPayload), so skip it.
+      continue;
     } else if (/^\s+\S/.test(rawLine) && bullets.length > 0) {
       bullets[bullets.length - 1] += ` ${rawLine.trim()}`;
     } else {

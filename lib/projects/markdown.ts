@@ -31,6 +31,10 @@
  *     Primary/Secondary Objective, Use Case, Key Capability) are appended
  *     as extra Overview lines; existing labels and their order are
  *     unchanged so tooling that looks fields up by label keeps working.
+ *   - "Use Case Outcomes" and "Product Alignment" sections follow Benefits;
+ *     each Outcomes bullet is followed by an indented "Delivery:" line
+ *     saying whether it is delivered in this project, a related project, or
+ *     not yet planned. The importer ignores all three.
  *   - The template's "Tasks" and "Change Log" sections are intentionally
  *     omitted — both would have been placeholders (no real task-per-
  *     project numbering or change tracking exists yet), and product
@@ -38,7 +42,7 @@
  */
 
 import { addBusinessDays, subtractBusinessDays } from "./milestones";
-import type { Project, ProjectId, UseCase } from "@/lib/db";
+import type { NiceProduct, OutcomeDelivery, Project, ProjectId, UseCase } from "@/lib/db";
 
 /**
  * Current UTC date as `YYYY-MM-DD`. Inlined rather than imported from
@@ -49,6 +53,18 @@ import type { Project, ProjectId, UseCase } from "@/lib/db";
  */
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function deliveryLabel(
+  delivery: OutcomeDelivery | null | undefined,
+  projectsById: Map<ProjectId, Project>,
+): string {
+  if (!delivery) return "Not yet planned";
+  if (delivery.kind === "self") return "Delivered in this project";
+  const target = projectsById.get(delivery.project_id);
+  return `Delivered in related project: ${
+    target ? `${target.name} (${target.project_id})` : delivery.project_id
+  }`;
 }
 
 function line(label: string, value: string | null | undefined): string {
@@ -168,11 +184,31 @@ const MILESTONE_LABELS: Record<keyof ExportMilestones, string> = {
   application_deployment: "Application Deployment",
 };
 
+function useCaseOutcomeLines(project: Project, useCases: UseCase[]): string[] {
+  const byId = new Map(useCases.flatMap((u) => u.outcomes ?? []).map((o) => [o.id, o]));
+  const picked = (project.use_case_outcome_ids ?? [])
+    .map((id) => byId.get(id))
+    .filter((o): o is NonNullable<typeof o> => !!o);
+  if (picked.length === 0) return ["_None recorded._"];
+  return picked.map((o) => `- ${o.text}`);
+}
+
+function productAlignmentLines(project: Project, products: NiceProduct[]): string[] {
+  const byId = new Map(products.map((p) => [p.product_id, p]));
+  const picked = (project.nice_product_ids ?? [])
+    .map((id) => byId.get(id))
+    .filter((p): p is NiceProduct => !!p);
+  if (picked.length === 0) return ["_None recorded._"];
+  return picked.map((p) => `- ${p.name}${p.deprecated ? " (deprecated)" : ""}`);
+}
+
 export function buildProjectMarkdown(
   project: Project,
   allProjects: Project[] = [],
   /** Use cases this project belongs to (read-only; normally at most one). */
   useCases: UseCase[] = [],
+  /** NiCE product catalogue, to name the project's product alignments. */
+  products: NiceProduct[] = [],
 ): string {
   const milestones = computeExportMilestones(project);
   const projectsById = new Map<ProjectId, Project>(
@@ -231,6 +267,14 @@ export function buildProjectMarkdown(
     "",
     project.benefits?.trim() || "_None recorded._",
     "",
+    "## Use Case Outcomes",
+    "",
+    ...useCaseOutcomeLines(project, useCases),
+    "",
+    "## Product Alignment",
+    "",
+    ...productAlignmentLines(project, products),
+    "",
     "## Dependencies",
     "",
   ];
@@ -270,6 +314,7 @@ export function buildProjectMarkdown(
       const tags = [outcome.product, outcome.type].filter(Boolean);
       lines.push(
         `- ${outcome.text}${tags.length ? ` (${tags.join(", ")})` : ""}`,
+        `  Delivery: ${deliveryLabel(outcome.delivery, projectsById)}`,
       );
     }
   }
