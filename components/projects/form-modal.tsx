@@ -1287,6 +1287,17 @@ export function ProjectFormModal({
                 // reason as the start input above.
                 min={state.start_date || undefined}
               />
+              <ClearDateButton
+                label="Clear Target Application Deployment Date"
+                hasValue={!!state.target_date}
+                disabled={saving}
+                onClear={() => update("target_date", "")}
+              />
+              {state.target_date ? null : (
+                <p className="mt-1 text-xs text-gray-500">
+                  No date set — the project is not in any Application Release.
+                </p>
+              )}
             </Field>
 
             <Field
@@ -1302,6 +1313,12 @@ export function ProjectFormModal({
                 }
                 disabled={saving}
                 className={baseInput}
+              />
+              <ClearDateButton
+                label="Clear Target Executable Deployment Date"
+                hasValue={!!state.target_executable_deployment_date}
+                disabled={saving}
+                onClear={() => update("target_executable_deployment_date", "")}
               />
               <p className="mt-1 text-xs text-gray-500">
                 Must fall on a Friday; should be at least a business week
@@ -1597,6 +1614,32 @@ function ProjectMilestonesPreview({
         )}
       </dl>
     </div>
+  );
+}
+
+/** Small "Clear" link under a date input; renders only while a date is set. */
+function ClearDateButton({
+  label,
+  hasValue,
+  disabled,
+  onClear,
+}: {
+  label: string;
+  hasValue: boolean;
+  disabled?: boolean;
+  onClear: () => void;
+}) {
+  if (!hasValue) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      disabled={disabled}
+      aria-label={label}
+      className="mt-1 text-xs text-blue-700 hover:underline disabled:opacity-50"
+    >
+      Clear date
+    </button>
   );
 }
 

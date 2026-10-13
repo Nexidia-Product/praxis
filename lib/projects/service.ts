@@ -82,7 +82,7 @@ import { todayIso } from "@/lib/db/store";
 import { isAiEnabled } from "@/lib/ai/feature-flag";
 import { estimateComplexity as runAiEstimate } from "@/lib/ai/estimate";
 import { isFriday, subtractBusinessDays } from "@/lib/projects/milestones";
-import { rescheduleProjectTasks } from "@/lib/tasks/service";
+import { rescheduleProjectTasks, unlinkDrivenProjectDate } from "@/lib/tasks/service";
 
 /**
  * Minimum business-day gap required between the two deployment dates —
@@ -1604,6 +1604,21 @@ export async function updateProject(
   }
 
   const updated = await ProjectRepository.update(id, patch);
+
+  // Clearing a deployment date must stick: a task that drives the field
+  // would write its due date straight back on the next reschedule, so
+  // unlink it. (Clearing Target Application Deployment Date also takes the
+  // project out of its Application Release, which is just that date.)
+  for (const field of [
+    "target_date",
+    "target_executable_deployment_date",
+  ] as const) {
+    if (patch[field] === null && existing[field] !== null) {
+      await unlinkDrivenProjectDate(id, field).catch((err) => {
+        console.warn(`[projects] unlink of ${field} driver tasks failed for ${id}:`, err);
+      });
+    }
+  }
 
   // The schedule is anchored at the project's start date — recompute
   // every task's due date (lib/tasks/schedule.ts) whenever it moves,
