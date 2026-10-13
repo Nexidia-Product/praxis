@@ -49,6 +49,7 @@ import {
 } from "@/lib/tasks/display";
 import { customFieldMatches } from "@/lib/projects/custom-filter";
 import { computePortfolioPosition } from "@/lib/projects/portfolio-position";
+import { daysInStage, formatDaysInStage } from "@/lib/projects/stage-age";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
@@ -596,7 +597,12 @@ export function WorkInProgressView({
     if (project[field] === value) return;
     setGlobalError(null);
     const prev = projects;
-    applyUpdatedProject({ ...project, [field]: value } as Project);
+    applyUpdatedProject({
+      ...project,
+      [field]: value,
+      // A stage change restarts "days in stage"; the server's copy replaces this.
+      ...(field === "stage" ? { stage_entered_at: new Date().toISOString() } : {}),
+    } as Project);
     const res = await fetch(`/api/projects/${project.project_id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -987,6 +993,14 @@ function ProjectWipCard({
 
         <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-gray-500">
           <span>{project.status}</span>
+          <span title="Current stage and how long the project has been in it">
+            Stage: {project.stage || "—"}
+            <span suppressHydrationWarning>
+              {formatDaysInStage(daysInStage(project))
+                ? ` · ${formatDaysInStage(daysInStage(project))}`
+                : ""}
+            </span>
+          </span>
           <span>Lead: {project.project_lead || "—"}</span>
           <span>Target: {project.target_date || "—"}</span>
           <span>Tasks: {totalTasks}</span>
