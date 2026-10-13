@@ -104,10 +104,18 @@ assert.deepEqual(
     "Track A - Dashboard/visualization",
     "Track B - Cognigy bot inputs",
     "Track D - UI/Application",
+    "Track F - Complaints",
+    "Track G - Other",
+    "Track H - Services Validation",
     "Track I - Coaching Plan",
   ],
   "which tracks currently define stages",
 );
+
+// Tracks F, G and H: one stage between Prioritization and Productization.
+assert.deepEqual(stagesForTrack("Track F - Complaints"), ["Qualification", "Prioritization", "Development", "Productization"]);
+assert.deepEqual(stagesForTrack("Track G - Other"), ["Qualification", "Prioritization", "Development", "Productization"]);
+assert.deepEqual(stagesForTrack("Track H - Services Validation"), ["Qualification", "Prioritization", "Validation", "Productization"]);
 
 // A track with stages after Productization.
 const withPost = [
