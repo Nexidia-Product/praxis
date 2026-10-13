@@ -219,8 +219,11 @@ export interface TaskThroughputMetric {
 /** Per-stage average duration. */
 export interface StageCycleTimeBar {
   stage: string;
+  /** Average days open projects have been in this stage so far. */
   avg_days: number;
   sample_size: number;
+  /** Longest current stay in this stage, in days. */
+  max_days: number;
 }
 
 export interface StageCycleTimeMetric {
@@ -245,8 +248,56 @@ export interface BlockedTimeBar {
 export interface BlockedTimeMetric {
   bars: BlockedTimeBar[];
   total_blocked_days: number;
+  /** Blocked stretches overlapping the range. */
+  episode_count: number;
+  /** Average length of finished stretches; null when none have finished. */
+  avg_episode_days: number | null;
+  /** Projects in Blocked status right now (ignores the range). */
+  currently_blocked: number;
   data_quality: DataQuality;
   note: string;
+}
+
+/** Open post-release projects sitting in one stage. */
+export interface PostReleaseStageBar {
+  stage: string;
+  count: number;
+  avg_days_in_stage: number | null;
+  avg_days_since_delivery: number | null;
+}
+
+export interface PostReleaseMetric {
+  /** Projects at/after Productization with a still-open status (snapshot). */
+  open_count: number;
+  stages: PostReleaseStageBar[];
+  avg_days_since_delivery: number | null;
+  /** Open project that shipped longest ago. */
+  oldest: { project_id: string; project_name: string; days: number } | null;
+  /** Delivered projects marked Completed within the range. */
+  closed_count: number;
+  /** Average days from reaching Productization to Completed. */
+  avg_days_to_close: number | null;
+  data_quality: DataQuality;
+  note: string;
+}
+
+export interface OnTimeDeliveryMetric {
+  /** Delivered in range with an Application Release target date. */
+  with_target: number;
+  on_time: number;
+  late: number;
+  /** Delivered in range but no target date to compare with. */
+  no_target: number;
+  /** 0–100; 0 when nothing had a target. */
+  on_time_rate: number;
+  /** Signed mean of (delivered − target) in days; positive = late. */
+  mean_delta_days: number;
+  /** Average days late across the late projects; null when none. */
+  avg_days_late: number | null;
+  /** Open, unshipped projects whose target date has passed. */
+  overdue_open: number;
+  by_quarter: { quarter: string; on_time: number; late: number }[];
+  data_quality: DataQuality;
 }
 
 export interface IdeaConversionMetric {
@@ -277,6 +328,8 @@ export interface VelocityMetrics {
   task_throughput: TaskThroughputMetric;
   stage_cycle_time: StageCycleTimeMetric;
   blocked_time: BlockedTimeMetric;
+  post_release: PostReleaseMetric;
+  on_time_delivery: OnTimeDeliveryMetric;
   idea_conversion: IdeaConversionMetric;
 
   /**

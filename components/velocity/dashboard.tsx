@@ -30,6 +30,8 @@ import {
   CompletedByQuarterChart,
   EstimatedVsActualChart,
   IdeaConversionChart,
+  OnTimeDeliveryChart,
+  PostReleaseChart,
   StageCycleTimeChart,
   TaskThroughputChart,
 } from "@/components/velocity/charts";
@@ -233,10 +235,12 @@ export function VelocityDashboard({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <CompletedByQuarterChart metric={metrics.completed_by_quarter} />
           <AvgTimeToCompletionChart metric={metrics.avg_time_to_completion} />
+          <OnTimeDeliveryChart metric={metrics.on_time_delivery} />
           <EstimatedVsActualChart metric={metrics.estimated_vs_actual} />
-          <TaskThroughputChart metric={metrics.task_throughput} />
+          <PostReleaseChart metric={metrics.post_release} />
           <StageCycleTimeChart metric={metrics.stage_cycle_time} />
           <BlockedTimeChart metric={metrics.blocked_time} />
+          <TaskThroughputChart metric={metrics.task_throughput} />
           <div className="lg:col-span-2">
             <IdeaConversionChart metric={metrics.idea_conversion} />
           </div>
