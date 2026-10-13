@@ -446,6 +446,12 @@ export interface Project {
   priority: Priority;
   status: ProjectStatus;
   stage: ProjectStage;
+  /**
+   * When the project entered its current stage — stamped by a database
+   * trigger whenever `stage` changes (migration 0042). Drives "days in
+   * stage". Absent until that migration is applied.
+   */
+  stage_entered_at?: IsoTimestamp;
   primary_stakeholders: string[];
   project_lead: UserId;
   /** Mix of UserIds and free-form names is permitted (Section 4.1). */
