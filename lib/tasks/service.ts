@@ -25,6 +25,7 @@ import {
   TemplateRepository,
   UserRepository,
   type CreateTaskInput,
+  type DrivenProjectDateField,
   type Priority,
   type ProjectId,
   type Task,
@@ -1403,6 +1404,31 @@ export async function rescheduleProjectTasks(
       }
     }
   }
+}
+
+/**
+ * Stop every task on a project from driving one of its deployment-date
+ * fields (`Task.drives_project_date`). Called when that date is cleared:
+ * the next reschedule would otherwise write the task's due date straight
+ * back onto the project and undo the clear. Returns how many tasks were
+ * unlinked. Best-effort per task.
+ */
+export async function unlinkDrivenProjectDate(
+  projectId: ProjectId,
+  field: DrivenProjectDateField,
+): Promise<number> {
+  const tasks = await TaskRepository.getByProjectId(projectId);
+  let unlinked = 0;
+  for (const t of tasks) {
+    if (t.drives_project_date !== field) continue;
+    try {
+      await TaskRepository.update(t.task_id, { drives_project_date: null });
+      unlinked += 1;
+    } catch (err) {
+      console.warn(`[tasks] could not unlink ${t.task_id} from ${field}:`, err);
+    }
+  }
+  return unlinked;
 }
 
 /**
