@@ -31,6 +31,7 @@
     "smoke:stages": "tsx scripts/smoke-stages.ts",
     "smoke:coverage": "tsx scripts/smoke-coverage.ts",
     "smoke:use-case-outcomes": "tsx scripts/smoke-use-case-outcomes.ts",
+    "smoke:post-deployment": "tsx scripts/smoke-post-deployment.ts",
     "smoke:stage-age": "tsx scripts/smoke-stage-age.ts",
     "smoke:products": "tsx scripts/smoke-products.ts",
     "smoke:outcome-values": "tsx scripts/smoke-outcome-values.ts",

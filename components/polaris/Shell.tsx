@@ -44,6 +44,7 @@ export type NavKey =
   | "velocity"
   | "resources"
   | "work-in-progress"
+  | "post-deployment"
   | "key-findings"
   | "key-capabilities"
   | "executive"
@@ -140,6 +141,13 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Work in progress",
         href: "/insights/work-in-progress",
         icon: "◐",
+        permission: "projects.view",
+      },
+      {
+        key: "post-deployment",
+        label: "Post-deployment",
+        href: "/insights/post-deployment",
+        icon: "◑",
         permission: "projects.view",
       },
       {
