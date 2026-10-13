@@ -43,8 +43,11 @@ import type {
 } from "@/lib/db";
 import {
   PORTFOLIO_PROJECT_TYPES,
+  hasReachedProductization,
   stagesForTrack,
 } from "@/lib/projects/display";
+import { isDeployed, isPostDeployment } from "@/lib/projects/post-deployment";
+import { daysInStage } from "@/lib/projects/stage-age";
 
 import type {
   AvgTimeByType,
@@ -56,6 +59,9 @@ import type {
   EstVsActualMetric,
   EstVsActualPoint,
   IdeaConversionMetric,
+  OnTimeDeliveryMetric,
+  PostReleaseMetric,
+  PostReleaseStageBar,
   StageCycleTimeMetric,
   QuarterBar,
   TaskThroughputMetric,
@@ -180,26 +186,51 @@ export function applyTaskFilters(
 // ---------------------------------------------------------------------------
 
 /**
- * Count projects whose status is `Completed` and whose `updated_at` —
- * our proxy for "completed at" — falls within the configured range.
- * Bucketed by the quarter that proxy date lands in.
+ * "Delivered" means the project reached Productization (or a later stage):
+ * the functionality has shipped. Post-release work (handover, services
+ * validation, adoption) can run for months afterwards, so status
+ * `Completed` is deliberately NOT the delivery signal.
  *
- * Why `updated_at` as the proxy: when a project transitions to
- * `Completed`, the project service writes the record, which sets
- * `updated_at`. Without a status-transition history this is the closest
- * timestamp the data offers; a project that's been Completed for months
- * but hasn't been touched will register on the date of its last edit,
- * which is the same convention used elsewhere in the app.
+ * Canceled projects are excluded: closing one out parks it at
+ * Productization (`closedOutStage`), which says nothing about shipping.
+ *
+ * Returns the date it shipped: `productization_reached_at` (migration
+ * 0043), falling back to `stage_entered_at` then `updated_at` for rows
+ * that predate it. Null when the project hasn't shipped.
+ */
+export function deliveredAt(p: Project): string | null {
+  if (p.status === "Canceled") return null;
+  if (!hasReachedProductization(p.track, p.stage)) return null;
+  return p.productization_reached_at ?? p.stage_entered_at ?? p.updated_at;
+}
+
+/** Projects that shipped inside the range, with their delivery date. */
+function deliveredInRange(
+  projects: Project[],
+  range: VelocityRange,
+): { project: Project; delivered_at: string }[] {
+  const out: { project: Project; delivered_at: string }[] = [];
+  for (const project of projects) {
+    const delivered_at = deliveredAt(project);
+    if (delivered_at && withinRange(delivered_at, range)) {
+      out.push({ project, delivered_at });
+    }
+  }
+  return out;
+}
+
+/**
+ * Count projects that reached Productization inside the configured range,
+ * bucketed by the quarter they got there (see `deliveredAt`).
  */
 export function computeCompletedByQuarter(
   projects: Project[],
   range: VelocityRange,
 ): CompletedByQuarterMetric {
-  const completed = projects.filter((p) => p.status === "Completed");
-  const inRange = completed.filter((p) => withinRange(p.updated_at, range));
+  const inRange = deliveredInRange(projects, range);
   const counts = new Map<string, number>();
-  for (const p of inRange) {
-    const q = quarterKey(p.updated_at);
+  for (const { delivered_at } of inRange) {
+    const q = quarterKey(delivered_at);
     counts.set(q, (counts.get(q) ?? 0) + 1);
   }
   // Fill in zero-bars for any quarter inside the range that had no
@@ -209,7 +240,7 @@ export function computeCompletedByQuarter(
   return {
     bars,
     total_completed: inRange.length,
-    data_quality: "proxy",
+    data_quality: "actual",
   };
 }
 
@@ -235,11 +266,9 @@ export function computeAvgTimeToCompletion(
   projects: Project[],
   range: VelocityRange,
 ): AvgTimeToCompletionMetric {
-  const completed = projects
-    .filter((p) => p.status === "Completed")
-    .filter((p) => withinRange(p.updated_at, range))
-    .map((p) => {
-      const lead_days = daysBetween(p.date_added, p.updated_at);
+  const completed = deliveredInRange(projects, range)
+    .map(({ project: p, delivered_at }) => {
+      const lead_days = daysBetween(p.date_added, delivered_at);
       // Cycle time is only meaningful when both endpoints exist and
       // the start is at or before the end. We *don't* fall back to
       // date_added for missing start_date — that would silently
@@ -247,10 +276,10 @@ export function computeAvgTimeToCompletion(
       // cycle-time data we have.
       const cycle_days =
         p.roadmap_timeline_start &&
-        p.roadmap_timeline_start <= p.updated_at.slice(0, 10)
-          ? daysBetween(p.roadmap_timeline_start, p.updated_at)
+        p.roadmap_timeline_start <= delivered_at.slice(0, 10)
+          ? daysBetween(p.roadmap_timeline_start, delivered_at)
           : null;
-      return { project: p, days: lead_days, cycle_days };
+      return { project: p, delivered_at, days: lead_days, cycle_days };
     })
     // Defensive guard — a hand-edited record could give a negative.
     .filter((row) => row.days >= 0);
@@ -298,7 +327,7 @@ export function computeAvgTimeToCompletion(
     { sum: number; n: number; cycleSum: number; cycleN: number }
   >();
   for (const row of completed) {
-    const q = quarterKey(row.project.updated_at);
+    const q = quarterKey(row.delivered_at);
     const acc = trendMap.get(q) ?? {
       sum: 0,
       n: 0,
@@ -353,7 +382,7 @@ export function computeAvgTimeToCompletion(
     sample_size,
     overall_avg_cycle_days,
     cycle_sample_size,
-    data_quality: sample_size === 0 ? "insufficient" : "proxy",
+    data_quality: sample_size === 0 ? "insufficient" : "actual",
   };
 }
 
@@ -373,15 +402,13 @@ export function computeEstimatedVsActual(
   projects: Project[],
   range: VelocityRange,
 ): EstVsActualMetric {
-  const completed = projects
-    .filter((p) => p.status === "Completed")
-    .filter((p) => withinRange(p.updated_at, range));
+  const delivered = deliveredInRange(projects, range);
 
   const points: EstVsActualPoint[] = [];
   let excluded = 0;
   let deltaSum = 0;
-  for (const p of completed) {
-    const actual_days = daysBetween(p.date_added, p.updated_at);
+  for (const { project: p, delivered_at } of delivered) {
+    const actual_days = daysBetween(p.date_added, delivered_at);
     if (actual_days < 0) {
       excluded++;
       continue;
@@ -409,7 +436,7 @@ export function computeEstimatedVsActual(
     sample_size: points.length,
     excluded_count: excluded,
     data_quality:
-      points.length === 0 ? "insufficient" : "proxy",
+      points.length === 0 ? "insufficient" : "actual",
   };
 }
 
@@ -494,65 +521,53 @@ export function computeTaskThroughput(
 }
 
 // ---------------------------------------------------------------------------
-// Metric: Stage Cycle Time
+// Metric: Time in current stage
 // ---------------------------------------------------------------------------
 
 /**
- * Average days per stage. Without a stage-transition log (Phase 2 work,
- * Section 8/10), we approximate using each project's *current* stage and
- * the time elapsed since `date_added`. This means:
+ * How long open projects have been sitting in their CURRENT stage, per
+ * stage. Uses `stage_entered_at` (stamped by a database trigger whenever
+ * the stage changes, migration 0042), so it is exact for the projects it
+ * covers. It's a snapshot of today, so the date range doesn't apply; the
+ * other filters (type, program, lead, product) still do.
  *
- *   - A project that's been in the same stage for 30 days contributes 30
- *     to that stage's bucket.
- *   - Projects on the final stage of their track will skew long; projects
- *     on Qualification will skew short; that's expected for a snapshot
- *     proxy.
- *   - The number stops being meaningful once status-transition history
- *     ships and replaces this implementation.
+ * Completed and Canceled projects are skipped (they're no longer moving).
+ * Projects past Productization are included: their post-release stages
+ * (handover, validation, adoption) are exactly where time pools up.
  *
- * Stages are track-scoped (`stagesForTrack`), so there's no single global
- * axis order like the old flat phase list had. The bars are ordered by
- * each track's own stage order (for every track actually present in
- * range), followed by any stray stored value that isn't part of any of
- * those tracks' lists (e.g. a legacy retired phase on an old project).
+ * This is time-so-far in the current stage, not completed-stage duration:
+ * a stage-history table would be needed to average finished stages.
  *
- * The metric reports `data_quality: "proxy"` and a note explaining the
- * limitation. The note flows into the chart card as a footnote.
+ * Bars follow each present track's own stage order (`stagesForTrack`),
+ * then any stray stored value not in those lists.
  */
 export function computeStageCycleTime(
   projects: Project[],
-  range: VelocityRange,
+  now: Date,
 ): StageCycleTimeMetric {
-  // Anchor on `updated_at` for the range filter so a stale project
-  // doesn't dominate when the user picks "last 30 days".
-  const inRange = projects.filter((p) => withinRange(p.updated_at, range));
+  const open = projects.filter(
+    (p) => p.status !== "Completed" && p.status !== "Canceled",
+  );
 
-  const buckets = new Map<string, { sum: number; n: number }>();
-  for (const p of inRange) {
-    const days = daysBetween(p.date_added, p.updated_at);
-    if (days < 0) continue;
-    const acc = buckets.get(p.stage) ?? { sum: 0, n: 0 };
+  const buckets = new Map<string, { sum: number; n: number; max: number }>();
+  const sampled: Project[] = [];
+  for (const p of open) {
+    const days = daysInStage(p, now);
+    if (days === null) continue;
+    sampled.push(p);
+    const acc = buckets.get(p.stage) ?? { sum: 0, n: 0, max: 0 };
     acc.sum += days;
     acc.n += 1;
+    acc.max = Math.max(acc.max, days);
     buckets.set(p.stage, acc);
   }
 
-  const tracksPresent = Array.from(new Set(inRange.map((p) => p.track)));
-  const orderedStages: string[] = [];
-  const seen = new Set<string>();
-  for (const t of tracksPresent) {
-    for (const s of stagesForTrack(t)) {
-      if (!seen.has(s)) {
-        seen.add(s);
-        orderedStages.push(s);
-      }
-    }
-  }
+  const orderedStages = orderStagesForTracks(
+    sampled.map((p) => p.track),
+    () => true,
+  );
   for (const s of buckets.keys()) {
-    if (!seen.has(s)) {
-      seen.add(s);
-      orderedStages.push(s);
-    }
+    if (!orderedStages.includes(s)) orderedStages.push(s);
   }
 
   const bars = orderedStages.map((stage) => {
@@ -561,51 +576,145 @@ export function computeStageCycleTime(
       stage,
       avg_days: acc && acc.n > 0 ? acc.sum / acc.n : 0,
       sample_size: acc?.n ?? 0,
+      max_days: acc?.max ?? 0,
     };
   });
 
   return {
     bars,
-    data_quality:
-      inRange.length === 0 ? "insufficient" : "proxy",
+    data_quality: sampled.length === 0 ? "insufficient" : "actual",
     note:
-      "Approximated from each project's current stage and time since creation. " +
-      "Becomes exact once status-transition history is persisted.",
+      "Snapshot of open projects: days since each entered its current stage " +
+      "(ignores the date range). Averages of finished stages need a stage-history table.",
   };
+}
+
+/**
+ * Stage names for the tracks present, in each track's own order, de-duped,
+ * keeping only stages `keep` accepts.
+ */
+function orderStagesForTracks(
+  tracks: string[],
+  keep: (track: string, stage: string) => boolean,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const t of new Set(tracks)) {
+    for (const s of stagesForTrack(t)) {
+      if (!seen.has(s) && keep(t, s)) {
+        seen.add(s);
+        out.push(s);
+      }
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
 // Metric: Blocked Time
 // ---------------------------------------------------------------------------
 
+interface BlockedEpisode {
+  project_id: string;
+  /** Inclusive start / exclusive end, as YYYY-MM-DD. */
+  start: string;
+  end: string;
+  ongoing: boolean;
+}
+
 /**
- * Total project-days spent in Blocked status, bucketed by quarter. With
- * no status history, "spent in Blocked" reduces to a one-day attribution
- * for any project whose current status is Blocked, anchored on the
- * project's `updated_at` quarter. The number tells you how many
- * blockages were live this quarter, not how long each one lasted.
+ * Blocked stretches reconstructed from a project's status history: an
+ * episode starts at the entry that moves it to Blocked and ends at the next
+ * entry that moves it elsewhere (or runs to today while it is still
+ * Blocked). Summary-only notes (status unchanged) are ignored.
+ */
+function blockedEpisodes(p: Project, now: Date): BlockedEpisode[] {
+  const hist = [...(p.status_history ?? [])].sort((a, b) =>
+    a.changed_at.localeCompare(b.changed_at),
+  );
+  const out: BlockedEpisode[] = [];
+  let start: string | null = null;
+  for (const h of hist) {
+    if (h.status === "Blocked") {
+      if (start === null) start = h.changed_at.slice(0, 10);
+    } else if (start !== null) {
+      out.push({
+        project_id: p.project_id,
+        start,
+        end: h.changed_at.slice(0, 10),
+        ongoing: false,
+      });
+      start = null;
+    }
+  }
+  if (start !== null && p.status === "Blocked") {
+    out.push({
+      project_id: p.project_id,
+      start,
+      end: isoDate(now),
+      ongoing: true,
+    });
+  }
+  return out;
+}
+
+/**
+ * Real days spent in Blocked status, from status history, bucketed by the
+ * quarter each blocked day falls in (an episode spanning quarters is split).
+ * Episodes are clipped to the date range. Also reports the episode count,
+ * the average length of finished episodes, and how many projects are blocked
+ * right now.
  *
- * As with `stage_cycle_time`, this is a placeholder that swaps to the
- * exact computation when history persistence ships.
+ * Blocked stretches that happened before status history was recorded can't
+ * be seen; a project that is Blocked with no matching history entry
+ * contributes nothing.
  */
 export function computeBlockedTime(
   projects: Project[],
   range: VelocityRange,
+  now: Date = new Date(),
 ): BlockedTimeMetric {
-  const blocked = projects
-    .filter((p) => p.status === "Blocked")
-    .filter((p) => withinRange(p.updated_at, range));
+  const daysByQ = new Map<string, number>();
+  const projectsByQ = new Map<string, Set<string>>();
+  let episodeCount = 0;
+  let finishedSum = 0;
+  let finishedN = 0;
 
-  const counts = new Map<string, number>();
-  for (const p of blocked) {
-    const q = quarterKey(p.updated_at);
-    counts.set(q, (counts.get(q) ?? 0) + 1);
+  for (const p of projects) {
+    for (const ep of blockedEpisodes(p, now)) {
+      const s = range.start && ep.start < range.start ? range.start : ep.start;
+      const e = ep.end > range.end ? range.end : ep.end;
+      if (e < s) continue;
+      // An episode that starts and ends on the same day still counts as an
+      // episode, just with zero full days.
+      episodeCount++;
+      if (!ep.ongoing) {
+        finishedSum += daysBetween(ep.start, ep.end);
+        finishedN++;
+      }
+      let cursor = s;
+      let safety = 0;
+      while (cursor < e && safety++ < 3660) {
+        const q = quarterKey(cursor);
+        daysByQ.set(q, (daysByQ.get(q) ?? 0) + 1);
+        cursor = isoDate(addDays(new Date(cursor + "T00:00:00Z"), 1));
+      }
+      const q0 = quarterKey(s);
+      const set = projectsByQ.get(q0) ?? new Set<string>();
+      set.add(ep.project_id);
+      projectsByQ.set(q0, set);
+    }
   }
-  const bars: BlockedTimeBar[] = expandQuartersInRange(range, counts).map(
+  // Make sure quarters that only have blocked days (not an episode start)
+  // still appear in the axis.
+  const axis = new Map<string, number>();
+  for (const q of daysByQ.keys()) axis.set(q, projectsByQ.get(q)?.size ?? 0);
+  for (const [q, set] of projectsByQ) axis.set(q, set.size);
+
+  const bars: BlockedTimeBar[] = expandQuartersInRange(range, axis).map(
     (bar) => ({
       quarter: bar.quarter,
-      // One day per blocked project as the proxy contribution.
-      days: bar.count,
+      days: daysByQ.get(bar.quarter) ?? 0,
       project_count: bar.count,
     }),
   );
@@ -613,11 +722,189 @@ export function computeBlockedTime(
   return {
     bars,
     total_blocked_days: bars.reduce((s, b) => s + b.days, 0),
-    data_quality:
-      blocked.length === 0 ? "insufficient" : "proxy",
+    episode_count: episodeCount,
+    avg_episode_days: finishedN === 0 ? null : finishedSum / finishedN,
+    currently_blocked: projects.filter((p) => p.status === "Blocked").length,
+    data_quality: episodeCount === 0 ? "insufficient" : "actual",
     note:
-      "Approximated as one project-day per project currently in Blocked status. " +
-      "Becomes exact once status-transition history is persisted.",
+      "Days in Blocked status reconstructed from each project's status history, " +
+      "split across quarters. Blocked stretches before history was recorded aren't included.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Metric: Post-release work
+// ---------------------------------------------------------------------------
+
+/**
+ * What happens after a project ships. Open post-release work (stage at or
+ * past Productization, status still open) is a snapshot of today: how many
+ * projects, where they sit (Productization awaiting handover, Services
+ * Validation, ...), how long they've been there and since delivery. The
+ * closed side is a range-filtered look at projects that finished that work:
+ * days from reaching Productization to being marked Completed.
+ */
+export function computePostRelease(
+  projects: Project[],
+  range: VelocityRange,
+  now: Date,
+): PostReleaseMetric {
+  const today = isoDate(now);
+  const open = projects.filter(isPostDeployment);
+
+  const buckets = new Map<
+    string,
+    { n: number; sinceSum: number; inStageSum: number; inStageN: number }
+  >();
+  let sinceSum = 0;
+  let oldest: PostReleaseMetric["oldest"] = null;
+  for (const p of open) {
+    const delivered = deliveredAt(p);
+    const since = delivered ? Math.max(0, daysBetween(delivered, today)) : 0;
+    sinceSum += since;
+    if (!oldest || since > oldest.days) {
+      oldest = { project_id: p.project_id, project_name: p.name, days: since };
+    }
+    const acc = buckets.get(p.stage) ?? {
+      n: 0,
+      sinceSum: 0,
+      inStageSum: 0,
+      inStageN: 0,
+    };
+    acc.n += 1;
+    acc.sinceSum += since;
+    const inStage = daysInStage(p, now);
+    if (inStage !== null) {
+      acc.inStageSum += inStage;
+      acc.inStageN += 1;
+    }
+    buckets.set(p.stage, acc);
+  }
+
+  const orderedStages = orderStagesForTracks(
+    open.map((p) => p.track),
+    (t, s) => hasReachedProductization(t, s),
+  );
+  for (const s of buckets.keys()) {
+    if (!orderedStages.includes(s)) orderedStages.push(s);
+  }
+  const stages: PostReleaseStageBar[] = orderedStages.map((stage) => {
+    const acc = buckets.get(stage);
+    return {
+      stage,
+      count: acc?.n ?? 0,
+      avg_days_in_stage:
+        acc && acc.inStageN > 0 ? acc.inStageSum / acc.inStageN : null,
+      avg_days_since_delivery: acc && acc.n > 0 ? acc.sinceSum / acc.n : null,
+    };
+  });
+
+  // Closed side: delivered projects now marked Completed, closed in range.
+  const closedDays: number[] = [];
+  for (const p of projects) {
+    if (p.status !== "Completed") continue;
+    const delivered = deliveredAt(p);
+    if (!delivered) continue;
+    const completedEntry = [...(p.status_history ?? [])]
+      .reverse()
+      .find((h) => h.status === "Completed");
+    const completedAt = completedEntry?.changed_at ?? p.updated_at;
+    if (!withinRange(completedAt, range)) continue;
+    closedDays.push(Math.max(0, daysBetween(delivered, completedAt)));
+  }
+
+  return {
+    open_count: open.length,
+    stages,
+    avg_days_since_delivery: open.length === 0 ? null : sinceSum / open.length,
+    oldest,
+    closed_count: closedDays.length,
+    avg_days_to_close:
+      closedDays.length === 0
+        ? null
+        : closedDays.reduce((s, d) => s + d, 0) / closedDays.length,
+    data_quality:
+      open.length === 0 && closedDays.length === 0 ? "insufficient" : "actual",
+    note:
+      "Open work is a snapshot of today (ignores the date range). " +
+      "Closed = delivered projects marked Completed within the range.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Metric: On-time delivery
+// ---------------------------------------------------------------------------
+
+/**
+ * Target vs actual delivery. For each project that reached Productization in
+ * the range and had an Application Release target date (`target_date`),
+ * compare the date it shipped with that target: on time when it shipped on
+ * or before the target. Also counts open, not-yet-shipped projects whose
+ * target date has already passed.
+ */
+export function computeOnTimeDelivery(
+  projects: Project[],
+  range: VelocityRange,
+  now: Date,
+): OnTimeDeliveryMetric {
+  const delivered = deliveredInRange(projects, range);
+
+  let onTime = 0;
+  let late = 0;
+  let noTarget = 0;
+  let deltaSum = 0;
+  let lateSum = 0;
+  const byQ = new Map<string, { on_time: number; late: number }>();
+  for (const { project: p, delivered_at } of delivered) {
+    if (!p.target_date) {
+      noTarget++;
+      continue;
+    }
+    const delta = daysBetween(p.target_date, delivered_at);
+    deltaSum += delta;
+    const q = quarterKey(delivered_at);
+    const acc = byQ.get(q) ?? { on_time: 0, late: 0 };
+    if (delta <= 0) {
+      onTime++;
+      acc.on_time++;
+    } else {
+      late++;
+      lateSum += delta;
+      acc.late++;
+    }
+    byQ.set(q, acc);
+  }
+  const withTarget = onTime + late;
+
+  const counts = new Map<string, number>();
+  for (const [q, v] of byQ) counts.set(q, v.on_time + v.late);
+  const by_quarter = expandQuartersInRange(range, counts).map((bar) => ({
+    quarter: bar.quarter,
+    on_time: byQ.get(bar.quarter)?.on_time ?? 0,
+    late: byQ.get(bar.quarter)?.late ?? 0,
+  }));
+
+  const today = isoDate(now);
+  const overdue_open = projects.filter(
+    (p) =>
+      p.status !== "Completed" &&
+      p.status !== "Canceled" &&
+      !isDeployed(p) &&
+      !!p.target_date &&
+      p.target_date < today,
+  ).length;
+
+  return {
+    with_target: withTarget,
+    on_time: onTime,
+    late,
+    no_target: noTarget,
+    on_time_rate: withTarget === 0 ? 0 : (onTime / withTarget) * 100,
+    mean_delta_days: withTarget === 0 ? 0 : deltaSum / withTarget,
+    avg_days_late: late === 0 ? null : lateSum / late,
+    overdue_open,
+    by_quarter,
+    data_quality: withTarget === 0 ? "insufficient" : "actual",
   };
 }
 
@@ -710,8 +997,14 @@ export function computeVelocityMetrics(
     filters.range,
   );
   const task_throughput = computeTaskThroughput(filteredTasks, filters.range);
-  const stage_cycle_time = computeStageCycleTime(filteredProjects, filters.range);
-  const blocked_time = computeBlockedTime(filteredProjects, filters.range);
+  const stage_cycle_time = computeStageCycleTime(filteredProjects, now);
+  const blocked_time = computeBlockedTime(filteredProjects, filters.range, now);
+  const post_release = computePostRelease(filteredProjects, filters.range, now);
+  const on_time_delivery = computeOnTimeDelivery(
+    filteredProjects,
+    filters.range,
+    now,
+  );
   const idea_conversion = computeIdeaConversion(filteredIdeas, filters.range);
 
   // Section 5.15 calibration banner trigger.
@@ -736,6 +1029,8 @@ export function computeVelocityMetrics(
     task_throughput,
     stage_cycle_time,
     blocked_time,
+    post_release,
+    on_time_delivery,
     idea_conversion,
     insufficient_history,
     filter_options: {

@@ -30,6 +30,8 @@ import {
   CompletedByQuarterChart,
   EstimatedVsActualChart,
   IdeaConversionChart,
+  OnTimeDeliveryChart,
+  PostReleaseChart,
   StageCycleTimeChart,
   TaskThroughputChart,
 } from "@/components/velocity/charts";
@@ -207,9 +209,10 @@ export function VelocityDashboard({
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-medium">Calibration period</p>
           <p className="mt-1 text-amber-800">
-            Fewer than three projects have been completed in this filter set.
-            Charts below render the available data, but trend lines and
-            averages will become more reliable once more projects complete.
+            Fewer than three projects have reached Productization in this
+            filter set. Charts below render the available data, but trend
+            lines and averages will become more reliable once more projects
+            ship.
           </p>
         </div>
       ) : null}
@@ -232,10 +235,12 @@ export function VelocityDashboard({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <CompletedByQuarterChart metric={metrics.completed_by_quarter} />
           <AvgTimeToCompletionChart metric={metrics.avg_time_to_completion} />
+          <OnTimeDeliveryChart metric={metrics.on_time_delivery} />
           <EstimatedVsActualChart metric={metrics.estimated_vs_actual} />
-          <TaskThroughputChart metric={metrics.task_throughput} />
+          <PostReleaseChart metric={metrics.post_release} />
           <StageCycleTimeChart metric={metrics.stage_cycle_time} />
           <BlockedTimeChart metric={metrics.blocked_time} />
+          <TaskThroughputChart metric={metrics.task_throughput} />
           <div className="lg:col-span-2">
             <IdeaConversionChart metric={metrics.idea_conversion} />
           </div>

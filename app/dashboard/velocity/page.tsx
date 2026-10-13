@@ -47,7 +47,7 @@ export default async function VelocityPage() {
       <PolarisPageHeader
         eyebrow="Insights"
         title="Velocity & throughput"
-        subtitle="Historical performance: how often projects complete, how long they take, where they get stuck, and how the team's throughput is trending."
+        subtitle="Historical performance: how often projects reach Productization, how long they take to get there, where they get stuck, and how the team's throughput is trending."
       />
       <VelocityDashboard
         currentUserId={session.user.user_id}

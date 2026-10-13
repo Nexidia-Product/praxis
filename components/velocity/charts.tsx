@@ -23,6 +23,8 @@
  * seven independent widgets glued together.
  */
 
+import Link from "next/link";
+
 import type {
   AvgTimeToCompletionMetric,
   BlockedTimeMetric,
@@ -30,6 +32,8 @@ import type {
   DataQuality,
   EstVsActualMetric,
   IdeaConversionMetric,
+  OnTimeDeliveryMetric,
+  PostReleaseMetric,
   StageCycleTimeMetric,
   TaskThroughputMetric,
 } from "@/lib/velocity/types";
@@ -303,15 +307,15 @@ export function CompletedByQuarterChart({
 }) {
   return (
     <ChartCard
-      title="Projects completed per quarter"
+      title="Projects delivered per quarter"
       subtitle={`${metric.total_completed} project${
         metric.total_completed === 1 ? "" : "s"
-      } completed in range`}
+      } reached Productization in range`}
       data_quality={metric.data_quality}
-      note="Bucketed by the quarter the project's last edit landed in (proxy for completion date)."
+      note="Counts projects that reached Productization (or a later stage), bucketed by the quarter they got there. Canceled projects are excluded."
       meta={`${metric.bars.length} quarter${metric.bars.length === 1 ? "" : "s"}`}
       isEmpty={metric.bars.length === 0}
-      emptyMessage="No completed projects in this range."
+      emptyMessage="No projects reached Productization in this range."
     >
       <BarChart
         bars={metric.bars.map((b) => ({ label: b.quarter, value: b.count }))}
@@ -350,20 +354,20 @@ export function AvgTimeToCompletionChart({
 
   return (
     <ChartCard
-      title="Average time to completion"
+      title="Average time to Productization"
       subtitle={
         isEmpty
-          ? "Not enough completed projects in range."
+          ? "Not enough delivered projects in range."
           : `${leadOverall}${cycleOverall}`
       }
       data_quality={metric.data_quality}
       note={
         hasCycleData
-          ? "Lead time = creation → done; cycle time = planned start → done. Cycle time is computed only over projects with a recorded start date."
-          : "Days from project creation to last edit, broken down by type. Cycle time appears once projects with planned start dates begin completing."
+          ? "Lead time = creation → Productization; cycle time = planned start → Productization. Cycle time is computed only over projects with a recorded start date."
+          : "Days from project creation to reaching Productization, broken down by type. Cycle time (start date to Productization) appears for projects with a planned start date."
       }
       isEmpty={isEmpty}
-      emptyMessage="No completed projects in this range."
+      emptyMessage="No projects reached Productization in this range."
     >
       {/* Legend — only when cycle is present, since otherwise the
           legend would just say "Lead time" with one swatch and add
@@ -510,7 +514,7 @@ export function EstimatedVsActualChart({
       title="Estimated vs actual duration"
       subtitle={
         isEmpty
-          ? "No completed projects with parseable estimates."
+          ? "No delivered projects with parseable estimates."
           : `${metric.sample_size} dot${metric.sample_size === 1 ? "" : "s"} · mean delta ${
               metric.mean_delta_days >= 0 ? "+" : ""
             }${Math.round(metric.mean_delta_days)} days`
@@ -671,8 +675,8 @@ export function StageCycleTimeChart({
 
   return (
     <ChartCard
-      title="Stage cycle time"
-      subtitle="Average days projects spend in each stage"
+      title="Time in current stage"
+      subtitle="Average days open projects have been in their current stage"
       data_quality={metric.data_quality}
       note={metric.note}
       isEmpty={isEmpty}
@@ -709,8 +713,10 @@ export function StageCycleTimeChart({
                 />
               </div>
               <div className="w-24 shrink-0 text-right text-xs tabular-nums text-gray-700">
-                {Math.round(bar.avg_days)}d{" "}
-                <span className="text-gray-400">(n={bar.sample_size})</span>
+                <span title={`Longest: ${bar.max_days}d`}>
+                  {Math.round(bar.avg_days)}d{" "}
+                  <span className="text-gray-400">(n={bar.sample_size})</span>
+                </span>
               </div>
             </div>
           );
@@ -736,13 +742,23 @@ export function BlockedTimeChart({
 
   return (
     <ChartCard
-      title="Blocked time per quarter"
+      title="Blocked days per quarter"
       subtitle={
-        metric.total_blocked_days === 0
+        metric.episode_count === 0
           ? "Nothing blocked in this range."
-          : `${metric.total_blocked_days} project-day${
+          : `${metric.total_blocked_days} day${
               metric.total_blocked_days === 1 ? "" : "s"
-            } in Blocked status`
+            } blocked across ${metric.episode_count} stretch${
+              metric.episode_count === 1 ? "" : "es"
+            }${
+              metric.avg_episode_days !== null
+                ? ` · avg ${Math.round(metric.avg_episode_days)}d per finished stretch`
+                : ""
+            }${
+              metric.currently_blocked > 0
+                ? ` · ${metric.currently_blocked} blocked now`
+                : ""
+            }`
       }
       data_quality={metric.data_quality}
       note={metric.note}
@@ -750,6 +766,178 @@ export function BlockedTimeChart({
       emptyMessage="No blocked-status data in this range."
     >
       <BarChart bars={bars} primaryClass="fill-rose-500" />
+    </ChartCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Post-release work
+// ---------------------------------------------------------------------------
+
+export function PostReleaseChart({ metric }: { metric: PostReleaseMetric }) {
+  const isEmpty = metric.open_count === 0 && metric.closed_count === 0;
+  const maxCount = Math.max(...metric.stages.map((s) => s.count), 1);
+
+  return (
+    <ChartCard
+      title="Post-release work"
+      subtitle={
+        metric.open_count === 0
+          ? "No delivered projects with open work."
+          : `${metric.open_count} delivered project${
+              metric.open_count === 1 ? "" : "s"
+            } still open${
+              metric.avg_days_since_delivery !== null
+                ? ` · avg ${Math.round(metric.avg_days_since_delivery)}d since delivery`
+                : ""
+            }`
+      }
+      data_quality={metric.data_quality}
+      note={metric.note}
+      isEmpty={isEmpty}
+      emptyMessage="No post-release work to show yet."
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          {metric.stages.map((s) => {
+            const pct = (s.count / maxCount) * 100;
+            return (
+              <div key={s.stage} className="flex items-center gap-3">
+                <div className="w-44 shrink-0 text-xs text-gray-700">
+                  {s.stage}
+                </div>
+                <div className="h-4 flex-1 rounded bg-gray-100">
+                  <div
+                    className="h-full rounded bg-violet-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="w-32 shrink-0 text-right text-xs tabular-nums text-gray-700">
+                  {s.count}
+                  {s.avg_days_in_stage !== null ? (
+                    <span className="text-gray-400">
+                      {" "}
+                      · {Math.round(s.avg_days_in_stage)}d in stage
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs text-gray-600">
+          <span>
+            {metric.avg_days_to_close !== null
+              ? `${metric.closed_count} closed in range · avg ${Math.round(
+                  metric.avg_days_to_close,
+                )}d from Productization to Completed`
+              : "None closed in this range."}
+            {metric.oldest && metric.oldest.days > 0
+              ? ` · oldest open: ${metric.oldest.project_name} (${metric.oldest.days}d)`
+              : ""}
+          </span>
+          <Link
+            href="/insights/post-deployment"
+            className="font-medium text-gray-900 underline"
+          >
+            View post-deployment projects
+          </Link>
+        </div>
+      </div>
+    </ChartCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// On-time delivery
+// ---------------------------------------------------------------------------
+
+export function OnTimeDeliveryChart({
+  metric,
+}: {
+  metric: OnTimeDeliveryMetric;
+}) {
+  const isEmpty = metric.with_target === 0;
+  const meanLabel =
+    metric.mean_delta_days === 0
+      ? "on target on average"
+      : `${Math.abs(Math.round(metric.mean_delta_days))}d ${
+          metric.mean_delta_days > 0 ? "late" : "early"
+        } on average`;
+
+  return (
+    <ChartCard
+      title="On-time delivery"
+      subtitle={
+        isEmpty
+          ? "No delivered projects with a release target date in range."
+          : `${metric.on_time} of ${metric.with_target} reached Productization by their target date`
+      }
+      data_quality={metric.data_quality}
+      note={`Compares the date a project reached Productization with its Application Release target date.${
+        metric.no_target > 0
+          ? ` ${metric.no_target} delivered project${
+              metric.no_target === 1 ? " has" : "s have"
+            } no target date and ${metric.no_target === 1 ? "isn't" : "aren't"} counted.`
+          : ""
+      }`}
+      isEmpty={isEmpty && metric.overdue_open === 0}
+      emptyMessage="No delivered projects with a release target date in this range."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+          <div className="flex items-baseline gap-3">
+            <div className="text-3xl font-semibold tabular-nums text-gray-900">
+              {Math.round(metric.on_time_rate)}%
+            </div>
+            <div className="text-xs text-gray-500">
+              {isEmpty ? "no deliveries to measure" : `on time · ${meanLabel}`}
+            </div>
+          </div>
+          {metric.avg_days_late !== null ? (
+            <div className="text-xs text-gray-500">
+              Late projects averaged {Math.round(metric.avg_days_late)}d late
+            </div>
+          ) : null}
+          <div
+            className={`text-xs ${
+              metric.overdue_open > 0 ? "text-rose-700" : "text-gray-500"
+            }`}
+          >
+            {metric.overdue_open} open project
+            {metric.overdue_open === 1 ? "" : "s"} past target date, not yet
+            delivered
+          </div>
+        </div>
+        {metric.by_quarter.length > 0 && !isEmpty ? (
+          <BarChart
+            bars={metric.by_quarter.map((q) => ({
+              label: q.quarter,
+              value: q.on_time,
+              secondary: q.on_time + q.late,
+            }))}
+            height={160}
+            primaryClass="fill-emerald-500"
+            secondaryClass="fill-rose-200"
+            formatTooltip={(b) => {
+              const q = metric.by_quarter.find((x) => x.quarter === b.label);
+              return `${b.label}: ${q?.on_time ?? 0} on time, ${q?.late ?? 0} late`;
+            }}
+          />
+        ) : null}
+        {!isEmpty ? (
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />
+              On time
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2 w-3 rounded-sm bg-rose-200" />
+              Total delivered (rest were late)
+            </span>
+          </div>
+        ) : null}
+      </div>
     </ChartCard>
   );
 }
