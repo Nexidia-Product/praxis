@@ -949,6 +949,9 @@ export function TasksTable({
                         </th>
                       ) : null}
                       <th scope="col" className="w-32 px-3 py-2">
+                        Stage
+                      </th>
+                      <th scope="col" className="w-32 px-3 py-2">
                         Status
                       </th>
                       <th scope="col" className="w-24 px-3 py-2">
@@ -1218,6 +1221,9 @@ export function TaskRow({
           ) : null}
         </td>
       ) : null}
+      <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">
+        {task.stage || "—"}
+      </td>
       {/* Status cell — interactive, stop propagation so opening the
           dropdown doesn't also fire row-click. */}
       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
