@@ -400,6 +400,9 @@ export function KeyFindingsView({
                     sortDir={sortDir}
                     onSort={toggleSort}
                   />
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">
+                    Stage
+                  </th>
                   <SortHeader
                     label="Status"
                     col="status"
@@ -428,6 +431,9 @@ export function KeyFindingsView({
                     </td>
                     <td className="px-3 py-2 text-gray-900">
                       {task.task_name}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-600">
+                      {task.stage || "—"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">
                       <span className="inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">

@@ -1117,6 +1117,9 @@ function ProjectWipCard({
                   Task
                 </th>
                 <th scope="col" className="w-32 px-3 py-2">
+                  Stage
+                </th>
+                <th scope="col" className="w-32 px-3 py-2">
                   Status
                 </th>
                 <th scope="col" className="w-24 px-3 py-2">

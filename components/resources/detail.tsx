@@ -272,7 +272,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
           <Empty text="No open tasks." />
         ) : (
           <SimpleTable
-            headers={["ID", "Task", "Project", "Status", "Priority", "Target"]}
+            headers={["ID", "Task", "Project", "Stage", "Status", "Priority", "Target"]}
           >
             {row.open_tasks.map((t) => {
               const isPastDue = row.past_due_tasks.some(
@@ -301,6 +301,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
                   <td style={{ ...tdStyle, fontFamily: "monospace", color: "var(--tm)", fontSize: 11 }}>
                     {t.project_id}
                   </td>
+                  <td style={tdStyle}>{t.stage || "—"}</td>
                   <td style={tdStyle}>
                     <span
                       style={{
@@ -343,7 +344,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
             on. Resolving them unblocks downstream work.
           </p>
           <SimpleTable
-            headers={["ID", "Task", "Status", "Priority", "Target"]}
+            headers={["ID", "Task", "Stage", "Status", "Priority", "Target"]}
           >
             {row.bottleneck_tasks.map((t) => (
               <tr
@@ -362,6 +363,7 @@ export function ResourceDetail({ row, thresholds }: ResourceDetailProps) {
                   </Link>
                 </td>
                 <td style={tdStyle}>{t.task_name}</td>
+                <td style={tdStyle}>{t.stage || "—"}</td>
                 <td style={tdStyle}>{t.status}</td>
                 <td style={tdStyle}>{t.priority}</td>
                 <td style={tdStyle}>{t.target_date ?? "—"}</td>
