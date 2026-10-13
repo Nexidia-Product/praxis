@@ -50,6 +50,11 @@ import {
 import { customFieldMatches } from "@/lib/projects/custom-filter";
 import { computePortfolioPosition } from "@/lib/projects/portfolio-position";
 import { daysInStage, formatDaysInStage } from "@/lib/projects/stage-age";
+import {
+  POST_DEPLOYMENT_STATUS_ORDER,
+  isDeployed,
+  isPostDeployment,
+} from "@/lib/projects/post-deployment";
 import type { EnumOption } from "@/lib/projects/enum-options";
 import type {
   CustomFieldDefinition,
@@ -78,8 +83,15 @@ import {
 } from "@/components/projects/filter-bar";
 import { matchesProductFilter } from "@/lib/products/logic";
 
-/** The two project statuses this dashboard scopes to, in display order. */
+/** The two project statuses the Work in progress mode scopes to, in display order. */
 const WIP_STATUSES: ProjectStatus[] = ["In Progress", "In Planning"];
+
+/**
+ * "wip": In Planning / In Progress projects that have not been deployed.
+ * "post-deployment": deployed projects (stage at or past Productization)
+ * whose status is still open.
+ */
+export type WipMode = "wip" | "post-deployment";
 
 /** Priority ordering for the open-task sort — mirrors the Tasks table. */
 const TASK_PRIORITY_RANK: Record<Priority, number> = {
@@ -98,6 +110,8 @@ interface EnumOptionSet {
 }
 
 interface Props {
+  /** Which projects to show; defaults to "wip". */
+  mode?: WipMode;
   /** Full project list (unfiltered) — the view derives the WIP subset. */
   initialProjects: Project[];
   /** Full task list — the view buckets open tasks per project. */
@@ -127,6 +141,7 @@ interface Props {
 }
 
 export function WorkInProgressView({
+  mode = "wip",
   initialProjects,
   initialTasks,
   customFields,
@@ -161,6 +176,10 @@ export function WorkInProgressView({
     program: [defaultProgram],
   });
   const [includeAdmin, setIncludeAdmin] = useState(false);
+  // Deployed projects (stage at or past Productization) are hidden from the
+  // "wip" mode by default; they have their own Post-deployment page.
+  const [includeDeployed, setIncludeDeployed] = useState(false);
+  const isPost = mode === "post-deployment";
 
   // Overlay state — one project quick view, one project edit modal, one
   // task edit modal open at a time (same pattern as the source tables).
@@ -429,8 +448,13 @@ export function WorkInProgressView({
   const filteredProjects = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     return projects.filter((p) => {
-      if (p.status !== "In Planning" && p.status !== "In Progress") {
-        return false;
+      if (isPost) {
+        if (!isPostDeployment(p)) return false;
+      } else {
+        if (p.status !== "In Planning" && p.status !== "In Progress") {
+          return false;
+        }
+        if (!includeDeployed && isDeployed(p)) return false;
       }
       if (!includeAdmin && isAdminProject(p)) return false;
       if (filters.status.length && !filters.status.includes(p.status)) {
@@ -504,12 +528,22 @@ export function WorkInProgressView({
       }
       return true;
     });
-  }, [projects, includeAdmin, filters, quadrantLabels, customFields]);
+  }, [projects, isPost, includeAdmin, includeDeployed, filters, quadrantLabels, customFields]);
 
   // Split the filtered set into the two status sections.
   const sections = useMemo(() => {
+    // Post-deployment spans every open status: known ones in a fixed order,
+    // then any admin-added statuses that actually appear.
+    const sectionStatuses: ProjectStatus[] = isPost
+      ? [
+          ...POST_DEPLOYMENT_STATUS_ORDER,
+          ...[...new Set(filteredProjects.map((p) => p.status))]
+            .filter((s) => !POST_DEPLOYMENT_STATUS_ORDER.includes(s))
+            .sort(),
+        ]
+      : WIP_STATUSES;
     const byStatus = new Map<ProjectStatus, Project[]>();
-    for (const s of WIP_STATUSES) byStatus.set(s, []);
+    for (const s of sectionStatuses) byStatus.set(s, []);
     for (const p of filteredProjects) {
       const bucket = byStatus.get(p.status as ProjectStatus);
       if (bucket) bucket.push(p);
@@ -517,11 +551,11 @@ export function WorkInProgressView({
     for (const list of byStatus.values()) {
       list.sort((a, b) => (a.project_id < b.project_id ? -1 : 1));
     }
-    return WIP_STATUSES.map((status) => ({
+    return sectionStatuses.map((status) => ({
       status,
       projects: byStatus.get(status) ?? [],
     }));
-  }, [filteredProjects]);
+  }, [filteredProjects, isPost]);
 
   const totalWip = sections.reduce((n, s) => n + s.projects.length, 0);
   const totalOpenTasks = useMemo(
@@ -712,7 +746,9 @@ export function WorkInProgressView({
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-md border border-gray-200 bg-white px-4 py-3 text-sm">
         <span>
           <span className="font-semibold text-gray-900">{totalWip}</span>{" "}
-          <span className="text-gray-500">projects in flight</span>
+          <span className="text-gray-500">
+            {isPost ? "projects with post-deployment work" : "projects in flight"}
+          </span>
         </span>
         {sections.map((s) => (
           <span key={s.status}>
@@ -726,7 +762,20 @@ export function WorkInProgressView({
           <span className="font-semibold text-gray-900">{totalOpenTasks}</span>{" "}
           <span className="text-gray-500">open tasks</span>
         </span>
-        <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+        {isPost ? null : (
+          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={includeDeployed}
+              onChange={(e) => setIncludeDeployed(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+            />
+            Include deployed projects
+          </label>
+        )}
+        <label
+          className={`${isPost ? "ml-auto " : ""}flex cursor-pointer items-center gap-1.5 text-xs text-gray-600`}
+        >
           <input
             type="checkbox"
             checked={includeAdmin}
@@ -746,7 +795,9 @@ export function WorkInProgressView({
 
       {totalWip === 0 ? (
         <p className="rounded-md border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500">
-          No in-planning or in-progress projects match the current filters.
+          {isPost
+            ? "No deployed projects with open post-deployment work match the current filters."
+            : "No in-planning or in-progress projects match the current filters."}
         </p>
       ) : (
         sections.map((section) =>
