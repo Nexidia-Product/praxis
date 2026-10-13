@@ -452,6 +452,12 @@ export interface Project {
    * stage". Absent until that migration is applied.
    */
   stage_entered_at?: IsoTimestamp;
+  /**
+   * When the project first reached Productization (or a later stage) —
+   * stamped by a database trigger (migration 0043). The Velocity dashboard
+   * measures delivery from this date. Null until the project ships.
+   */
+  productization_reached_at?: IsoTimestamp | null;
   primary_stakeholders: string[];
   project_lead: UserId;
   /** Mix of UserIds and free-form names is permitted (Section 4.1). */

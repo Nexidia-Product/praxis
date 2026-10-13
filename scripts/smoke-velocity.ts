@@ -334,20 +334,32 @@ async function main() {
   section("Metric: Projects Completed per Quarter");
 
   const completedProjects: Project[] = [
-    mkProject({ project_id: "P1", status: "Completed", updated_at: "2026-01-15T00:00:00Z" }),
-    mkProject({ project_id: "P2", status: "Completed", updated_at: "2026-02-20T00:00:00Z" }),
-    mkProject({ project_id: "P3", status: "Completed", updated_at: "2026-04-01T00:00:00Z" }),
-    mkProject({ project_id: "P4", status: "In Progress", updated_at: "2026-04-01T00:00:00Z" }),
+    mkProject({ project_id: "P1", stage: "Productization", productization_reached_at: "2026-01-15T00:00:00Z" }),
+    mkProject({ project_id: "P2", stage: "Productization", productization_reached_at: "2026-02-20T00:00:00Z" }),
+    // Post-Productization stage (Track B) still counts, status stays open.
+    mkProject({
+      project_id: "P3",
+      track: "Track B - Cognigy bot inputs",
+      stage: "Services Validation",
+      status: "In Progress",
+      productization_reached_at: "2026-04-01T00:00:00Z",
+    }),
+    // Not shipped yet.
+    mkProject({ project_id: "P4", status: "In Progress", stage: "Development", updated_at: "2026-04-01T00:00:00Z" }),
+    // Canceled projects are parked at Productization but never shipped.
+    mkProject({ project_id: "P5", status: "Canceled", stage: "Productization", productization_reached_at: "2026-04-01T00:00:00Z" }),
+    // Status Completed alone is not enough.
+    mkProject({ project_id: "P6", status: "Completed", stage: "Development", updated_at: "2026-04-01T00:00:00Z" }),
   ];
   const compMetric = computeCompletedByQuarter(completedProjects, range90);
-  eq("completed_by_quarter: total", compMetric.total_completed, 3);
+  eq("completed_by_quarter: total (Canceled / status-only excluded)", compMetric.total_completed, 3);
   // 2026-Q1 has P1 + P2 (Jan 15 and Feb 20); 2026-Q2 has P3 (Apr 1).
   // The range is 2026-01-15 to 2026-04-15, so bars include both quarters.
   const q1Bar = compMetric.bars.find((b) => b.quarter === "2026-Q1");
   const q2Bar = compMetric.bars.find((b) => b.quarter === "2026-Q2");
   eq("completed_by_quarter: 2026-Q1 count", q1Bar?.count, 2);
   eq("completed_by_quarter: 2026-Q2 count", q2Bar?.count, 1);
-  eq("completed_by_quarter: data_quality", compMetric.data_quality, "proxy");
+  eq("completed_by_quarter: data_quality", compMetric.data_quality, "actual");
 
   section("Metric: Average Time to Completion");
 
@@ -370,33 +382,33 @@ async function main() {
     // 14 days actual, "2 weeks" estimated → 14 estimated → delta 0.
     mkProject({
       project_id: "E1",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-01",
-      updated_at: "2026-01-15T00:00:00Z",
+      productization_reached_at: "2026-01-15T00:00:00Z",
       ai_time_estimate: "2 weeks",
     }),
     // 50 days actual, "4-6 weeks" → 35 estimated → delta +15.
     mkProject({
       project_id: "E2",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-01",
-      updated_at: "2026-02-20T00:00:00Z",
+      productization_reached_at: "2026-02-20T00:00:00Z",
       ai_time_estimate: "4-6 weeks",
     }),
     // No estimate → excluded.
     mkProject({
       project_id: "E3",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-01",
-      updated_at: "2026-04-01T00:00:00Z",
+      productization_reached_at: "2026-04-01T00:00:00Z",
       ai_time_estimate: null,
     }),
     // Garbage estimate → excluded.
     mkProject({
       project_id: "E4",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-01",
-      updated_at: "2026-04-01T00:00:00Z",
+      productization_reached_at: "2026-04-01T00:00:00Z",
       ai_time_estimate: "no idea lol",
     }),
   ];
@@ -578,8 +590,8 @@ async function main() {
   // Range filter: a project that completed before the range start is excluded
   // from completed_by_quarter even when it's a "Completed" project.
   const rangeProjects: Project[] = [
-    mkProject({ project_id: "R1", status: "Completed", updated_at: "2025-01-01T00:00:00Z" }),
-    mkProject({ project_id: "R2", status: "Completed", updated_at: "2026-04-01T00:00:00Z" }),
+    mkProject({ project_id: "R1", stage: "Productization", productization_reached_at: "2025-01-01T00:00:00Z" }),
+    mkProject({ project_id: "R2", stage: "Productization", productization_reached_at: "2026-04-01T00:00:00Z" }),
   ];
   const rangeMetric = computeCompletedByQuarter(rangeProjects, range90);
   eq("range filter: only in-range completions counted", rangeMetric.total_completed, 1);
@@ -731,17 +743,17 @@ async function main() {
   const portfolio: Project[] = [
     mkProject({
       project_id: "2026-100",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-01",
-      updated_at: "2026-02-15T00:00:00Z",
+      productization_reached_at: "2026-02-15T00:00:00Z",
       ai_time_estimate: "6 weeks",
       project_type: "New Capability",
     }),
     mkProject({
       project_id: "2026-101",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-15",
-      updated_at: "2026-03-01T00:00:00Z",
+      productization_reached_at: "2026-03-01T00:00:00Z",
       ai_time_estimate: "4-6 weeks",
       project_type: "New Feature",
     }),
@@ -794,9 +806,9 @@ async function main() {
     ...portfolio,
     mkProject({
       project_id: "2026-103",
-      status: "Completed",
+      stage: "Productization",
       date_added: "2026-01-15",
-      updated_at: "2026-03-15T00:00:00Z",
+      productization_reached_at: "2026-03-15T00:00:00Z",
       project_type: "New Capability",
     }),
   ];

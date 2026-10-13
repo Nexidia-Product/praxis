@@ -43,6 +43,7 @@ import type {
 } from "@/lib/db";
 import {
   PORTFOLIO_PROJECT_TYPES,
+  hasReachedProductization,
   stagesForTrack,
 } from "@/lib/projects/display";
 
@@ -180,26 +181,51 @@ export function applyTaskFilters(
 // ---------------------------------------------------------------------------
 
 /**
- * Count projects whose status is `Completed` and whose `updated_at` —
- * our proxy for "completed at" — falls within the configured range.
- * Bucketed by the quarter that proxy date lands in.
+ * "Delivered" means the project reached Productization (or a later stage):
+ * the functionality has shipped. Post-release work (handover, services
+ * validation, adoption) can run for months afterwards, so status
+ * `Completed` is deliberately NOT the delivery signal.
  *
- * Why `updated_at` as the proxy: when a project transitions to
- * `Completed`, the project service writes the record, which sets
- * `updated_at`. Without a status-transition history this is the closest
- * timestamp the data offers; a project that's been Completed for months
- * but hasn't been touched will register on the date of its last edit,
- * which is the same convention used elsewhere in the app.
+ * Canceled projects are excluded: closing one out parks it at
+ * Productization (`closedOutStage`), which says nothing about shipping.
+ *
+ * Returns the date it shipped: `productization_reached_at` (migration
+ * 0043), falling back to `stage_entered_at` then `updated_at` for rows
+ * that predate it. Null when the project hasn't shipped.
+ */
+export function deliveredAt(p: Project): string | null {
+  if (p.status === "Canceled") return null;
+  if (!hasReachedProductization(p.track, p.stage)) return null;
+  return p.productization_reached_at ?? p.stage_entered_at ?? p.updated_at;
+}
+
+/** Projects that shipped inside the range, with their delivery date. */
+function deliveredInRange(
+  projects: Project[],
+  range: VelocityRange,
+): { project: Project; delivered_at: string }[] {
+  const out: { project: Project; delivered_at: string }[] = [];
+  for (const project of projects) {
+    const delivered_at = deliveredAt(project);
+    if (delivered_at && withinRange(delivered_at, range)) {
+      out.push({ project, delivered_at });
+    }
+  }
+  return out;
+}
+
+/**
+ * Count projects that reached Productization inside the configured range,
+ * bucketed by the quarter they got there (see `deliveredAt`).
  */
 export function computeCompletedByQuarter(
   projects: Project[],
   range: VelocityRange,
 ): CompletedByQuarterMetric {
-  const completed = projects.filter((p) => p.status === "Completed");
-  const inRange = completed.filter((p) => withinRange(p.updated_at, range));
+  const inRange = deliveredInRange(projects, range);
   const counts = new Map<string, number>();
-  for (const p of inRange) {
-    const q = quarterKey(p.updated_at);
+  for (const { delivered_at } of inRange) {
+    const q = quarterKey(delivered_at);
     counts.set(q, (counts.get(q) ?? 0) + 1);
   }
   // Fill in zero-bars for any quarter inside the range that had no
@@ -209,7 +235,7 @@ export function computeCompletedByQuarter(
   return {
     bars,
     total_completed: inRange.length,
-    data_quality: "proxy",
+    data_quality: "actual",
   };
 }
 
@@ -235,11 +261,9 @@ export function computeAvgTimeToCompletion(
   projects: Project[],
   range: VelocityRange,
 ): AvgTimeToCompletionMetric {
-  const completed = projects
-    .filter((p) => p.status === "Completed")
-    .filter((p) => withinRange(p.updated_at, range))
-    .map((p) => {
-      const lead_days = daysBetween(p.date_added, p.updated_at);
+  const completed = deliveredInRange(projects, range)
+    .map(({ project: p, delivered_at }) => {
+      const lead_days = daysBetween(p.date_added, delivered_at);
       // Cycle time is only meaningful when both endpoints exist and
       // the start is at or before the end. We *don't* fall back to
       // date_added for missing start_date — that would silently
@@ -247,10 +271,10 @@ export function computeAvgTimeToCompletion(
       // cycle-time data we have.
       const cycle_days =
         p.roadmap_timeline_start &&
-        p.roadmap_timeline_start <= p.updated_at.slice(0, 10)
-          ? daysBetween(p.roadmap_timeline_start, p.updated_at)
+        p.roadmap_timeline_start <= delivered_at.slice(0, 10)
+          ? daysBetween(p.roadmap_timeline_start, delivered_at)
           : null;
-      return { project: p, days: lead_days, cycle_days };
+      return { project: p, delivered_at, days: lead_days, cycle_days };
     })
     // Defensive guard — a hand-edited record could give a negative.
     .filter((row) => row.days >= 0);
@@ -298,7 +322,7 @@ export function computeAvgTimeToCompletion(
     { sum: number; n: number; cycleSum: number; cycleN: number }
   >();
   for (const row of completed) {
-    const q = quarterKey(row.project.updated_at);
+    const q = quarterKey(row.delivered_at);
     const acc = trendMap.get(q) ?? {
       sum: 0,
       n: 0,
@@ -353,7 +377,7 @@ export function computeAvgTimeToCompletion(
     sample_size,
     overall_avg_cycle_days,
     cycle_sample_size,
-    data_quality: sample_size === 0 ? "insufficient" : "proxy",
+    data_quality: sample_size === 0 ? "insufficient" : "actual",
   };
 }
 
@@ -373,15 +397,13 @@ export function computeEstimatedVsActual(
   projects: Project[],
   range: VelocityRange,
 ): EstVsActualMetric {
-  const completed = projects
-    .filter((p) => p.status === "Completed")
-    .filter((p) => withinRange(p.updated_at, range));
+  const delivered = deliveredInRange(projects, range);
 
   const points: EstVsActualPoint[] = [];
   let excluded = 0;
   let deltaSum = 0;
-  for (const p of completed) {
-    const actual_days = daysBetween(p.date_added, p.updated_at);
+  for (const { project: p, delivered_at } of delivered) {
+    const actual_days = daysBetween(p.date_added, delivered_at);
     if (actual_days < 0) {
       excluded++;
       continue;
@@ -409,7 +431,7 @@ export function computeEstimatedVsActual(
     sample_size: points.length,
     excluded_count: excluded,
     data_quality:
-      points.length === 0 ? "insufficient" : "proxy",
+      points.length === 0 ? "insufficient" : "actual",
   };
 }
 

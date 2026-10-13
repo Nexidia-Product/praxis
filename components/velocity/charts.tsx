@@ -303,15 +303,15 @@ export function CompletedByQuarterChart({
 }) {
   return (
     <ChartCard
-      title="Projects completed per quarter"
+      title="Projects delivered per quarter"
       subtitle={`${metric.total_completed} project${
         metric.total_completed === 1 ? "" : "s"
-      } completed in range`}
+      } reached Productization in range`}
       data_quality={metric.data_quality}
-      note="Bucketed by the quarter the project's last edit landed in (proxy for completion date)."
+      note="Counts projects that reached Productization (or a later stage), bucketed by the quarter they got there. Canceled projects are excluded."
       meta={`${metric.bars.length} quarter${metric.bars.length === 1 ? "" : "s"}`}
       isEmpty={metric.bars.length === 0}
-      emptyMessage="No completed projects in this range."
+      emptyMessage="No projects reached Productization in this range."
     >
       <BarChart
         bars={metric.bars.map((b) => ({ label: b.quarter, value: b.count }))}
@@ -350,17 +350,17 @@ export function AvgTimeToCompletionChart({
 
   return (
     <ChartCard
-      title="Average time to completion"
+      title="Average time to Productization"
       subtitle={
         isEmpty
-          ? "Not enough completed projects in range."
+          ? "Not enough delivered projects in range."
           : `${leadOverall}${cycleOverall}`
       }
       data_quality={metric.data_quality}
       note={
         hasCycleData
           ? "Lead time = creation → done; cycle time = planned start → done. Cycle time is computed only over projects with a recorded start date."
-          : "Days from project creation to last edit, broken down by type. Cycle time appears once projects with planned start dates begin completing."
+          : "Days from project creation to reaching Productization, broken down by type. Cycle time (start date to Productization) appears for projects with a planned start date."
       }
       isEmpty={isEmpty}
       emptyMessage="No completed projects in this range."
@@ -510,7 +510,7 @@ export function EstimatedVsActualChart({
       title="Estimated vs actual duration"
       subtitle={
         isEmpty
-          ? "No completed projects with parseable estimates."
+          ? "No delivered projects with parseable estimates."
           : `${metric.sample_size} dot${metric.sample_size === 1 ? "" : "s"} · mean delta ${
               metric.mean_delta_days >= 0 ? "+" : ""
             }${Math.round(metric.mean_delta_days)} days`

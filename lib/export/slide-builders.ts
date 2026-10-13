@@ -1240,7 +1240,7 @@ export function addVelocitySlide(
 
   const cards = [
     {
-      label: "Projects completed",
+      label: "Projects delivered",
       value: String(input.totalCompleted),
       sub:
         input.totalCompleted === 0
@@ -1248,14 +1248,14 @@ export function addVelocitySlide(
           : `In ${input.rangeLabel.toLowerCase()}`,
     },
     {
-      label: "Avg time to completion",
+      label: "Avg time to Productization",
       value:
         input.avgSampleSize === 0
           ? "—"
           : `${Math.round(input.avgDaysToCompletion)}d`,
       sub:
         input.avgSampleSize === 0
-          ? "Not enough completed projects"
+          ? "Not enough delivered projects"
           : `n = ${input.avgSampleSize}`,
     },
     {
@@ -1406,10 +1406,9 @@ export function addVelocitySlide(
     charSpacing: 2,
   });
   const methodologyLines = [
-    "• Completions counted by last project edit (proxy for completion date).",
-    "• Avg time = days from project creation to last edit.",
+    "• Delivered = project reached Productization (or later); Canceled excluded.",
+    "• Avg time = days from project creation to reaching Productization.",
     "• Throughput = tasks marked Complete per ISO week (Mon-start, UTC).",
-    "• Ranges become exact once status-transition history is persisted.",
   ];
   slide.addText(methodologyLines.join("\n"), {
     x: noteX,
@@ -1427,7 +1426,7 @@ export function addVelocitySlide(
   // we're under-sampled.
   if (input.insufficientHistory) {
     slide.addText(
-      "Calibration period: fewer than 3 projects completed in this range. " +
+      "Calibration period: fewer than 3 projects reached Productization in this range. " +
         "Treat numbers as directional until more history accumulates.",
       {
         x: MARGIN,

@@ -207,9 +207,10 @@ export function VelocityDashboard({
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-medium">Calibration period</p>
           <p className="mt-1 text-amber-800">
-            Fewer than three projects have been completed in this filter set.
-            Charts below render the available data, but trend lines and
-            averages will become more reliable once more projects complete.
+            Fewer than three projects have reached Productization in this
+            filter set. Charts below render the available data, but trend
+            lines and averages will become more reliable once more projects
+            ship.
           </p>
         </div>
       ) : null}

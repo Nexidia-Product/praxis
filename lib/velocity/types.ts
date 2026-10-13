@@ -280,8 +280,8 @@ export interface VelocityMetrics {
   idea_conversion: IdeaConversionMetric;
 
   /**
-   * True when fewer than three projects are Completed in the active
-   * filter set. Section 5.15 calls for a minimum-data warning at this
+   * True when fewer than three projects have reached Productization in
+   * the active filter set. Section 5.15 calls for a minimum-data warning at this
    * threshold. The dashboard surfaces it as a calibration banner.
    */
   insufficient_history: boolean;
