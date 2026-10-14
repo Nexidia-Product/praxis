@@ -158,13 +158,23 @@ export function UseCasesAdmin({
             ? "No use cases yet."
             : `${useCases.length} use case${useCases.length === 1 ? "" : "s"}.`}
         </div>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="pol-btn pol-btn-primary"
-        >
-          + New use case
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/api/use-cases/export"
+            download
+            className="pol-btn"
+            aria-disabled={useCases.length === 0}
+          >
+            Export Markdown
+          </a>
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="pol-btn pol-btn-primary"
+          >
+            + New use case
+          </button>
+        </div>
       </div>
 
       <div className="pol-card" style={{ padding: 0 }}>
