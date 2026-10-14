@@ -172,6 +172,7 @@ interface FormState {
   stage: string;
   primary_stakeholders: string;
   project_lead: string;
+  visualization_lead: string;
   additional_resources: string;
   /**
    * Per-resource allocation percent. Held as strings during edit so
@@ -243,6 +244,7 @@ function emptyState(customFields: CustomFieldDefinition[]): FormState {
     stage: "Qualification",
     primary_stakeholders: "",
     project_lead: "",
+    visualization_lead: "",
     additional_resources: "",
     resource_allocations: {},
     start_date: "",
@@ -329,6 +331,7 @@ function fromProject(p: Project, defs: CustomFieldDefinition[]): FormState {
     stage: p.stage,
     primary_stakeholders: p.primary_stakeholders.join(", "),
     project_lead: p.project_lead,
+    visualization_lead: p.visualization_lead ?? "",
     additional_resources: p.additional_resources.join(", "),
     resource_allocations: stringifyAllocations(p.resource_allocations),
     start_date: p.roadmap_timeline_start ?? "",
@@ -390,6 +393,10 @@ function toPayload(
     // the server.
     project_lead:
       s.project_lead === LEAD_OTHER_SENTINEL ? "" : s.project_lead.trim(),
+    visualization_lead:
+      s.visualization_lead === LEAD_OTHER_SENTINEL
+        ? ""
+        : s.visualization_lead.trim(),
     additional_resources: splitList(s.additional_resources),
     resource_allocations: numberifyAllocations(s.resource_allocations),
     roadmap_timeline_start: s.start_date || null,
@@ -1374,6 +1381,53 @@ export function ProjectFormModal({
                 id="proj-lead"
                 value={state.project_lead}
                 onChange={(e) => update("project_lead", e.target.value)}
+                disabled={saving}
+                className={baseInput}
+              >
+                <option value="">— Select —</option>
+                {leadOptions.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+                <option value={LEAD_OTHER_SENTINEL}>Other (type a name)…</option>
+              </select>
+            )}
+          </Field>
+
+          <Field id="proj-viz-lead" label="Visualization lead">
+            {state.visualization_lead === LEAD_OTHER_SENTINEL ||
+            (state.visualization_lead && !leadOptions.includes(state.visualization_lead)) ? (
+              <input
+                id="proj-viz-lead"
+                type="text"
+                value={
+                  state.visualization_lead === LEAD_OTHER_SENTINEL
+                    ? ""
+                    : state.visualization_lead
+                }
+                onChange={(e) => update("visualization_lead", e.target.value)}
+                onBlur={(e) => {
+                  // If the user blurs out without typing anything after
+                  // selecting "Other…", revert to the empty placeholder
+                  // so the select is shown again on the next open.
+                  if (
+                    state.visualization_lead === LEAD_OTHER_SENTINEL &&
+                    !e.target.value.trim()
+                  ) {
+                    update("visualization_lead", "");
+                  }
+                }}
+                disabled={saving}
+                className={baseInput}
+                placeholder="Type a new lead name"
+                autoFocus={state.visualization_lead === LEAD_OTHER_SENTINEL}
+              />
+            ) : (
+              <select
+                id="proj-viz-lead"
+                value={state.visualization_lead}
+                onChange={(e) => update("visualization_lead", e.target.value)}
                 disabled={saving}
                 className={baseInput}
               >

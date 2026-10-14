@@ -544,6 +544,11 @@ export function ProjectQuickView({
                     {project.project_lead || "—"}
                   </span>
                 </Field>
+                <Field label="Visualization Lead">
+                  <span className="text-sm text-gray-900">
+                    {project.visualization_lead || "—"}
+                  </span>
+                </Field>
                 <Field label="Start Date">
                   <span className="text-sm text-gray-900">
                     {project.roadmap_timeline_start ?? "—"}
