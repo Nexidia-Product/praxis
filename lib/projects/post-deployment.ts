@@ -34,4 +34,5 @@ export const POST_DEPLOYMENT_STATUS_ORDER: readonly string[] = [
   "Delayed",
   "On Hold",
   "Not Started",
+  "Pending Assignment",
 ];

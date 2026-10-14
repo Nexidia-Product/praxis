@@ -113,6 +113,7 @@ const COMPLEXITY_SCORES: ComplexityScore[] = [
 
 const PROJECT_STATUSES: ProjectStatus[] = [
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",
@@ -125,6 +126,7 @@ const PROJECT_STATUSES: ProjectStatus[] = [
 /** Status values that count as "open" in the default Projects-page view. */
 export const OPEN_PROJECT_STATUSES: ProjectStatus[] = [
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",
@@ -1527,7 +1529,7 @@ export async function updateProject(
   // manually is friction; we only fire when:
   //
   //   - status is changing this update (not a summary-only edit), AND
-  //   - prior status was "Not Started" (only this transition; later
+  //   - prior status was "Not Started" or "Pending Assignment" (only these; later
   //     re-entries to active states don't reset history), AND
   //   - new status is one of In Progress / Blocked / Delayed (work
   //     genuinely begun — In Planning is pre-work, Completed/Canceled/
@@ -1544,7 +1546,8 @@ export async function updateProject(
   ];
   if (
     hasStatusChange &&
-    existing.status === "Not Started" &&
+    (existing.status === "Not Started" ||
+      existing.status === "Pending Assignment") &&
     ACTIVE_STATUSES_FOR_AUTO_START.includes(patch.status as ProjectStatus) &&
     existing.roadmap_timeline_start === null &&
     payload.roadmap_timeline_start === undefined

@@ -28,6 +28,7 @@ import { runJsonConverse } from "./converse";
 
 const OPEN_STATUSES: ProjectStatus[] = [
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",

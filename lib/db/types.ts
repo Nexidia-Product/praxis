@@ -114,6 +114,7 @@ export type Priority =
 
 export type ProjectStatus =
   | "Not Started"
+  | "Pending Assignment"
   | "In Planning"
   | "In Progress"
   | "Blocked"
