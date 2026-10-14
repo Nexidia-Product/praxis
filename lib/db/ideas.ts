@@ -25,6 +25,7 @@ export type CreateIdeaInput = Omit<
   | "edited_since_review"
   | "attachments"
   | "is_quality_of_life"
+  | "is_bug_defect"
 > &
   Partial<
     Pick<
@@ -34,6 +35,7 @@ export type CreateIdeaInput = Omit<
       | "ai_overlap_analysis"
       | "attachments"
       | "is_quality_of_life"
+      | "is_bug_defect"
     >
   >;
 
@@ -111,6 +113,7 @@ export const IdeaRepository = {
         admin_comments: input.admin_comments ?? "",
         ai_overlap_analysis: input.ai_overlap_analysis ?? null,
         is_quality_of_life: input.is_quality_of_life ?? false,
+        is_bug_defect: input.is_bug_defect ?? false,
         // submitted_at, idea_id, converted_to_project_id all have
         // sensible Postgres defaults.
       })

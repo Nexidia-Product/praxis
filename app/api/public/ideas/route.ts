@@ -12,6 +12,7 @@
  *     requested_target_date: "YYYY-MM-DD" | "" (optional)
  *     key_stakeholders: string (optional)
  *     is_quality_of_life: "true" | "false" (optional, default false)
+ *     is_bug_defect: "true" | "false" (optional, default false)
  *     attachments: File[] (optional, up to 5; see lib/ideas/attachments
  *                  for size + MIME constraints)
  *
@@ -94,6 +95,7 @@ export async function POST(request: Request): Promise<Response> {
           form.get("requested_target_date") ?? undefined,
         key_stakeholders: form.get("key_stakeholders") ?? undefined,
         is_quality_of_life: form.get("is_quality_of_life") ?? undefined,
+        is_bug_defect: form.get("is_bug_defect") ?? undefined,
       };
       // Collect every form entry whose value looks like a File. We
       // standardize on the field name `attachments` (multiple

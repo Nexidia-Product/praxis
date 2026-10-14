@@ -204,6 +204,7 @@ export interface IdeaSubmitPayload {
   requested_target_date?: unknown;
   key_stakeholders?: unknown;
   is_quality_of_life?: unknown;
+  is_bug_defect?: unknown;
 }
 
 /** Soft caps on free-text fields so the public form can't accept a 5MB blob. */
@@ -299,6 +300,7 @@ export async function submitIdea(
     payload.is_quality_of_life,
     "is_quality_of_life",
   );
+  const is_bug_defect = asBoolean(payload.is_bug_defect, "is_bug_defect");
 
   // Attachments are validated against the MIME allowlist and size
   // caps BEFORE we touch storage or the database. If any file fails,
@@ -329,6 +331,7 @@ export async function submitIdea(
     key_stakeholders,
     status: "New",
     is_quality_of_life,
+    is_bug_defect,
   });
 
   // Upload each file to Supabase Storage. We do this AFTER the idea
@@ -428,6 +431,7 @@ export interface IdeaUpdatePayload {
   admin_comments?: unknown;
   ai_overlap_analysis?: unknown;
   is_quality_of_life?: unknown;
+  is_bug_defect?: unknown;
 }
 
 /**
@@ -460,6 +464,7 @@ export async function updateIdea(
     admin_comments?: string;
     ai_overlap_analysis?: string | null;
     is_quality_of_life?: boolean;
+    is_bug_defect?: boolean;
   } = {};
 
   if (payload.status !== undefined) {
@@ -512,6 +517,14 @@ export async function updateIdea(
       payload.is_quality_of_life,
       "is_quality_of_life",
       existing.is_quality_of_life,
+    );
+  }
+
+  if (payload.is_bug_defect !== undefined) {
+    patch.is_bug_defect = asBoolean(
+      payload.is_bug_defect,
+      "is_bug_defect",
+      existing.is_bug_defect,
     );
   }
 
