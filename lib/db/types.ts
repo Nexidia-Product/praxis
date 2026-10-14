@@ -461,6 +461,8 @@ export interface Project {
   productization_reached_at?: IsoTimestamp | null;
   primary_stakeholders: string[];
   project_lead: UserId;
+  /** Who leads the visualization deliverable; same shape as `project_lead`. "" = unassigned. */
+  visualization_lead?: string;
   /** Mix of UserIds and free-form names is permitted (Section 4.1). */
   additional_resources: string[];
   /**

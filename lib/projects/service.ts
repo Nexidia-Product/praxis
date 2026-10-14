@@ -166,6 +166,7 @@ export interface ProjectCreatePayload {
   stage?: unknown;
   primary_stakeholders?: unknown;
   project_lead?: unknown;
+  visualization_lead?: unknown;
   additional_resources?: unknown;
   /**
    * Optional per-resource allocation percentages. Keys are the same
@@ -627,6 +628,10 @@ async function validateAndShape(
     "primary_stakeholders",
   );
   const project_lead = asOptionalString(payload.project_lead, "project_lead");
+  const visualization_lead = asOptionalString(
+    payload.visualization_lead,
+    "visualization_lead",
+  );
   const additional_resources = asStringArray(
     payload.additional_resources,
     "additional_resources",
@@ -727,6 +732,7 @@ async function validateAndShape(
     stage: effectiveStage,
     primary_stakeholders,
     project_lead,
+    visualization_lead,
     additional_resources,
     resource_allocations,
     target_date,
@@ -1192,6 +1198,12 @@ export async function updateProject(
   }
   if (payload.project_lead !== undefined) {
     patch.project_lead = asOptionalString(payload.project_lead, "project_lead");
+  }
+  if (payload.visualization_lead !== undefined) {
+    patch.visualization_lead = asOptionalString(
+      payload.visualization_lead,
+      "visualization_lead",
+    );
   }
   if (payload.additional_resources !== undefined) {
     patch.additional_resources = asStringArray(
@@ -1777,6 +1789,7 @@ export async function updateProject(
             "visualization_type",
             "application_product",
             "project_lead",
+            "visualization_lead",
             "target_date",
             "target_executable_deployment_date",
             "roadmap_timeline_start",

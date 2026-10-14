@@ -101,6 +101,7 @@ export const ProjectRepository = {
         stage: input.stage,
         primary_stakeholders: input.primary_stakeholders,
         project_lead: input.project_lead,
+        visualization_lead: input.visualization_lead ?? "",
         additional_resources: input.additional_resources,
         resource_allocations: input.resource_allocations,
         target_date: input.target_date,
