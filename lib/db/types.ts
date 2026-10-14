@@ -102,6 +102,7 @@ export type VisualizationType =
   | "New Visualization"
   | "New Page"
   | "New Cognigy Build"
+  | "None"
   | (string & {});
 
 export type Priority =

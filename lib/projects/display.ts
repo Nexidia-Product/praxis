@@ -126,6 +126,7 @@ export const VISUALIZATION_TYPES: VisualizationType[] = [
   "New Visualization",
   "New Page",
   "New Cognigy Build",
+  "None",
 ];
 
 // ---------------------------------------------------------------------------
