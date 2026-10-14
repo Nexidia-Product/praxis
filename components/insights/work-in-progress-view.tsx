@@ -992,6 +992,8 @@ function ProjectWipCard({
   onTaskDelete: (task: Task) => void;
 }) {
   const statusSummary = latestStatusSummary(project.status_history);
+  // Task detail is collapsed by default so the page reads at project level.
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
@@ -1077,6 +1079,28 @@ function ProjectWipCard({
           above (which opens the project quick view on click), so the
           two click targets never compete. */}
       <div className="border-t border-gray-200">
+        <button
+          type="button"
+          onClick={() => setTasksOpen((o) => !o)}
+          aria-expanded={tasksOpen}
+          aria-controls={`wip-tasks-${project.project_id}`}
+          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
+        >
+          <span
+            aria-hidden="true"
+            className={`inline-block text-[10px] text-gray-500 transition-transform ${tasksOpen ? "rotate-90" : ""}`}
+          >
+            ▶
+          </span>
+          Open tasks
+          <span className="font-normal text-gray-500">({openTasks.length})</span>
+        </button>
+      </div>
+      <div
+        id={`wip-tasks-${project.project_id}`}
+        hidden={!tasksOpen}
+        className="border-t border-gray-200"
+      >
         {canCreateTask ? (
           <div className="flex justify-end border-b border-gray-100 px-3 py-1.5">
             <button
