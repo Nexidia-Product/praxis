@@ -933,9 +933,18 @@ export async function mergeIdeaIntoProject(
   // Translate the task service's ValidationError into ours so the API
   // route only needs to handle one error type — mirrors the
   // ProjectValidationError translation in convertIdeaToProject above.
+  // The merge form has no assignee field, so default the task to the target
+  // project's lead (same fallback template-instantiated tasks use).
+  const targetProject = await ProjectRepository.getById(projectId);
+  if (!targetProject) throw new NotFoundError(`Project ${projectId} not found.`);
+  const payloadWithOwner: TaskCreatePayload = {
+    ...taskPayload,
+    responsible: taskPayload.responsible || targetProject.project_lead || "",
+  };
+
   let task: Task;
   try {
-    task = await createTask(taskPayload, {
+    task = await createTask(payloadWithOwner, {
       createdBy: ctx.createdBy,
       userName: ctx.userName,
     });
