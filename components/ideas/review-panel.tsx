@@ -124,6 +124,7 @@ export function IdeaReviewPanel({
   const [savingComments, setSavingComments] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [qolBusy, setQolBusy] = useState(false);
+  const [bugBusy, setBugBusy] = useState(false);
   const [overlapBusy, setOverlapBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showConvert, setShowConvert] = useState(false);
@@ -135,6 +136,7 @@ export function IdeaReviewPanel({
     status?: IdeaStatus;
     admin_comments?: string;
     is_quality_of_life?: boolean;
+    is_bug_defect?: boolean;
   }): Promise<boolean> {
     setError(null);
     const res = await fetch(`/api/ideas/${idea.idea_id}`, {
@@ -167,6 +169,13 @@ export function IdeaReviewPanel({
     setQolBusy(true);
     await patchIdea({ is_quality_of_life: next });
     setQolBusy(false);
+  }
+
+  async function handleBugToggle(next: boolean) {
+    if (bugBusy || isFinal) return;
+    setBugBusy(true);
+    await patchIdea({ is_bug_defect: next });
+    setBugBusy(false);
   }
 
   async function handleSaveComments() {
@@ -243,6 +252,14 @@ export function IdeaReviewPanel({
                 title="Flagged as a minor usability tweak, not a substantive feature request."
               >
                 Quality of Life
+              </span>
+            ) : null}
+            {idea.is_bug_defect ? (
+              <span
+                className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200"
+                title="Flagged as a bug or defect, not a feature request."
+              >
+                Bug / Defect
               </span>
             ) : null}
             {idea.edited_since_review ? (
@@ -397,6 +414,22 @@ export function IdeaReviewPanel({
           <label htmlFor="is_quality_of_life" className="text-sm text-gray-900">
             Quality of Life request — a minor usability tweak, not a
             substantive feature request.
+          </label>
+        </div>
+
+        {/* Bug / Defect flag */}
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            id="is_bug_defect"
+            type="checkbox"
+            checked={idea.is_bug_defect}
+            onChange={(e) => handleBugToggle(e.target.checked)}
+            disabled={isFinal || bugBusy}
+            className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          />
+          <label htmlFor="is_bug_defect" className="text-sm text-gray-900">
+            Bug / Defect — something not working as intended, not a new
+            feature request.
           </label>
         </div>
 

@@ -1165,6 +1165,12 @@ export interface ProjectIdea {
    * `Project.is_key_capability`.
    */
   is_quality_of_life: boolean;
+  /**
+   * Flags the idea as a bug or defect report rather than a feature request.
+   * Same lifecycle as `is_quality_of_life`: settable by the submitter at
+   * submission time or by a reviewer afterward; defaults false.
+   */
+  is_bug_defect: boolean;
 }
 
 /**

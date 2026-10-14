@@ -44,6 +44,7 @@ interface FormState {
   requested_target_date: string;
   key_stakeholders: string;
   is_quality_of_life: boolean;
+  is_bug_defect: boolean;
 }
 
 const EMPTY: FormState = {
@@ -55,6 +56,7 @@ const EMPTY: FormState = {
   requested_target_date: "",
   key_stakeholders: "",
   is_quality_of_life: false,
+  is_bug_defect: false,
 };
 
 interface SubmittedIdea {
@@ -162,6 +164,7 @@ export function IdeaSubmitForm() {
     form.set("requested_target_date", state.requested_target_date);
     form.set("key_stakeholders", state.key_stakeholders.trim());
     form.set("is_quality_of_life", String(state.is_quality_of_life));
+    form.set("is_bug_defect", String(state.is_bug_defect));
     for (const f of files) {
       form.append("attachments", f, f.name);
     }
@@ -417,6 +420,22 @@ export function IdeaSubmitForm() {
           <span className="font-medium">Quality of Life</span> request — a
           minor tweak that would improve usability (e.g., for customer
           demos), not a new feature.
+        </label>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <input
+          id="is_bug_defect"
+          name="is_bug_defect"
+          type="checkbox"
+          checked={state.is_bug_defect}
+          onChange={(e) => update("is_bug_defect", e.target.checked)}
+          disabled={submitting}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+        />
+        <label htmlFor="is_bug_defect" className="text-sm text-gray-900">
+          This is a <span className="font-medium">Bug / Defect</span> — something
+          that isn&apos;t working as intended, not a new feature.
         </label>
       </div>
 

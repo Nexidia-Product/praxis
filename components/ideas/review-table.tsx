@@ -197,6 +197,14 @@ export function IdeasReviewTable({
                           QoL
                         </span>
                       ) : null}
+                      {idea.is_bug_defect ? (
+                        <span
+                          className="inline-flex items-center rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-900 ring-1 ring-inset ring-rose-300"
+                          title="Flagged as a bug or defect, not a feature request."
+                        >
+                          Bug
+                        </span>
+                      ) : null}
                       {idea.edited_since_review ? (
                         <span
                           className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300"
