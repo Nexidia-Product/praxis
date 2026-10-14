@@ -29,6 +29,7 @@ import type { Project, ProjectStatus } from "@/lib/db";
 
 const ACTIVE_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",

@@ -20,7 +20,7 @@
  *      Imminent active-status target dates can still pull a project
  *      forward to Now even with a far-future start date — but that
  *      already fell out of step 1.
- *   4. No start date, but Not Started / In Planning:
+ *   4. No start date, but Not Started / Pending Assignment / In Planning:
  *        - target_date ≤ today + 30d → Now (target pulls forward)
  *        - has target_date (further out) → Next (status floor; far
  *          target doesn't push back to Later — see ROAD-16)
@@ -102,7 +102,11 @@ export function suggestedBucket(project: Project): NowNextLaterBucket {
   // but not yet scheduled," which is exactly what an undated
   // Not Started project is. The floor is a *protection*, not a
   // promotion: it only kicks in when there's a date to protect.
-  if (project.status === "In Planning" || project.status === "Not Started") {
+  if (
+    project.status === "In Planning" ||
+    project.status === "Not Started" ||
+    project.status === "Pending Assignment"
+  ) {
     if (targetDiffDays === null) {
       // No date signal at all → Later, not Next.
       return "Later";

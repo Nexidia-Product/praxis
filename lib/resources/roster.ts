@@ -37,6 +37,7 @@ import type {
 /** Active project statuses — same as `lib/roadmap/capacity.ts`. */
 const ACTIVE_PROJECT_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",

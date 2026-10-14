@@ -79,6 +79,7 @@ const STATUS_GROUP_FILTER: Record<StatusGroup, (s: ProjectStatus) => boolean> =
   {
     open: (s) =>
       s === "Not Started" ||
+      s === "Pending Assignment" ||
       s === "In Planning" ||
       s === "In Progress" ||
       s === "Blocked" ||

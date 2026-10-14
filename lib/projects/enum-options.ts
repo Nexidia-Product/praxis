@@ -77,6 +77,7 @@ export interface EnumOption {
  */
 const SYSTEM_OPEN_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",

@@ -66,6 +66,7 @@ export const WHITE = "FFFFFF";
 /** Status → background hex. Mirrors `STATUS_BADGE` semantically. */
 const STATUS_FILL: Record<ProjectStatus, string> = {
   "Not Started": GRAY_200,
+  "Pending Assignment": "DDD6FE", // violet-200
   "In Planning": "BAE6FD", // sky-200
   "In Progress": "A7F3D0", // emerald-200
   Blocked: "FECACA", // red-200
@@ -835,10 +836,11 @@ const STATUS_ORDER: Record<ProjectStatus, number> = {
   Delayed: 1,
   "In Progress": 2,
   "In Planning": 3,
-  "Not Started": 4,
-  "On Hold": 5,
-  Completed: 6,
-  Canceled: 7,
+  "Pending Assignment": 4,
+  "Not Started": 5,
+  "On Hold": 6,
+  Completed: 7,
+  Canceled: 8,
 };
 
 function compareProjectsForStatus(a: Project, b: Project): number {

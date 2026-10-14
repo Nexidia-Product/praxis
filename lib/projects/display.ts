@@ -29,6 +29,7 @@ import type {
 
 export const PROJECT_STATUSES: ProjectStatus[] = [
   "Not Started",
+  "Pending Assignment",
   "In Planning",
   "In Progress",
   "Blocked",
@@ -40,6 +41,8 @@ export const PROJECT_STATUSES: ProjectStatus[] = [
 
 export const STATUS_BADGE: Record<ProjectStatus, string> = {
   "Not Started": "bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200",
+  "Pending Assignment":
+    "bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200",
   "In Planning": "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200",
   "In Progress": "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200",
   Blocked: "bg-red-50 text-red-800 ring-1 ring-inset ring-red-200",
