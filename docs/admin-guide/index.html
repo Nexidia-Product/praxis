@@ -1,0 +1,881 @@
+<title>Praxis Administrator Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<!--
+  Source of truth for the published Praxis Administrator Guide.
+  Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
+  When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
+-->
+<script id="build-info" type="application/json">{"updated":"2026-10-15","guide":"2.1","base":"Praxis main after PR #70"}</script>
+<style>
+/* Layout concept: sticky section index on the left, single reading column on the right.
+   Reference-style page: task accordions, matrices, callouts, release-style change log. */
+:root{
+  --bg:#F4F6F9; --surface:#FFFFFF; --sunk:#EBEFF4; --ink:#18202C; --muted:#5A6577; --faint:#8893A4;
+  --line:#DCE2EA; --accent:#2F80E8; --accent-ink:#1A5FB8; --accent-wash:#E3EFFD;
+  --warn:#9A5B00; --warn-wash:#FFF3DC; --ok:#1E7B4B; --ok-wash:#E2F4EA;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --sans:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F131A; --surface:#161C25; --sunk:#1C2330; --ink:#E5E9F0; --muted:#A0AABA; --faint:#6F7A8C;
+    --line:#29313F; --accent:#5AA6FF; --accent-ink:#8CC2FF; --accent-wash:#16273D;
+    --warn:#F0B95A; --warn-wash:#2C2414; --ok:#5BC48D; --ok-wash:#14291E;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F131A; --surface:#161C25; --sunk:#1C2330; --ink:#E5E9F0; --muted:#A0AABA; --faint:#6F7A8C;
+  --line:#29313F; --accent:#5AA6FF; --accent-ink:#8CC2FF; --accent-wash:#16273D;
+  --warn:#F0B95A; --warn-wash:#2C2414; --ok:#5BC48D; --ok-wash:#14291E;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 64px}
+a{color:var(--accent-ink)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+code{background:var(--sunk);padding:.08em .35em;border-radius:4px;word-break:break-word}
+h1,h2,h3,h4{font-family:var(--cond);font-weight:600;text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.1rem;letter-spacing:-.01em}
+h2{font-size:1.45rem}
+h3{font-size:1.08rem}
+h4{font-size:.98rem}
+p{margin:0}
+.eyebrow{font:500 .72rem/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--muted);max-width:68ch;font-size:1.02rem}
+
+header.top{display:grid;gap:14px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.buildbar{display:flex;flex-wrap:wrap;gap:8px 18px;font:400 .82rem/1.4 var(--mono);color:var(--muted)}
+.buildbar b{color:var(--ink);font-weight:500}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.find{flex:1 1 280px;max-width:520px;font:inherit;font-size:.92rem;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.find:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.btn{all:unset;cursor:pointer;font:500 .76rem/1 var(--mono);padding:9px 11px;border:1px solid var(--line);border-radius:7px;color:var(--ink);background:var(--surface)}
+.btn:hover{background:var(--sunk)}
+.btn:focus-visible{outline:2px solid var(--accent)}
+.count{font:400 .8rem var(--mono);color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:220px minmax(0,1fr);gap:36px;margin-top:28px}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);align-self:start;display:grid;gap:2px;max-height:calc(100vh - 40px);overflow:auto}
+nav.toc .grp{font:500 .68rem/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--faint);padding:12px 10px 5px}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:.86rem}
+nav.toc a:hover,nav.toc a:focus-visible,nav.toc a.on{background:var(--sunk);color:var(--ink)}
+main{display:grid;gap:56px;min-width:0}
+section.block{display:grid;gap:18px;scroll-margin-top:16px;min-width:0}
+.block-head{display:grid;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.sub{display:grid;gap:12px;min-width:0}
+.sub>h3{padding-top:6px}
+.sub>h3 .no{font:500 .78rem var(--mono);color:var(--accent-ink);margin-right:8px}
+.muted{color:var(--muted)}
+ul.plain,ol.plain{margin:0;padding-left:20px;display:grid;gap:5px}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:7px;align-content:start;min-width:0}
+.card .n{font:500 .72rem/1 var(--mono);color:var(--accent-ink);text-transform:uppercase;letter-spacing:.06em}
+.card p,.card li{color:var(--muted);font-size:.88rem}
+.card ul{margin:0;padding-left:16px;display:grid;gap:3px}
+
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font:500 .7rem/1 var(--mono);padding:4px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;background:var(--surface)}
+.chip.ok{color:var(--ok);border-color:currentColor}
+.chip.warn{color:var(--warn);border-color:currentColor}
+.chip.acc{color:var(--accent-ink);border-color:currentColor}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 .72rem/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.nowrap{white-space:nowrap}
+tr[hidden]{display:none}
+
+.howlist{display:grid;gap:8px}
+details.how{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+details.how summary{cursor:pointer;list-style:none;padding:11px 16px;display:flex;gap:10px;align-items:baseline;font-weight:500}
+details.how summary::-webkit-details-marker{display:none}
+details.how summary::before{content:"+";font:500 .9rem var(--mono);color:var(--accent-ink);width:12px;flex:none}
+details.how[open] summary::before{content:"\2212"}
+details.how summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:10px}
+details.how .body{padding:2px 16px 14px 38px;border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px;font-size:.92rem}
+details.how ol{margin:0;padding-left:18px;display:grid;gap:6px}
+.tag{font:500 .66rem/1 var(--mono);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-left:auto;white-space:nowrap}
+
+.callout{background:var(--warn-wash);border-radius:8px;padding:11px 14px;font-size:.9rem;display:grid;gap:2px}
+.callout b{color:var(--warn)}
+.callout.info{background:var(--accent-wash)}
+.callout.info b{color:var(--accent-ink)}
+.callout.todo{background:var(--sunk);border:1px dashed var(--line)}
+.callout.todo b{color:var(--muted)}
+
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;margin:0}
+.kv dt{color:var(--muted);font:500 .74rem/1.7 var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.kv dd{margin:0}
+
+.rels{display:grid;gap:18px}
+.rel{display:grid;gap:8px}
+.rel h3{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.rel-v{font-family:var(--mono);font-weight:500}
+.rel-note{font:400 .82rem var(--sans);color:var(--muted)}
+.rel ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:.9rem}
+
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem;display:grid;gap:4px}
+
+@media (max-width:960px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  nav.toc{position:static;display:flex;flex-wrap:wrap;gap:4px;max-height:none}
+  nav.toc .grp{display:none}
+  nav.toc a{background:var(--surface);border:1px solid var(--line)}
+}
+@media (max-width:640px){
+  h1{font-size:1.7rem}
+  .kv{grid-template-columns:minmax(0,1fr)}
+  details.how .body{padding-left:16px}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">Internal reference · Praxis administration</span>
+  <h1>Praxis Administrator Guide</h1>
+  <p class="lede">How to set up Praxis, manage people and access, tune scoring and reporting, and keep the system running. Each task is a short procedure you can open and follow. A process playbook for when to do things is planned alongside this reference.</p>
+  <div class="buildbar">
+    <span>Guide <b id="b-guide">2.0</b></span>
+    <span>Updated <b id="b-updated">2026-10-14</b></span>
+    <span>Covers <b id="b-base">Praxis main</b></span>
+  </div>
+  <div class="tools">
+    <input id="find" class="find" type="search" placeholder="Find a task or term, for example reset password" aria-label="Find a task or term" autocomplete="off">
+    <button class="btn" id="expand" type="button">Expand all tasks</button>
+    <button class="btn" id="collapse" type="button">Collapse all</button>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+</header>
+
+<div class="grid">
+<nav class="toc" id="toc" aria-label="Sections"></nav>
+<main>
+
+<!-- ============ PLAYBOOK ============ -->
+<section class="block" id="playbook" data-nav="Process playbook" data-grp="Start here">
+  <div class="block-head"><span class="eyebrow">Process · When to do things</span><h2>Process playbook</h2></div>
+  <p class="lede">The reference sections below explain how to do each task. This section is for when: what triggers a task, what order to do things in, and who does them.</p>
+  <div class="callout todo"><b>Not written yet</b><span>Tell Claude which moments to cover and it will add them here, linking into the how-to sections instead of repeating them. Likely candidates: new-project intake, weekly review, start of a quarter, application release day, onboarding a new person, and monthly clean-up of statuses and stages.</span></div>
+</section>
+
+<!-- ============ 1 INTRO ============ -->
+<section class="block" id="intro" data-nav="1. Introduction" data-grp="Foundations">
+  <div class="block-head"><span class="eyebrow">Section 1 · Overview</span><h2>Introduction</h2></div>
+  <p class="lede">Praxis is a web application for tracking, managing and prioritizing innovation projects, tasks and submitted ideas for a single team. It replaces a spreadsheet workflow with roadmap views, role-based access control, a public idea portal, an audit trail, health and resource analytics, a velocity dashboard, PowerPoint export and optional AI assistance. It is single-tenant: one organization, no separate workspaces.</p>
+
+  <div class="sub"><h3><span class="no">1.2</span>Who this guide is for</h3>
+    <p>Read it if you hold the Admin role, or if a non-Admin role has been granted one or more administrative permissions (Section 3).</p></div>
+
+  <div class="sub"><h3><span class="no">1.3</span>How the application is built</h3>
+    <div class="cards">
+      <div class="card"><span class="n">Front end and server</span><p>A Next.js application. Pages render server-side and call internal service modules for all reads and writes.</p></div>
+      <div class="card"><span class="n">Database and identity</span><p>Supabase (PostgreSQL) stores all data; Supabase Auth owns identity. The application profile (name, role, active flag, preferences) lives in a users table joined to the auth identity.</p></div>
+      <div class="card"><span class="n">Hosting</span><p>Vercel. A daily Vercel Cron job drives the notification sweep (Section 12).</p></div>
+      <div class="card"><span class="n">AI</span><p>Optional features call AWS Bedrock, controlled by an environment flag and per-feature model selection (Section 18).</p></div>
+      <div class="card"><span class="n">Email</span><p>Invites, recovery and notifications go through Resend when configured; otherwise the content is logged.</p></div>
+    </div>
+  </div>
+
+  <div class="sub"><h3><span class="no">1.4</span>How this guide is organized</h3>
+    <ul class="plain">
+      <li>Sections 2 to 4: access and security.</li>
+      <li>Sections 5 to 7: the core records (projects, tasks, ideas).</li>
+      <li>Sections 8 to 13: views, dashboards and system features built on those records.</li>
+      <li>Section 14: the Administration Console reference.</li>
+      <li>Sections 15 to 18: audit log, deployment, scripts and the AI advisor.</li>
+      <li>Appendices: permission catalog, status and stage reference, page inventory, and the change log.</li>
+    </ul>
+    <p class="muted">Tasks appear as collapsed procedures. On-screen labels are quoted exactly.</p></div>
+
+  <div class="sub"><h3><span class="no">1.5</span>Getting around</h3>
+    <p>The left sidebar has three groups. Which items you see depends on your permissions. Appendix C describes each page.</p>
+    <div class="cards">
+      <div class="card"><span class="n">Workspace</span><p>Home, Projects, Tasks, My tasks, Roadmap, Groups</p></div>
+      <div class="card"><span class="n">Insights</span><p>Executive view, Program coverage, Velocity, Resources, Work in progress, Post-deployment, Application release, Key findings, Key capabilities, Ideas</p></div>
+      <div class="card"><span class="n">Admin</span><p>Resource management, Configuration, Templates, Use cases, NiCE products, Notifications, Audit log</p></div>
+    </div>
+    <div class="howlist">
+      <details class="how"><summary>How to: Find a project, task or idea with global search</summary><div class="body"><ol>
+        <li>Click the search box in the top header ("Search projects, tasks, ideas…"), or press Ctrl+K (Windows) or Cmd+K (Mac) from anywhere.</li>
+        <li>Type at least two characters. Results are grouped by type: projects, tasks and, if you can review ideas, ideas.</li>
+        <li>Use the Up and Down arrow keys and press Enter, or click a result, to open it.</li>
+        <li>Press Escape to close the dropdown without navigating.</li></ol></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 AUTH ============ -->
+<section class="block" id="auth" data-nav="2. Authentication" data-grp="Foundations">
+  <div class="block-head"><span class="eyebrow">Section 2 · Access</span><h2>Authentication &amp; access</h2></div>
+  <div class="sub"><h3><span class="no">2.1</span>Identity model</h3>
+    <p>Supabase Auth owns identity. Users sign in with an email address and password; Praxis never sees a plaintext password. Each identity is matched to an application profile carrying the display name, role, active flag and notification preferences. A deactivated account is treated as not signed in: the user is locked out on their next request while their history is kept.</p></div>
+  <div class="sub"><h3><span class="no">2.2</span>Sessions</h3>
+    <ul class="plain"><li>Sessions are cookie-based. Middleware refreshes the session on every request so short-lived access tokens renew transparently.</li><li>Signing out clears the session cookies. Session lifetime otherwise follows Supabase Auth's token settings.</li></ul></div>
+  <div class="sub"><h3><span class="no">2.3</span>Signing in and recovering a password</h3>
+    <div class="howlist">
+      <details class="how"><summary>How to: Sign in</summary><div class="body"><ol>
+        <li>Go to the application URL. If you are not signed in, you land on the login page.</li>
+        <li>Enter your address in "Email" and your password in "Password".</li>
+        <li>Click "Sign in". You are taken to the home page.</li></ol></div></details>
+      <details class="how"><summary>How to: Reset your own password</summary><div class="body"><ol>
+        <li>On the login page, click "Forgot password?".</li>
+        <li>Enter your address in "Email" and click "Send reset link".</li>
+        <li>You see a generic confirmation. Check your inbox; the link expires in one hour.</li>
+        <li>Open the link, enter a new password in "New password" and "Confirm password" (at least 12 characters, with three of: lowercase, uppercase, digit, special character), and click "Update password".</li>
+        <li>You return to the login page to sign in with the new password.</li></ol></div></details>
+    </div>
+    <p class="muted">New users join by invitation, not self-registration (Section 4). An invited user follows their link to a "Set your password" page, chooses a password and is signed in.</p></div>
+  <div class="sub"><h3><span class="no">2.4</span>Why email links use an interstitial page</h3>
+    <p>Invite and recovery links carry a single-use token. Corporate email security (such as Microsoft Defender Safe Links) often fetches a link before the person clicks it, which would burn the token. To prevent that, the authentication callback returns a small page that submits a form to complete verification. Prefetchers follow links but do not submit forms, so the token survives until the person clicks.</p>
+    <div class="callout info"><b>If you customize Supabase email templates</b><span>Keep the callback URL format intact: the token passed as query parameters to the callback route.</span></div></div>
+</section>
+
+<!-- ============ 3 ROLES ============ -->
+<section class="block" id="roles" data-nav="3. Roles &amp; permissions" data-grp="Foundations">
+  <div class="block-head"><span class="eyebrow">Section 3 · Access</span><h2>Roles &amp; permissions</h2></div>
+  <div class="sub"><h3><span class="no">3.1</span>The four roles</h3>
+    <p>Every user holds exactly one role. What a role can do is set entirely by the permissions mapped to it, not by its name.</p>
+    <div class="cards">
+      <div class="card"><span class="n">Admin</span><p>Full control. Always has every permission; this cannot be edited, so an Admin cannot be locked out.</p></div>
+      <div class="card"><span class="n">Project Lead</span><p>Manages projects, tasks and the idea pipeline, can export the roadmap and see all resources. No Admin console by default.</p></div>
+      <div class="card"><span class="n">Team Member</span><p>Works on projects and tasks (view, create and edit tasks; view projects) and views the roadmap and velocity.</p></div>
+      <div class="card"><span class="n">Viewer</span><p>Read-only access to projects, tasks, ideas, the roadmap and the velocity dashboard.</p></div>
+    </div></div>
+  <div class="sub"><h3><span class="no">3.2</span>The permission catalog</h3>
+    <p>A permission is the unit of access enforced throughout the app; each protected page and action checks a specific key. The full list is in Appendix A.</p>
+    <div class="chips"><span class="chip">Projects · 6</span><span class="chip">Tasks · 6</span><span class="chip">Ideas · 3</span><span class="chip">Roadmap · 2</span><span class="chip">Insights · 4</span><span class="chip">Administration · 14</span></div>
+    <p>Each admin surface is gated separately, so you can delegate a narrow slice of administration, such as task templates, by granting just that permission. Admin permissions only help alongside "Access the Admin section", which reveals the Admin group in navigation.</p></div>
+  <div class="sub"><h3><span class="no">3.3</span>Default role-to-permission mapping</h3>
+    <div class="tablewrap"><table><thead><tr><th>Role</th><th>Defaults</th></tr></thead><tbody>
+      <tr><td class="nowrap">Project Lead</td><td>View, create and edit projects; view, create, edit, delete and move tasks; view, review and convert ideas; view and export the roadmap; view velocity; view resources and all resources.</td></tr>
+      <tr><td class="nowrap">Team Member</td><td>View projects; view, create and edit tasks; view the roadmap; view velocity.</td></tr>
+      <tr><td class="nowrap">Viewer</td><td>View projects; view tasks; view ideas; view the roadmap; view velocity.</td></tr>
+    </tbody></table></div>
+    <p class="muted">No non-Admin role has any Administration permission by default.</p></div>
+  <div class="sub"><h3><span class="no">3.4</span>Editing roles &amp; permissions</h3>
+    <p>The mapping is data, so you can change who can do what without a software change. The editor is a matrix: permissions are rows grouped by category, roles are columns, and the Admin column is locked.</p>
+    <div class="howlist"><details class="how"><summary>How to: Change what a role can do</summary><div class="body"><ol>
+      <li>Under Admin, open "Resource management", then the "Roles &amp; permissions" tab.</li>
+      <li>Click the checkbox at the permission row and role column you want to change.</li>
+      <li>Repeat for other pairs. Edits stay pending until you save.</li>
+      <li>Click "Save changes". Use "Discard changes" to abandon edits, or "Reset to defaults" to return every non-Admin role to its seeded defaults (confirm in the dialog, then still Save).</li></ol>
+      <div class="callout"><b>Check navigation</b><span>If you grant an admin permission without "Access the Admin section", the page will not appear in that role's navigation. A banner warns you.</span></div></div></details></div></div>
+  <div class="sub"><h3><span class="no">3.5</span>How access is enforced</h3>
+    <ul class="plain"><li>Signed-in or not is enforced globally. A few public routes need no session: login, forgot and reset password, invite acceptance, the public idea-submission portal and its API, and the auth callback.</li><li>Every protected page and action checks a specific permission. A signed-in user without it is redirected to a styled "403, not authorized" page showing their role; API calls return 403.</li></ul></div>
+</section>
+
+<!-- ============ 4 USERS ============ -->
+<section class="block" id="users" data-nav="4. User management" data-grp="Foundations">
+  <div class="block-head"><span class="eyebrow">Section 4 · Access</span><h2>User management</h2></div>
+  <p>User management is under Admin, Resource management, Users (permission: manage users). The page lists each user's name, email, role, status and last sign-in.</p>
+  <div class="chips"><span class="chip ok">Active</span><span class="chip acc">Invited</span><span class="chip warn">Reset pending</span><span class="chip">Deactivated</span></div>
+  <div class="howlist">
+    <details class="how"><summary>How to: Invite a new user</summary><div class="body"><ol>
+      <li>Open Admin, Resource management, Users.</li>
+      <li>Click "Invite user". The form asks for "Name", "Email" and "Role" (Admin, Project Lead, Team Member or Viewer; default Team Member).</li>
+      <li>Fill in the name and email, choose the role, and click "Send invite".</li>
+      <li>A banner confirms the result and shows the invite link, which expires in 14 days. If email is not configured, click "Copy" and share the link directly. Click "Dismiss" to close the banner.</li></ol></div></details>
+    <details class="how"><summary>How to: Change a user's role</summary><div class="body"><ol>
+      <li>Open Admin, Resource management, Users.</li>
+      <li>In the user's "Role" column, choose the new role. It saves immediately and is recorded in the audit log.</li>
+      <li>Your own row is locked (marked "you"); you cannot change your own role.</li></ol></div></details>
+    <details class="how"><summary>How to: Deactivate or reactivate a user</summary><div class="body"><ol>
+      <li>Open Admin, Resource management, Users.</li>
+      <li>In the "Actions" column, click "Deactivate" (or "Reactivate"). It applies immediately.</li>
+      <li>A deactivated user is locked out on their next request; their record and history are kept. You cannot deactivate your own account.</li></ol></div></details>
+    <details class="how"><summary>How to: Send a password reset</summary><div class="body"><ol>
+      <li>Open Admin, Resource management, Users.</li>
+      <li>In the "Actions" column, click "Reset password".</li>
+      <li>A banner shows the reset link, valid for one hour. If email is not configured, click "Copy" and share it. The button is disabled for deactivated users; reactivate them first.</li></ol></div></details>
+  </div>
+  <p class="muted">Several user operations are also available as server-side scripts (Section 17) for bulk onboarding or recovery when the UI or email is not an option.</p>
+</section>
+
+<!-- ============ 5 PROJECTS ============ -->
+<section class="block" id="projects" data-nav="5. Projects" data-grp="Core records">
+  <div class="block-head"><span class="eyebrow">Section 5 · Core records</span><h2>Projects</h2></div>
+  <p class="lede">A project is the central record in Praxis. Each has an auto-assigned identifier in the form YYYY-NNN (year of creation plus a sequence number, such as 2026-001).</p>
+
+  <div class="sub"><h3><span class="no">5.1</span>Project fields</h3>
+    <dl class="kv">
+      <dt>Identity</dt><dd>Name, description and a definition of done.</dd>
+      <dt>Classification</dt><dd>Application/product, project type, program, track, priority, stage and status.</dd>
+      <dt>Visualization</dt><dd>A visualization type (Data Only, Function Update, New Visualization, New Page, New Cognigy Build or None) and a visualization lead, shown in the quick view under the project lead.</dd>
+      <dt>Alignment</dt><dd>A primary objective, optional secondary objectives, the use case the project belongs to, the use-case outcomes it supports, and the NiCE products it aligns to.</dd>
+      <dt>Value</dt><dd>Free-text supports and benefits, plus the project's own outcomes.</dd>
+      <dt>People</dt><dd>A project lead (required), additional resources (registered users or free text), primary stakeholders and a per-resource allocation percentage.</dd>
+      <dt>Dates</dt><dd>Target application deployment date, target executable deployment date, and a start date. The start date is set automatically the first time a project leaves Not Started or Pending Assignment for an active status, unless already set.</dd>
+      <dt>Roadmap bucket</dt><dd>A free-text grouping used by the Now, Next, Later board. New projects default to "Unplaced".</dd>
+      <dt>Health</dt><dd>A computed Red, Yellow or Green score with a rolling history (Section 11).</dd>
+      <dt>AI</dt><dd>An AI complexity score and time estimate (Section 18), when AI is enabled.</dd>
+      <dt>Custom fields</dt><dd>Any administrator-defined fields (Section 14) appear on every project.</dd>
+      <dt>Links</dt><dd>Document links, internal dependencies and external dependencies.</dd>
+      <dt>Key capability</dt><dd>A flag and an optional committed quarter (Section 10).</dd>
+    </dl></div>
+
+  <div class="sub"><h3><span class="no">5.2</span>Status, track, stage and priority</h3>
+    <p>Status, priority, program and track can be extended by administrators (Section 14). Stages are defined per track in code.</p>
+    <div class="cards">
+      <div class="card"><span class="n">Status</span><p>Not Started, <b>Pending Assignment</b>, In Planning, In Progress, Blocked, On Hold, Delayed, Completed, Canceled. Pending Assignment sits between Not Started and In Planning and counts as open work.</p></div>
+      <div class="card"><span class="n">Track</span><p>Tracks A to I. A project's track decides which stages it can be in (Appendix B).</p></div>
+      <div class="card"><span class="n">Stage</span><p>Every track starts with Qualification and Prioritization and delivers at Productization, with its own stages in between. Replaced the earlier "phase" field. Changing a stage by hand needs the change-stage permission; stages otherwise advance as a stage's tasks are completed.</p></div>
+      <div class="card"><span class="n">Program</span><p>Innovation, Complaints, UI Maintenance. New projects default to Innovation.</p></div>
+      <div class="card"><span class="n">Priority</span><p>Critical, High, Medium, Low. Administrator-added priorities carry a rank.</p></div>
+    </div></div>
+
+  <div class="sub"><h3><span class="no">5.3</span>Working with projects</h3>
+    <div class="howlist">
+      <details class="how"><summary>How to: Create a new project</summary><div class="body"><ol>
+        <li>In the sidebar, click "Projects".</li>
+        <li>Click "+ New project" (top right of the toolbar). The "New project" form opens.</li>
+        <li>Fill in the form. "Name" and "Application/Product" are required. The form also offers description, definition of done, type, program, track, priority, status, stage, visualization type, project lead, visualization lead, objectives, use case outcomes, supports, benefits, outcomes, dates, stakeholders, additional resources and allocations, and (when available) "Apply task template", "Depends on", document links, external dependencies and any custom fields.</li>
+        <li>Click "Create project". The modal closes and the project appears in the table.</li></ol></div></details>
+      <details class="how"><summary>How to: Edit a project</summary><div class="body"><ol>
+        <li>On the Projects page, click the project's row to open its quick-view panel.</li>
+        <li>Click "Edit project". The form opens with the same fields as create.</li>
+        <li>Make your changes and click "Save changes".</li></ol></div></details>
+      <details class="how"><summary>How to: Change a project's status and record a note</summary><div class="body"><ol>
+        <li>Open the project's quick-view panel.</li>
+        <li>Open the "Status" tab.</li>
+        <li>Choose the new status. Optionally type an explanation in the "Summary" note field.</li>
+        <li>Click "Update status", or "Add note" to attach a note without changing the status. The change appears in the history list with timestamp and author.</li></ol></div></details>
+      <details class="how"><summary>How to: Add a dependency, an external dependency or a document link</summary><div class="body"><ol>
+        <li>Open the project form (create or edit).</li>
+        <li>Internal dependency: in "Depends on", pick an upstream project and set its type, "Blocks Start" or "Blocks Stage" (for "Blocks Stage", also pick the required stage). Cycles are rejected.</li>
+        <li>External dependency: in "External dependencies", fill the "Title" (and optionally owner, URL, target date, description; status defaults to "Open") and click "Add dependency".</li>
+        <li>Document link: in "Document &amp; repository links", paste a URL (the link type is auto-detected), optionally add a label, and click "Add".</li>
+        <li>Click "Save changes" (or "Create project") to persist.</li></ol></div></details>
+    </div></div>
+
+  <div class="sub"><h3><span class="no">5.4</span>Dependencies, links and templates</h3>
+    <ul class="plain">
+      <li><b>Internal dependencies:</b> "Blocks Start" (the upstream must finish before this starts) and "Blocks Stage" (the upstream must reach a specified stage). Cycles are detected and rejected.</li>
+      <li><b>External dependencies</b> track work outside Praxis with a label, owner, optional link, status (Open, In Progress, Resolved) and optional target date. They feed the health score's upstream-risk consideration.</li>
+      <li><b>Document links</b> are labeled links to GitHub, Confluence, SharePoint, network drives, Figma, Miro, Jira and generic resources. Most are stored as references. A link to a GitHub Markdown file is also fetched when AI is enabled, to ground the PRFAQ (Section 18.2).</li>
+      <li><b>Task templates</b> applied at creation create the template's tasks on the new project with their dependencies preserved (Section 13).</li>
+    </ul></div>
+</section>
+
+<!-- ============ 6 TASKS ============ -->
+<section class="block" id="tasks" data-nav="6. Tasks" data-grp="Core records">
+  <div class="block-head"><span class="eyebrow">Section 6 · Core records</span><h2>Tasks</h2></div>
+  <p class="lede">Tasks belong to a project and have their own auto-assigned identifiers. A task is the unit of trackable work. Its project is fixed at creation unless it is explicitly moved.</p>
+  <div class="sub"><h3><span class="no">6.1</span>Task fields and statuses</h3>
+    <ul class="plain">
+      <li>Fields: name, detailed description, status, priority, stage, a responsible owner (required) plus additional assignees, a target (due) date, an hour estimate, a "blocked" flag with optional blocker detail, comments with history, document links and task-to-task dependencies.</li>
+      <li>A task's stage must be one of the stages for its project's track (Appendix B).</li>
+    </ul>
+    <div class="chips"><span class="chip">Not Started</span><span class="chip">Awaiting Dependency</span><span class="chip">In Progress</span><span class="chip warn">Blocked</span><span class="chip warn">Delayed</span><span class="chip">On Hold</span><span class="chip acc">Under Review</span><span class="chip ok">Complete</span><span class="chip">Canceled</span></div>
+    <p class="muted">Task statuses are not administrator-extensible: the auto-unblock behavior and the health score rely on them.</p></div>
+  <div class="sub"><h3><span class="no">6.2</span>Task dependencies and auto-unblock</h3>
+    <p>Tasks can depend on other tasks with the four standard relationship types (Finish-to-Start, Start-to-Start, Finish-to-Finish, Start-to-Finish). Praxis automates Finish-to-Start:</p>
+    <ul class="plain"><li>When a not-started task gains a Finish-to-Start predecessor, its status becomes "Awaiting Dependency". Removing the last such predecessor returns it to "Not Started".</li><li>When a task is marked Complete, every downstream task waiting on it is checked. If all of that task's Finish-to-Start predecessors are now complete, it is released back to "Not Started". An explicit status set by a user always wins.</li></ul></div>
+  <div class="sub"><h3><span class="no">6.3</span>Working with tasks</h3>
+    <div class="howlist">
+      <details class="how"><summary>How to: Add a task</summary><div class="body"><ol>
+        <li>In the sidebar, click "Tasks", then "+ New task" (top right). You can also start from a template with "+ From template".</li>
+        <li>In the "New task" form, choose the "Project" (required; only open projects are listed) and enter the "Task name" (required).</li>
+        <li>Set the stage, status and priority, and optionally the responsible person, target date, estimate, additional assignees and comments.</li>
+        <li>If the task is blocked, tick "This task is blocked" and use the "Blocked by" options ("Another task", "Another project" or "Other") plus the blocker details.</li>
+        <li>Click "Create task".</li></ol></div></details>
+      <details class="how"><summary>How to: Mark a task complete</summary><div class="body"><ol>
+        <li>On the Tasks page, find the task's row.</li>
+        <li>In the "Actions" column, click the green check. The status changes to "Complete" immediately.</li>
+        <li>Alternatively, open the task, set "Status" to "Complete" on the "Details" tab, and click "Save changes".</li></ol></div></details>
+      <details class="how"><summary>How to: Edit a task</summary><div class="body"><ol>
+        <li>On the Tasks page, click the task's row to open the "Edit task" form.</li>
+        <li>Use the "Details" tab to change fields, "Comments" to read the history and "Dependencies" to manage predecessor links.</li>
+        <li>Click "Save changes".</li></ol></div></details>
+      <details class="how"><summary>How to: Move a task to another project</summary><div class="body"><ol>
+        <li>Open the task (click its row on the Tasks page).</li>
+        <li>On the "Details" tab, use the "Project" field: choose the destination project (only open projects are listed) and click "Move". Health scores on both projects are recalculated and the move is audited.</li>
+        <li>Without the move permission, the project field is read-only.</li></ol></div></details>
+      <details class="how"><summary>How to: Use the My tasks list and checklist</summary><div class="body"><ol>
+        <li>In the sidebar, click "My tasks". It shows tasks you are responsible for or assigned to.</li>
+        <li>Switch between "List" (a filterable, groupable table) and "Checklist" (a personal, reorderable list of open tasks) with the buttons at the top.</li>
+        <li>In Checklist mode, drag tasks by the grip handle into your preferred order; it saves automatically. Tick a task's checkbox to complete it.</li></ol></div></details>
+    </div></div>
+</section>
+
+<!-- ============ 7 IDEAS ============ -->
+<section class="block" id="ideas" data-nav="7. Ideas &amp; portal" data-grp="Core records">
+  <div class="block-head"><span class="eyebrow">Section 7 · Core records</span><h2>Ideas &amp; the public submission portal</h2></div>
+  <p class="lede">Ideas are lightweight proposals that can be triaged and then promoted into projects, or merged into existing ones. They enter through a public portal and are worked in an internal review queue (sidebar: Insights, Ideas).</p>
+  <div class="sub"><h3><span class="no">7.1</span>Idea lifecycle</h3>
+    <div class="chips"><span class="chip">New</span><span class="chip acc">Under Review</span><span class="chip ok">Approved</span><span class="chip warn">Rejected</span><span class="chip ok">Converted</span></div>
+    <p class="muted">New, Under Review, Approved, Converted, with Rejected as an off-ramp (an idea can be reopened from Rejected). Converted is terminal.</p></div>
+  <div class="sub"><h3><span class="no">7.2</span>Quality of Life and Bug / Defect flags</h3>
+    <p>Both flags work the same way. A submitter can set either at submission, and a reviewer can set or clear either on the review page until the idea is Converted. A flagged idea shows a badge in the review list ("QoL" or "Bug") and in the idea header. Use them to separate fixes and small tweaks from new feature requests when you triage.</p></div>
+  <div class="sub"><h3><span class="no">7.3</span>Submitting, reviewing, converting and merging</h3>
+    <div class="howlist">
+      <details class="how"><summary>How to: Submit an idea through the public portal</summary><div class="body"><ol>
+        <li>Go to the public portal at /submit. No sign-in is required; share the link with stakeholders.</li>
+        <li>Fill in "Your name" (required) and optionally "Email (optional)", used to send an update when the idea is reviewed.</li>
+        <li>Enter the "Idea title" and "Description" (both required) and choose an "Urgency" (Low, Medium, High or Critical).</li>
+        <li>Optionally set "Requested target date", "Key stakeholders" and "Attachments" (up to five files, 50 MB combined).</li>
+        <li>Optionally tick "Quality of Life" (a minor usability tweak, not a new feature) or "Bug / Defect" (something not working as intended).</li>
+        <li>Click "Submit idea". A confirmation shows a reference ID.</li></ol></div></details>
+      <details class="how"><summary>How to: Review an idea</summary><div class="body"><ol>
+        <li>Open Insights, "Ideas". Use the filter buttons ("Open (New + Under Review)", "All", "New", "Under Review", "Approved", "Rejected", "Converted") to scope the list.</li>
+        <li>Click "Review" on an idea's row to open it.</li>
+        <li>Move it through review with "Mark under review", "Approve" or "Reject".</li>
+        <li>Capture internal notes in "Reviewer notes" (never shown to the public) and click "Save notes". Download attachments with "Download".</li></ol></div></details>
+      <details class="how"><summary>How to: Check an idea for overlap with existing work</summary><div class="body"><ol>
+        <li>Open the idea.</li>
+        <li>In the "Overlap check" section, click "Run overlap check" (or "Re-run check"). It shows likely duplicate or related projects and ideas.</li>
+        <li>With AI enabled the result is model-generated; otherwise a keyword heuristic is used. Either way the result is saved on the idea for other reviewers.</li></ol></div></details>
+      <details class="how"><summary>How to: Convert an idea into a project</summary><div class="body"><ol>
+        <li>Open the idea and click "Convert to project" (requires the convert-ideas permission).</li>
+        <li>Review the pre-filled fields and adjust as needed.</li>
+        <li>Click "Create project &amp; mark Converted". You are taken to the new project, and the idea is marked Converted and linked to it.</li></ol></div></details>
+      <details class="how"><summary>How to: Merge an idea into an existing project</summary><div class="body"><ol>
+        <li>Open the idea and choose "Merge into project" (also needs the convert-ideas permission).</li>
+        <li>Search for and select the target project. Completed and canceled projects are not listed.</li>
+        <li>Review the pre-filled task (name and description come from the idea; priority is mapped from urgency). Choose the task's stage and enter an hour estimate, both required.</li>
+        <li>Click "Create task &amp; mark Converted". The task is created on that project and assigned to the project's lead, and the idea is marked Converted with a link back to the project. No new project is created.</li></ol></div></details>
+    </div></div>
+</section>
+
+<!-- ============ 8 ROADMAP ============ -->
+<section class="block" id="roadmap" data-nav="8. Roadmap" data-grp="Views &amp; insights">
+  <div class="block-head"><span class="eyebrow">Section 8 · Views</span><h2>The roadmap</h2></div>
+  <p class="lede">One page (permission: view the roadmap) with four interchangeable views of the portfolio: Timeline (Gantt), Kanban, Portfolio (bubble/scatter) and Now / Next / Later. Administrator-type projects are excluded from every view.</p>
+  <div class="callout info"><b>Placement note</b><span>On Now / Next / Later, Not Started, Pending Assignment and In Planning projects are treated alike: with no date signal they land in Later.</span></div>
+  <div class="howlist">
+    <details class="how"><summary>How to: Switch roadmap views</summary><div class="body"><ol>
+      <li>In the sidebar, open the roadmap.</li>
+      <li>Use the view tabs to choose "Timeline", "Kanban", "Portfolio" or "Now / Next / Later".</li></ol></div></details>
+    <details class="how"><summary>How to: Group the Kanban board and save a named view</summary><div class="body"><ol>
+      <li>On the Kanban view, use the "Columns:" dropdown to group by status, stage, priority, project type or roadmap bucket. Optionally set "Swimlanes:".</li>
+      <li>Drag a card between columns to update that field on the project.</li>
+      <li>To save the arrangement, click "Save view…", name it and click "Save". Reload it from the "Saved:" dropdown; remove a loaded view with "Delete view".</li></ol></div></details>
+    <details class="how"><summary>How to: Re-place a project on Now / Next / Later</summary><div class="body"><ol>
+      <li>Open the "Now / Next / Later" view. Projects sit in Now, Next, Later or Unplaced based on their roadmap bucket.</li>
+      <li>Drag a project card to a different column and release; the project's roadmap bucket updates. A card marked "Auto" was placed by suggestion until you move it.</li></ol></div></details>
+    <details class="how"><summary>How to: Export the roadmap to PowerPoint</summary><div class="body"><ol>
+      <li>From the roadmap, click "Export" to open the "Export PPTX deck" dialog (requires the export-roadmap permission).</li>
+      <li>Tick the slides to include (Timeline, Kanban, Portfolio, Now / Next / Later and built-in summary slides). Slides captured as images are marked "CAPTURE".</li>
+      <li>Enter a "Title" (and optional "Subtitle"), review the inherited filter summary, and optionally expand branding overrides to set primary and secondary colors.</li>
+      <li>Click "Export deck". Progress messages show capture and assembly, then the .pptx downloads.</li></ol></div></details>
+  </div>
+</section>
+
+<!-- ============ 9 INSIGHTS ============ -->
+<section class="block" id="insights" data-nav="9. Velocity, WIP &amp; Resources" data-grp="Views &amp; insights">
+  <div class="block-head"><span class="eyebrow">Section 9 · Insights</span><h2>Velocity, Work in progress &amp; Resources</h2></div>
+  <div class="sub"><h3><span class="no">9.1</span>Velocity &amp; throughput dashboard</h3>
+    <p>Permission: view velocity. Computed on demand and cached briefly; Administrator-type projects are excluded. Delivery is measured from the point a project reaches Productization. It charts completed projects by quarter, time to completion, estimated versus actual duration, task throughput per week, time in each stage, time spent blocked, post-release and on-time delivery metrics, and idea conversion rate. Where data is thin or approximate, charts carry an "Approximate" or "Insufficient data" badge.</p>
+    <div class="howlist"><details class="how"><summary>How to: Filter the velocity dashboard</summary><div class="body"><ol>
+      <li>Open the velocity dashboard from the sidebar.</li>
+      <li>Set the "Time range" (30 days, 90 days, 6 months, 1 year, All time, or Custom with start and end dates).</li>
+      <li>Optionally narrow by project type, application/product and project lead, and toggle "Just my work" for an individual view.</li>
+      <li>Use "Reset filters" to clear everything at once.</li></ol></div></details></div></div>
+  <div class="sub"><h3><span class="no">9.2</span>Work in progress</h3>
+    <p>Shows every project that is In Planning or In Progress and not yet deployed, grouped under those two headings. It opens scoped to your default program; change it with the Program filter. Each project gets a summary card (identity, health, stage and days in stage, lead, target date, task count, latest status note and outcomes) followed by its open tasks.</p>
+    <div class="callout info"><b>Tasks are collapsed by default</b><span>Click the "Open tasks" bar on a card to show or hide that project's tasks. The bar shows the open-task count. "Include deployed projects" and "Include Admin projects" widen the list. The Post-deployment page uses the same cards for deployed projects whose status is still open.</span></div></div>
+  <div class="sub"><h3><span class="no">9.3</span>Resources</h3>
+    <div class="howlist"><details class="how"><summary>How to: Review the Resources page</summary><div class="body"><ol>
+      <li>In the sidebar under Insights, open "Resources" (permission: view Resources).</li>
+      <li>Switch among the "Overview", "Capacity" and "Performance" tabs.</li>
+      <li>Use the scope toggle to switch between "My team" and "Everyone". "Everyone" requires the view-all-resources permission. Workload buckets and performance bands come from the resource thresholds in Section 14.2.</li></ol></div></details></div></div>
+</section>
+
+<!-- ============ 10 KEY CAPS ============ -->
+<section class="block" id="keycaps" data-nav="10. Key capabilities" data-grp="Views &amp; insights">
+  <div class="block-head"><span class="eyebrow">Section 10 · Insights</span><h2>Key capabilities</h2></div>
+  <p class="lede">The Key Capabilities dashboard highlights the strategic projects the team is committing to, grouped by the quarter each is slotted for. Viewing needs only project access; designating capabilities and assigning quarters requires the "manage key capabilities" permission. At most two capabilities may be slotted per quarter.</p>
+  <ul class="plain"><li>Each card shows identity and health, a task-progress strip (open, past due, blocked, done) and an "x / x tasks complete" indicator with a percentage. Canceled tasks are excluded from that math.</li><li>Beneath the progress indicator, each card shows the project's most recent status note (Section 5.3). Cards with no note show a blank placeholder.</li></ul>
+  <div class="howlist"><details class="how"><summary>How to: Designate a key capability and slot it into a quarter</summary><div class="body"><ol>
+    <li>Open the Key Capabilities dashboard (sidebar: Insights, "Key capabilities").</li>
+    <li>In the "Add a key capability:" row, open "Select a project…", choose an un-flagged project and click "Add".</li>
+    <li>On the project's card, use the quarter dropdown to commit it to a quarter. A quarter that already holds two capabilities will not accept a third.</li>
+    <li>To remove the designation, click "Remove" on the card.</li></ol></div></details></div>
+</section>
+
+<!-- ============ 11 HEALTH ============ -->
+<section class="block" id="health" data-nav="11. Health scoring" data-grp="Views &amp; insights">
+  <div class="block-head"><span class="eyebrow">Section 11 · System</span><h2>Health scoring</h2></div>
+  <p class="lede">Every project carries an automatically computed health score plus a rolling history used to draw a small trend sparkline. The score is recomputed when a project's status changes and when its tasks change.</p>
+  <div class="sub"><h3><span class="no">11.1</span>How the score is determined</h3>
+    <div class="cards">
+      <div class="card"><span class="n">Red</span><ul><li>Status is Blocked</li><li>Target date passed and the project is not closed</li><li>Blocked-or-overdue task share at or above the Red threshold</li><li>A hard upstream dependency is blocked</li></ul></div>
+      <div class="card"><span class="n">Yellow</span><ul><li>Blocked-or-overdue share at or above the Yellow threshold</li><li>Target date near while a meaningful share of tasks is still open</li><li>A meaningful share of open tasks is due soon</li><li>No task activity for a configured number of days</li><li>An upstream dependency is at risk</li></ul></div>
+      <div class="card"><span class="n">Green</span><p>The default when none of the above applies. Completed and Canceled projects are treated as Green. Canceled tasks are excluded from task-share calculations.</p></div>
+    </div></div>
+  <div class="sub"><h3><span class="no">11.2</span>Thresholds and recalculation</h3>
+    <ul class="plain"><li>Thresholds are set in Admin, Configuration, Health thresholds (Section 14.1). Red must exceed Yellow.</li><li>Changes apply to a project the next time it is recalculated. Use "Recalculate now" on the Health thresholds page to apply them to every project immediately.</li><li>History keeps one point per calendar day over a rolling window and is kept after a project closes. A degradation (Green to Yellow, or Yellow to Red) raises a notification; recoveries do not.</li></ul></div>
+</section>
+
+<!-- ============ 12 NOTIFICATIONS ============ -->
+<section class="block" id="notifications" data-nav="12. Notifications" data-grp="System">
+  <div class="block-head"><span class="eyebrow">Section 12 · System</span><h2>Notifications</h2></div>
+  <p class="lede">Praxis delivers notifications in-app and, optionally, by email.</p>
+  <div class="chips"><span class="chip">Task Assigned</span><span class="chip">Task Due Soon</span><span class="chip">Task Overdue</span><span class="chip">Project Blocked</span><span class="chip">Dependency Blocked</span><span class="chip">Health Score Changed</span><span class="chip">Idea Status Changed</span></div>
+  <div class="sub"><h3><span class="no">12.1</span>Delivery and preferences</h3>
+    <ul class="plain"><li>Each user chooses, per type, whether to receive it in-app only or by email and in-app, and may enable a daily digest.</li><li>Administrators set the organization-wide defaults in application settings. These are the fallback when a user has not set their own.</li><li>Idea Status Changed notifications go by email to the idea's submitter (submitters have no account).</li><li>A task created by merging an idea into a project is assigned to the project's lead, who receives the usual Task Assigned notification.</li></ul>
+    <div class="howlist"><details class="how"><summary>How to: Set your personal notification preferences</summary><div class="body"><ol>
+      <li>Open your profile's Notifications page (Profile, Notifications).</li>
+      <li>For each type, choose "In-app only" or "Email + in-app".</li>
+      <li>Optionally tick "Daily digest mode" to receive one summary email per day instead of per-event emails.</li>
+      <li>Click "Save preferences".</li></ol></div></details></div></div>
+  <div class="sub"><h3><span class="no">12.2</span>The daily sweep</h3>
+    <p>A scheduled job runs once a day (07:00 UTC via Vercel Cron) in four idempotent phases: notify on tasks due soon, notify on overdue tasks, send digests to users who opted in, and purge old read notifications. Running it more than once a day produces no duplicates.</p>
+    <div class="howlist"><details class="how"><summary>How to: Run the notification sweep on demand</summary><div class="body"><ol>
+      <li>Open Admin, "Notifications" (permission: run notifications sweep).</li>
+      <li>Click "Run sweep now".</li>
+      <li>Read the per-phase counts: "Due-soon notified", "Overdue notified", "Digests sent", "Old read purged", "Health-recalc projects" and "Duration". Running again right away gives zeros, because each phase de-duplicates against entries written earlier the same day.</li></ol></div></details></div></div>
+</section>
+
+<!-- ============ 13 TEMPLATES ============ -->
+<section class="block" id="templates" data-nav="13. Task templates" data-grp="System">
+  <div class="block-head"><span class="eyebrow">Section 13 · System</span><h2>Task templates</h2></div>
+  <p class="lede">Task templates (Admin, Templates; permission: manage task templates) are reusable, ordered task lists that prefill a new project. When applied, each template task becomes a real task with a fresh identifier, and the within-template dependencies are rewritten to the new tasks. A template task's stage must belong to the tracks the template targets. If a template task has no default owner, the created task is assigned to the project's lead.</p>
+  <div class="howlist"><details class="how"><summary>How to: Create a task template</summary><div class="body"><ol>
+    <li>Open Admin, "Templates" and click "+ New" (left pane).</li>
+    <li>Enter a "Template name" and tick every applicable track under "Tracks". Each task's stage options are the stages of the checked tracks.</li>
+    <li>Under "Tasks", click "+ Add task" for each task and set its name, priority, stage, optional "Hours" estimate and optional description. Reorder tasks with the up and down controls.</li>
+    <li>To link tasks within the template, use "+ Add dependency" on a task and pick a predecessor and a type (FS, SS, FF or SF).</li>
+    <li>Click "Create template" (or "Save changes" when editing an existing one).</li></ol></div></details></div>
+</section>
+
+<!-- ============ 14 ADMIN ============ -->
+<section class="block" id="admin" data-nav="14. Admin console" data-grp="Administration">
+  <div class="block-head"><span class="eyebrow">Section 14 · Administration</span><h2>Administration console reference</h2></div>
+  <p class="lede">The Admin section groups configuration into two tabbed workspaces plus several dedicated pages. Each tab and page is gated by its own permission, so access can be delegated narrowly.</p>
+
+  <div class="sub"><h3><span class="no">14.1</span>Configuration workspace</h3>
+    <div class="chips"><span class="chip">Custom fields</span><span class="chip">Project values</span><span class="chip">Outcomes</span><span class="chip">Portfolio quadrants</span><span class="chip">Health thresholds</span><span class="chip">AI</span></div>
+    <div class="howlist">
+      <details class="how"><summary>How to: Add a custom field</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "Custom fields".</li>
+        <li>Click "+ Add field" and set the "Label", the "Key" (lowercase letters, digits and underscores, starting with a letter) and the "Type" (Text, Number, Date, Yes / no or Single-select). Tick "Required" if needed; for Single-select, fill the comma-separated "Options".</li>
+        <li>Click "Save changes".</li></ol>
+        <div class="callout"><b>The key is permanent</b><span>Renaming a key after projects use the field orphans the old data. Change the label freely, but treat the key as fixed once in use.</span></div></div></details>
+      <details class="how"><summary>How to: Add a project value (status, priority, application, program or track)</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "Project values" and pick the "Status", "Priority", "Application / Product", "Program" or "Track" tab. Built-in values are shown but locked. The "Stage" tab is view-only: stages are defined per track in code, so ask engineering to add stages for a track that has none yet.</li>
+        <li>In the add form, enter the "Label" and an "ID" (auto-derived, editable, must be unique). For Status set "Open" and "Terminal"; for Priority set "Rank". Click "Add".</li>
+        <li>Click "Save changes". To retire a value later, "Archive" it (hidden from new dropdowns, kept on records that use it). "Delete" is only allowed for values never used. Treat the ID as permanent once in use.</li></ol></div></details>
+      <details class="how"><summary>How to: Manage outcome values</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "Outcomes".</li>
+        <li>Add or remove entries in the two lists that back the product and type dropdowns on project outcomes.</li>
+        <li>Save. Both lists save together.</li></ol></div></details>
+      <details class="how"><summary>How to: Rename the portfolio quadrant labels</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "Portfolio quadrants".</li>
+        <li>Edit the four labels: "Quick Win", "Major Bet", "Fill-In" and "Deprioritize" (each up to 60 characters).</li>
+        <li>Click "Save" (or "Reset to defaults"). Renaming does not move any project; quadrant membership is computed from priority and complexity.</li></ol></div></details>
+      <details class="how"><summary>How to: Set health thresholds and apply them now</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "Health thresholds".</li>
+        <li>Set the Yellow and Red blocked-or-overdue percentages (Red must be greater than Yellow) and the Yellow-only triggers (inactivity days, target-date proximity, open-task percentage, due-soon task percentage).</li>
+        <li>Click "Save thresholds".</li>
+        <li>Click "Recalculate now" to apply the new thresholds across every project immediately. Otherwise they apply as each project is next recalculated.</li></ol></div></details>
+      <details class="how"><summary>How to: Choose AI models per feature</summary><div class="body"><ol>
+        <li>Open Admin, Configuration, "AI" (this tab appears only when AI is enabled in the environment).</li>
+        <li>For each feature ("Complexity / time estimate", "Priority recommendation" and "Idea overlap"), pick a model. Each option is tagged with its routing scope. If the model list cannot load, paste a model id into the text box instead.</li>
+        <li>Click "Save" (or "Reset to defaults").</li></ol></div></details>
+    </div></div>
+
+  <div class="sub"><h3><span class="no">14.2</span>Resource management workspace</h3>
+    <p>Holds people and access settings: Users (Section 4), Roles &amp; permissions (Section 3.4) and Resource thresholds. The Users tab also controls program access: for each non-Admin user, the program control opens a popover with an "All programs" toggle and a checklist of specific programs; when more than one is checked you also choose a Primary. Click "Apply" to save. Admins are never restricted by program.</p>
+    <div class="howlist"><details class="how"><summary>How to: Tune resource thresholds</summary><div class="body"><ol>
+      <li>Open Admin, Resource management, "Resource thresholds".</li>
+      <li>Adjust the sections: "Default allocation"; "Workload weights" (per assignment, open task, past-due task and bottleneck task, plus complexity and priority multipliers); "Workload bucket thresholds"; "Performance weights"; and "Performance score thresholds" (Yellow minimum below Green minimum, plus the look-back window in days).</li>
+      <li>Click "Save thresholds". The Resources page reflects the new values on next render.</li></ol></div></details></div></div>
+
+  <div class="sub"><h3><span class="no">14.3</span>Dedicated admin pages</h3>
+    <ul class="plain"><li><b>Templates:</b> task templates (Section 13).</li><li><b>Use cases:</b> Section 14.5.</li><li><b>NiCE products:</b> Section 14.6.</li><li><b>Notifications:</b> run the daily sweep on demand (Section 12.2).</li><li><b>Audit log:</b> Section 15.</li><li><b>Ideas review queue:</b> triage and convert submissions (Section 7); gated by the idea permissions rather than an admin permission.</li></ul></div>
+
+  <div class="sub"><h3><span class="no">14.4</span>The settings record</h3>
+    <p>The configuration above (health thresholds, branding, notification defaults, custom field definitions, saved Kanban views, the role-permission map, project-value extensions, resource settings, portfolio quadrant labels and AI model selection) persists in a single application settings record. The application reads it defensively, so a record missing a newer field still loads with sensible defaults.</p></div>
+
+  <div class="sub"><h3><span class="no">14.5</span>Use cases</h3>
+    <p>Admin, Use cases (permission: manage use cases). Top-level groupings tied to organizational objectives. Each has a name, description, a primary objective, optional secondary objectives, the NiCE products it aligns to, the outcomes it is meant to achieve, and its member projects. A project belongs to at most one use case, and its quick view shows it. Projects pick which of their use case's outcomes they support on the project form.</p>
+    <div class="howlist">
+      <details class="how"><summary>How to: Create a use case</summary><div class="body"><ol>
+        <li>Open Admin, "Use cases" and click "+ New use case".</li>
+        <li>Enter the name and description, choose the primary objective and any secondary objectives, and select aligned NiCE products.</li>
+        <li>Add the outcomes the use case should achieve.</li>
+        <li>Search for and add member projects. A project can belong to only one use case.</li>
+        <li>Save.</li></ol></div></details>
+      <details class="how"><summary>How to: Export the use cases to Markdown</summary><div class="body"><ol>
+        <li>Open Admin, "Use cases".</li>
+        <li>Click "Export Markdown". A file named use-cases-YYYY-MM-DD.md downloads.</li>
+        <li>The file has one section per use case: description, objectives, NiCE products, outcomes and a table of member projects with ID, name, status, stage and lead.</li></ol></div></details>
+    </div></div>
+
+  <div class="sub"><h3><span class="no">14.6</span>NiCE products</h3>
+    <p>Admin, NiCE products (permission: manage NiCE products). Add a product, rename or re-describe it, and deprecate or restore it. There is no delete: deprecating hides a product from new selections while existing use case and project alignments keep it.</p></div>
+</section>
+
+<!-- ============ 15 AUDIT ============ -->
+<section class="block" id="audit" data-nav="15. Audit log" data-grp="Administration">
+  <div class="block-head"><span class="eyebrow">Section 15 · Administration</span><h2>Audit log</h2></div>
+  <p class="lede">An append-only record of who changed what (Admin, Audit log; permission: view audit log). Entries are never edited or deleted.</p>
+  <ul class="plain"><li>Each entry records when it occurred, the actor (or "System" for automated changes), the entity type (Project, Task, Idea, User, Decision, Template or Settings) and its label, the action and a short summary such as "Status: In Progress to Blocked".</li><li>Actions include create, update, delete, status change, convert, merge, invite, deactivate, activate, role change and password reset.</li><li>Auditing is best-effort and never blocks the underlying operation, so read the log as a strong record of activity rather than a transactional guarantee.</li></ul>
+  <div class="howlist"><details class="how"><summary>How to: Find activity in the audit log</summary><div class="body"><ol>
+    <li>Open Admin, "Audit log".</li>
+    <li>Narrow the list with the "Entity", "Action" and "Actor" dropdowns (the actor list includes "System").</li>
+    <li>Type in the "Search" box to match the entity name or summary. Click "Refresh" to reload, or "Clear filters" to reset. Results are newest first.</li></ol></div></details></div>
+</section>
+
+<!-- ============ 16 DEPLOY ============ -->
+<section class="block" id="deploy" data-nav="16. Deployment" data-grp="Operations">
+  <div class="block-head"><span class="eyebrow">Section 16 · Operations</span><h2>Deployment &amp; environment</h2></div>
+  <p class="lede">Praxis runs on Vercel against a Supabase project. Set these variables in the Vercel project settings for production and in a local .env file for development.</p>
+  <div class="tablewrap"><table><thead><tr><th>Variable</th><th>Needed</th><th>What it does</th></tr></thead><tbody>
+    <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>Required</td><td>The Supabase project URL.</td></tr>
+    <tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>Required</td><td>The browser-safe Supabase key.</td></tr>
+    <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Required</td><td>The server-only key. It bypasses row-level security: never expose it to the browser or commit it, and rotate it immediately if it leaks.</td></tr>
+    <tr><td><code>NEXT_PUBLIC_SITE_URL</code></td><td>Required in production</td><td>The canonical site URL, used to build invite and recovery links.</td></tr>
+    <tr><td><code>CRON_SECRET</code></td><td>Required in production</td><td>The shared secret the daily sweep endpoint requires.</td></tr>
+    <tr><td><code>RESEND_API_KEY</code>, <code>RESEND_FROM</code></td><td>Optional</td><td>Enable and address transactional email. Without them, email content is logged.</td></tr>
+    <tr><td><code>AI_ENABLED</code></td><td>Optional</td><td>Set to "true" to turn on the AI features.</td></tr>
+    <tr><td><code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code></td><td>With AI</td><td>Long-lived IAM-user credentials for AWS Bedrock (Section 18).</td></tr>
+    <tr><td><code>BEDROCK_REGION</code> / <code>AWS_REGION</code></td><td>Optional</td><td>AWS region for Bedrock calls; defaults to us-east-1.</td></tr>
+    <tr><td><code>GITHUB_TOKEN</code></td><td>Optional</td><td>Lets AI document generation read GitHub Markdown files in private repositories (Section 18.2). Public repositories need no token.</td></tr>
+  </tbody></table></div>
+  <p class="muted">Seed and admin overrides (default admin email and name, seed-source path) and PPTX template path overrides also exist for setup and customization.</p>
+  <div class="sub"><h3><span class="no">16.3</span>Supabase Auth configuration</h3>
+    <ul class="plain"><li>In the Supabase dashboard, set the Site URL and the allowed redirect URLs to include the application's auth callback for both local and production hosts.</li><li>Customize the invite and recovery email templates to point at the auth callback route, passing the token as query parameters (Section 2.4 relies on this).</li></ul></div>
+  <div class="sub"><h3><span class="no">16.4</span>Database migrations</h3>
+    <p>Schema changes ship as numbered SQL files in the repository's <code>supabase/migrations</code> folder.</p>
+    <div class="callout"><b>Deploying does not apply migrations</b><span>When a change adds a column or constraint, apply the migration to Supabase before or together with the deploy, or saves that touch the new column will fail.</span></div></div>
+  <div class="sub"><h3><span class="no">16.5</span>The daily cron</h3>
+    <p>A Vercel Cron entry calls the notification sweep endpoint daily at 07:00 UTC with the <code>CRON_SECRET</code>. The job is tuned to finish well within the platform's function time limit.</p></div>
+</section>
+
+<!-- ============ 17 SCRIPTS ============ -->
+<section class="block" id="scripts" data-nav="17. Scripts" data-grp="Operations">
+  <div class="block-head"><span class="eyebrow">Section 17 · Operations</span><h2>Operational scripts</h2></div>
+  <p class="lede">Maintenance scripts run from the server (not the application UI), typically by an operator with database credentials, through the project's package scripts.</p>
+  <div class="cards">
+    <div class="card"><span class="n">17.1 Setup &amp; data</span><ul><li><b>Seed:</b> build the initial data set and a default administrator.</li><li><b>Seed document skills:</b> publish or update the AI prompt library, including the PRFAQ. Re-run it after a deployment that changes built-in skills.</li><li><b>Spreadsheet import:</b> re-import ideas and projects, with a dry run first.</li><li><b>Supabase / auth-user migration:</b> one-time historical steps, kept for reference.</li></ul></div>
+    <div class="card"><span class="n">17.2 User administration</span><ul><li><b>Bulk-create users:</b> onboard a roster from a file; prints recovery links instead of sending invites.</li><li><b>Recovery link:</b> mint a fresh link for one user.</li><li><b>Update admin email:</b> change it in identity and profile.</li><li><b>Delete user:</b> testing only.</li></ul></div>
+    <div class="card"><span class="n">17.3 AI &amp; diagnostics</span><ul><li><b>List models:</b> print the Bedrock models the account can invoke.</li><li><b>Smoke tests:</b> per-feature scripts for a post-deploy sanity check.</li><li><b>Run the sweep:</b> invoke the daily sweep manually.</li><li><b>Generate the Administrator Guide:</b> the old Word generator. This page is the maintained version.</li></ul></div>
+  </div>
+</section>
+
+<!-- ============ 18 AI ============ -->
+<section class="block" id="ai" data-nav="18. AI advisor" data-grp="Operations">
+  <div class="block-head"><span class="eyebrow">Section 18 · Operations</span><h2>AI advisor</h2></div>
+  <p class="lede">Four optional features, all gated by the <code>AI_ENABLED</code> environment flag. When it is off, the feature buttons and the Publish tab are hidden, the endpoints decline to run, and idea overlap falls back to its keyword heuristic.</p>
+  <div class="cards">
+    <div class="card"><span class="n">Complexity &amp; time estimate</span><p>Suggests a project's complexity and a rough time estimate from its description, and refreshes automatically when the description changes (Section 18.3).</p></div>
+    <div class="card"><span class="n">Priority recommendation</span><p>Reasons across the open-project list and proposes a ranking for review. Nothing is applied automatically.</p></div>
+    <div class="card"><span class="n">Idea overlap</span><p>Compares a submitted idea against existing projects and ideas to surface likely duplicates (Section 7.3).</p></div>
+    <div class="card"><span class="n">Document generation</span><p>Drafts a PRFAQ for a project from its structured data, which you edit and approve (Section 18.2).</p></div>
+  </div>
+  <div class="howlist">
+    <details class="how"><summary>How to: Generate an AI complexity and time estimate for a project</summary><div class="body"><ol>
+      <li>Open a project's create or edit form (AI must be enabled, and you need create or edit permission).</li>
+      <li>Below the description, click "Generate AI estimate" (or "Regenerate AI estimate"). A description of at least about 20 characters is required.</li>
+      <li>The suggested complexity and time estimate appear in an "AI suggestion" banner and fill the form's fields. They persist when you save the project.</li></ol></div></details>
+    <details class="how"><summary>How to: Run an AI priority review</summary><div class="body"><ol>
+      <li>On the Projects page, click "AI priority review" (visible when AI is enabled and you can create projects).</li>
+      <li>In the "AI Priority Review" panel, click "Run review".</li>
+      <li>Read the recommended ranking and per-project rationale. The output is advisory. Click a project to open it and adjust manually. Use "Re-run review" to refresh.</li></ol></div></details>
+    <details class="how"><summary>How to: Generate, edit and approve a PRFAQ for a project</summary><div class="body"><ol>
+      <li>Open the project's quick-view panel and select the "Publish" tab (it appears only when AI is enabled).</li>
+      <li>Click "Generate PRFAQ" (or "Generate another PRFAQ"). The button is disabled with a hint until the project has both a description and a target date. Drafting runs section by section and can take up to a minute.</li>
+      <li>The new draft is added to the list and shown inline. Use "Copy" to copy its Markdown, or "Edit" to revise the text in place and then "Save".</li>
+      <li>When the draft is ready, click "Approve" and confirm in the dialog. Earlier drafts are kept in the list.</li>
+      <li>Publishing directly to Confluence is not yet wired; the approved draft is stored on the project and can be copied out.</li></ol></div></details>
+  </div>
+  <div class="sub"><h3><span class="no">18.1</span>Models and credentials</h3>
+    <ul class="plain"><li>An administrator chooses each feature's model on Admin, Configuration, AI (Section 14.1), from the live list of models the account can invoke. By convention the high-volume estimate uses a fast, economical model and the reasoning-heavy features use a stronger one.</li><li>The features call AWS Bedrock using long-lived IAM-user access keys. These replaced an earlier interactive SSO approach that could not refresh in the hosting environment, and they do not expire.</li><li>Some Bedrock inference profiles route across regions and can be blocked by an organization's region policy. The model picker labels each option with its routing scope.</li><li>Whether AI is active depends on <code>AI_ENABLED</code> and valid AWS credentials. Treat enabling AI as a deliberate decision (cost and data handling).</li></ul></div>
+  <div class="sub"><h3><span class="no">18.2</span>Document generation and grounding</h3>
+    <p>Driven by authored "skills": reusable prompt bundles (instructions, a product profile, a section outline and an input specification) stored in the database. The built-in PRFAQ skill is published by the "seed document skills" script (Section 17.1). Generating a document requires the edit-projects permission. The generator writes "To be determined" where a section has no supporting input, and draws on:</p>
+    <ul class="plain"><li>Project fields: name, description, application/product, definition of done, primary stakeholders, and the start and target dates.</li><li>Structured data: the project's outcomes, its tasks, the latest key finding on each task, its decision log and the originating idea.</li><li>Linked GitHub Markdown documents (Section 5.4): up to five per generation, each capped in size. Any that cannot be reached are skipped so generation still succeeds. Private repositories need <code>GITHUB_TOKEN</code> (Section 16).</li></ul></div>
+  <div class="sub"><h3><span class="no">18.3</span>How project complexity is calculated</h3>
+    <p>Complexity is an AI judgement, not a formula. The model reads only the project's <b>description</b> and <b>project type</b>. It does not look at tasks, dates, dependencies or past projects. It is told to be calibrated and skeptical, to name the thinness of a short description in its rationale, and to answer with one of four tiers, a rough time range (for example "2-3 weeks" or "1-2 quarters") and a one-to-three sentence rationale. It runs at a low temperature, so repeat runs on the same text are fairly stable. If the model returns something invalid, the tier falls back to Medium.</p>
+    <div class="tablewrap"><table><thead><tr><th>Tier</th><th>What it means</th><th>Default workload weight</th></tr></thead><tbody>
+      <tr><td>Low</td><td>Well-trodden patterns, no integration risk, no new technology; days of work.</td><td>0.75</td></tr>
+      <tr><td>Medium</td><td>Some unknowns or integration work; weeks of effort; manageable scope.</td><td>1.0</td></tr>
+      <tr><td>High</td><td>Meaningful unknowns, new technology, multiple integrations; months of effort.</td><td>1.5</td></tr>
+      <tr><td>Very High</td><td>Significant unknowns, a novel approach, cross-team dependencies; quarters of effort.</td><td>2.0</td></tr>
+    </tbody></table></div>
+    <p>The score and time range are stored on the project, so viewing a project never calls the model. The tier also feeds the Resources workload calculation through the complexity multipliers (Admin, Configuration, Resources; Section 14), and the portfolio quadrants (Quick Win, Major Bet, Fill-In, Deprioritize) are computed from priority and complexity.</p>
+    <h4>When it recalculates</h4>
+    <ul class="plain">
+      <li><b>On create:</b> a new project is scored automatically.</li>
+      <li><b>On edit:</b> saving a change to the <b>name, description or project type</b> re-estimates and overwrites the stored score and time range. Editing any other field does not.</li>
+      <li><b>On demand:</b> "Regenerate AI estimate" on the project form.</li>
+    </ul>
+    <div class="callout"><b>Conditions and gotchas</b><span>Automatic scoring needs <code>AI_ENABLED=true</code> and a description of at least 20 characters. Otherwise it is skipped and the existing score is kept. A Bedrock failure is logged and also keeps the existing score; the save itself still succeeds. A complexity you set by hand is replaced if you change the name, description or type in the same save, so it only holds until the next edit of one of those fields.</span></div>
+  </div>
+</section>
+
+<!-- ============ APPENDIX A ============ -->
+<section class="block" id="app-a" data-nav="A. Permission catalog" data-grp="Appendices">
+  <div class="block-head"><span class="eyebrow">Appendix A · Reference</span><h2>Permission catalog</h2></div>
+  <p class="lede">35 permissions in six categories. Defaults: PL = Project Lead, TM = Team Member, V = Viewer. Admin always has all of them.</p>
+  <div class="tools"><input id="permfind" class="find" type="search" placeholder="Filter permissions, for example ideas" aria-label="Filter permissions" autocomplete="off"><span class="count" id="permcount" aria-live="polite"></span></div>
+  <div class="tablewrap"><table id="perms"><thead><tr><th>Category</th><th>Permission</th><th>What it allows</th><th>Default</th></tr></thead><tbody>
+    <tr><td>Projects</td><td>View projects</td><td>See the project list, detail pages and quick views</td><td>PL, TM, V</td></tr>
+    <tr><td>Projects</td><td>Create projects</td><td>Add new projects</td><td>PL</td></tr>
+    <tr><td>Projects</td><td>Edit projects</td><td>Update fields on existing projects</td><td>PL</td></tr>
+    <tr><td>Projects</td><td>Delete projects</td><td>Permanently remove projects (cancelling is a status)</td><td>Admin only</td></tr>
+    <tr><td>Projects</td><td>Change project stage</td><td>Manually change a project's stage, separate from general editing; stages otherwise advance as a stage's tasks complete</td><td>Admin only</td></tr>
+    <tr><td>Projects</td><td>Change project objectives</td><td>Change a project's primary and secondary objective, separate from general editing</td><td>Admin only</td></tr>
+    <tr><td>Tasks</td><td>View tasks</td><td>See the tasks page and task detail panels</td><td>PL, TM, V</td></tr>
+    <tr><td>Tasks</td><td>Create tasks</td><td>Add tasks under a project</td><td>PL, TM</td></tr>
+    <tr><td>Tasks</td><td>Edit tasks</td><td>Update status, assignees, due dates and other fields</td><td>PL, TM</td></tr>
+    <tr><td>Tasks</td><td>Delete tasks</td><td>Permanently remove a single task</td><td>PL</td></tr>
+    <tr><td>Tasks</td><td>Bulk delete tasks</td><td>Select many tasks and delete them in one action</td><td>Admin only</td></tr>
+    <tr><td>Tasks</td><td>Move tasks between projects</td><td>Reassign a task to a different project</td><td>PL</td></tr>
+    <tr><td>Ideas</td><td>View submitted ideas</td><td>Open the Ideas queue and detail pages read-only</td><td>PL, V</td></tr>
+    <tr><td>Ideas</td><td>Review submitted ideas</td><td>Approve, reject or comment on submissions</td><td>PL</td></tr>
+    <tr><td>Ideas</td><td>Convert ideas to projects</td><td>Promote an approved idea into a project, or merge it into one</td><td>PL</td></tr>
+    <tr><td>Roadmap</td><td>View the roadmap</td><td>Open the Timeline, Kanban, Portfolio and Now / Next / Later views</td><td>PL, TM, V</td></tr>
+    <tr><td>Roadmap</td><td>Export roadmap to PPTX</td><td>Generate the PowerPoint deck</td><td>PL</td></tr>
+    <tr><td>Insights</td><td>View velocity dashboard</td><td>Open the velocity and throughput dashboard</td><td>PL, TM, V</td></tr>
+    <tr><td>Insights</td><td>Manage key capabilities</td><td>Designate projects and assign quarters (max two per quarter)</td><td>Admin only</td></tr>
+    <tr><td>Insights</td><td>View Resources insights</td><td>Open Insights, Resources (defaults to your team)</td><td>PL</td></tr>
+    <tr><td>Insights</td><td>View all resources</td><td>See every resource, not just your team</td><td>PL</td></tr>
+    <tr><td>Administration</td><td>Access the Admin section</td><td>Reveals the Admin group in navigation; required for any admin page</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage users</td><td>Invite, change roles, deactivate, reset passwords</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage roles &amp; permissions</td><td>Edit the role-permission matrix</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage custom fields</td><td>Add, edit and remove project custom fields</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage task templates</td><td>Create and maintain task templates</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage health score thresholds</td><td>Tune the Red, Yellow, Green thresholds</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage resource thresholds</td><td>Tune workload and performance settings</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage project values</td><td>Add, rename and archive status, priority, application, program and track values</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage portfolio quadrants</td><td>Rename the four strategic-position labels</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage AI model selection</td><td>Choose the Bedrock model per AI feature</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Run notifications sweep</td><td>Trigger the daily sweep on demand</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>View audit log</td><td>Open Admin, Audit log</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage use cases</td><td>Create, edit and delete use cases, their objectives and member projects</td><td>Admin only</td></tr>
+    <tr><td>Administration</td><td>Manage NiCE products</td><td>Add, rename and deprecate NiCE products</td><td>Admin only</td></tr>
+  </tbody></table></div>
+</section>
+
+<!-- ============ APPENDIX B ============ -->
+<section class="block" id="app-b" data-nav="B. Status &amp; stage reference" data-grp="Appendices">
+  <div class="block-head"><span class="eyebrow">Appendix B · Reference</span><h2>Status, track, stage &amp; priority</h2></div>
+  <div class="sub"><h3>Project status (built-in)</h3>
+    <div class="chips"><span class="chip">Not Started</span><span class="chip acc">Pending Assignment</span><span class="chip">In Planning</span><span class="chip ok">In Progress</span><span class="chip warn">Blocked</span><span class="chip">On Hold</span><span class="chip warn">Delayed</span><span class="chip ok">Completed</span><span class="chip">Canceled</span></div>
+    <p class="muted">Extensible by administrators; each custom status carries "is open" and "is terminal" flags. Every status except Completed and Canceled is open.</p></div>
+  <div class="sub"><h3>Track and stage</h3>
+    <p>Every track starts with Qualification and Prioritization and delivers at Productization. The stages below sit between Prioritization and Productization. Only Track B has stages after Productization. Tracks without defined stages have only the anchors for now.</p>
+    <div class="tablewrap"><table><thead><tr><th>Track</th><th>Stages before Productization</th><th>After Productization</th></tr></thead><tbody>
+      <tr><td class="nowrap">A · Dashboard/visualization</td><td>Kickoff, Analysis and EDA, Approach Review, Initial Revisions, Initiate Visualization, Deck Review, Manager Review, Signoff, Handoff, Integration, Visualization Build, Final Visualization, Release</td><td>none</td></tr>
+      <tr><td class="nowrap">B · Cognigy bot inputs</td><td>Development, Testing, Signoff, Integration, Release</td><td>Services Validation, Services Signoff, Adoption</td></tr>
+      <tr><td class="nowrap">C · WFM/mid-shift reskilling</td><td>none defined yet</td><td>none</td></tr>
+      <tr><td class="nowrap">D · UI/Application</td><td>Development, Testing, Signoff, Integration, Visualization Update, Release</td><td>none</td></tr>
+      <tr><td class="nowrap">E · TopicAI</td><td>none defined yet</td><td>none</td></tr>
+      <tr><td class="nowrap">F · Complaints</td><td>Development</td><td>none</td></tr>
+      <tr><td class="nowrap">G · Other</td><td>Development</td><td>none</td></tr>
+      <tr><td class="nowrap">H · Services Validation</td><td>Validation</td><td>none</td></tr>
+      <tr><td class="nowrap">I · Coaching Plan</td><td>Data development, Signoff, Handoff, Integration, Visualization Update, Release</td><td>none</td></tr>
+    </tbody></table></div></div>
+  <div class="sub"><h3>Other fixed lists</h3>
+    <dl class="kv">
+      <dt>Program</dt><dd>Innovation, Complaints, UI Maintenance (extensible).</dd>
+      <dt>Objective</dt><dd>Cost-to-Serve, Revenue, Compliance, Customer Experience, Agent Experience, Complaints, Other. Not extensible. "Complaints" and "Other" can only be a primary objective, never a secondary one.</dd>
+      <dt>Visualization type</dt><dd>Data Only, Function Update, New Visualization, New Page, New Cognigy Build, None. Not extensible.</dd>
+      <dt>Priority</dt><dd>Critical, High, Medium, Low (extensible; custom priorities carry a rank).</dd>
+      <dt>Task status</dt><dd>Not Started, Awaiting Dependency, In Progress, Blocked, Delayed, On Hold, Under Review, Complete, Canceled. Not extensible.</dd>
+      <dt>Idea status</dt><dd>New, Under Review, Approved, Rejected, Converted.</dd>
+    </dl></div>
+</section>
+
+<!-- ============ APPENDIX C ============ -->
+<section class="block" id="app-c" data-nav="C. Page inventory" data-grp="Appendices">
+  <div class="block-head"><span class="eyebrow">Appendix C · Reference</span><h2>Page &amp; navigation inventory</h2></div>
+  <div class="cards">
+    <div class="card"><span class="n">Workspace</span><ul><li><b>Home:</b> at-a-glance summary and recent activity.</li><li><b>Projects:</b> the project list and quick-view panels.</li><li><b>Tasks / My tasks:</b> all tasks, and your own.</li><li><b>Roadmap:</b> four views on one page.</li><li><b>Groups:</b> named clusters of related projects. Read needs view projects; creating and editing needs edit projects.</li></ul></div>
+    <div class="card"><span class="n">Insights</span><ul><li><b>Executive view:</b> read-only rollup of the Innovation portfolio by objective for a chosen quarter, for screen-sharing. Scope is Innovation and the five core objectives.</li><li><b>Program coverage:</b> objective to use case to supporting projects, with outcomes and delivery state.</li><li><b>Velocity, Resources:</b> Sections 9.1 and 9.3.</li><li><b>Work in progress, Post-deployment:</b> Section 9.2.</li><li><b>Application release:</b> projects sharing a Target Application Deployment Date, with progress, stage, objective, blockers and schedule risk. Releases fall every other Friday.</li><li><b>Key findings:</b> the latest key finding on each task of a chosen project.</li><li><b>Key capabilities:</b> Section 10.</li><li><b>Ideas:</b> Section 7.</li></ul></div>
+    <div class="card"><span class="n">Admin</span><ul><li><b>Resource management:</b> Users, Roles &amp; permissions, Resource thresholds.</li><li><b>Configuration:</b> Custom fields, Project values, Outcomes, Portfolio quadrants, Health thresholds, AI.</li><li><b>Templates, Use cases, NiCE products, Notifications, Audit log.</b></li></ul></div>
+    <div class="card"><span class="n">Other pages</span><ul><li><b>Profile, Notifications:</b> your notification preferences.</li><li><b>Submit:</b> the public idea portal (no sign-in).</li><li><b>Auth:</b> login, forgot and reset password, invite acceptance.</li><li><b>403:</b> the "not authorized" page.</li></ul></div>
+  </div>
+</section>
+
+<!-- ============ CHANGE LOG ============ -->
+<section class="block" id="changelog" data-nav="Change log" data-grp="Appendices">
+  <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
+  <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
+  <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.1</span><span class="rel-note">2026-10-15</span></h3>
+      <ul>
+        <li><b>Added:</b> Section 18.3, how project complexity is calculated (inputs, the four tiers and their workload weights, when it recalculates, and the conditions under which it does not).</li>
+      </ul></div>
+    <div class="rel"><h3><span class="rel-v">2.0</span><span class="rel-note">2026-10-14</span></h3>
+      <ul>
+        <li><b>Rebuilt as an interactive page</b> from the Word guide (v1.2, July 2026), with collapsible tasks, search and a section index.</li>
+        <li><b>Added:</b> Pending Assignment status; Visualization Lead field and "None" visualization type; Bug / Defect idea flag; merging an idea into a project assigns the task to the project lead; Use cases admin and Markdown export; NiCE products admin; collapsible task lists on Work in progress.</li>
+        <li><b>Updated to match the app:</b> track-scoped stages replace phases; per-user program access; Outcomes configuration tab; new Insights pages; 35 permissions; task status Under Review; database migration note.</li>
+        <li><b>Added:</b> a placeholder for the process playbook (when to do things).</li>
+        <li><b>Not yet re-checked line by line:</b> Sections 2, 4, 8, 10, 11, 17 and 18. Executive view, Program coverage, Application release and Key findings are described only briefly in Appendix C.</li>
+      </ul></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<footer>
+  <span>Praxis Administrator Guide. Maintained alongside the application; see the change log for what has changed.</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  // build bar
+  try{
+    var info=JSON.parse(document.getElementById('build-info').textContent);
+    document.getElementById('b-guide').textContent=info.guide;
+    document.getElementById('b-updated').textContent=info.updated;
+    document.getElementById('b-base').textContent=info.base;
+  }catch(e){}
+
+  // section index
+  var toc=document.getElementById('toc'), lastGrp='';
+  var blocks=[].slice.call(document.querySelectorAll('section.block'));
+  blocks.forEach(function(s){
+    var g=s.getAttribute('data-grp');
+    if(g!==lastGrp){var h=document.createElement('div');h.className='grp';h.innerHTML=g;toc.appendChild(h);lastGrp=g;}
+    var a=document.createElement('a');a.href='#'+s.id;a.innerHTML=s.getAttribute('data-nav');a.setAttribute('data-id',s.id);toc.appendChild(a);
+  });
+  var links=[].slice.call(toc.querySelectorAll('a'));
+  function setOn(){
+    var y=window.scrollY+120,cur=blocks[0].id;
+    blocks.forEach(function(s){if(s.offsetTop<=y)cur=s.id;});
+    links.forEach(function(a){a.classList.toggle('on',a.getAttribute('data-id')===cur);});
+  }
+  window.addEventListener('scroll',setOn,{passive:true});setOn();
+
+  // task search
+  var hows=[].slice.call(document.querySelectorAll('details.how'));
+  var find=document.getElementById('find'), count=document.getElementById('count');
+  function runFind(){
+    var q=find.value.trim().toLowerCase(), n=0;
+    hows.forEach(function(d){
+      var hit=!q||d.textContent.toLowerCase().indexOf(q)>-1;
+      d.hidden=!hit; if(hit)n++;
+      if(q&&hit)d.open=true;
+    });
+    count.textContent=q?(n+' of '+hows.length+' tasks match'):'';
+  }
+  find.addEventListener('input',runFind);
+  document.getElementById('expand').addEventListener('click',function(){hows.forEach(function(d){if(!d.hidden)d.open=true;});});
+  document.getElementById('collapse').addEventListener('click',function(){hows.forEach(function(d){d.open=false;});});
+
+  // permission filter
+  var pf=document.getElementById('permfind'), pc=document.getElementById('permcount');
+  var rows=[].slice.call(document.querySelectorAll('#perms tbody tr'));
+  pf.addEventListener('input',function(){
+    var q=pf.value.trim().toLowerCase(),n=0;
+    rows.forEach(function(r){var hit=!q||r.textContent.toLowerCase().indexOf(q)>-1;r.hidden=!hit;if(hit)n++;});
+    pc.textContent=q?(n+' of '+rows.length+' match'):'';
+  });
+})();
+</script>
