@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-14","guide":"2.0","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-15","guide":"2.1","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -669,7 +669,7 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">Section 18 · Operations</span><h2>AI advisor</h2></div>
   <p class="lede">Four optional features, all gated by the <code>AI_ENABLED</code> environment flag. When it is off, the feature buttons and the Publish tab are hidden, the endpoints decline to run, and idea overlap falls back to its keyword heuristic.</p>
   <div class="cards">
-    <div class="card"><span class="n">Complexity &amp; time estimate</span><p>Suggests a project's complexity and a rough time estimate from its description.</p></div>
+    <div class="card"><span class="n">Complexity &amp; time estimate</span><p>Suggests a project's complexity and a rough time estimate from its description, and refreshes automatically when the description changes (Section 18.3).</p></div>
     <div class="card"><span class="n">Priority recommendation</span><p>Reasons across the open-project list and proposes a ranking for review. Nothing is applied automatically.</p></div>
     <div class="card"><span class="n">Idea overlap</span><p>Compares a submitted idea against existing projects and ideas to surface likely duplicates (Section 7.3).</p></div>
     <div class="card"><span class="n">Document generation</span><p>Drafts a PRFAQ for a project from its structured data, which you edit and approve (Section 18.2).</p></div>
@@ -695,6 +695,23 @@ html{scroll-behavior:smooth}
   <div class="sub"><h3><span class="no">18.2</span>Document generation and grounding</h3>
     <p>Driven by authored "skills": reusable prompt bundles (instructions, a product profile, a section outline and an input specification) stored in the database. The built-in PRFAQ skill is published by the "seed document skills" script (Section 17.1). Generating a document requires the edit-projects permission. The generator writes "To be determined" where a section has no supporting input, and draws on:</p>
     <ul class="plain"><li>Project fields: name, description, application/product, definition of done, primary stakeholders, and the start and target dates.</li><li>Structured data: the project's outcomes, its tasks, the latest key finding on each task, its decision log and the originating idea.</li><li>Linked GitHub Markdown documents (Section 5.4): up to five per generation, each capped in size. Any that cannot be reached are skipped so generation still succeeds. Private repositories need <code>GITHUB_TOKEN</code> (Section 16).</li></ul></div>
+  <div class="sub"><h3><span class="no">18.3</span>How project complexity is calculated</h3>
+    <p>Complexity is an AI judgement, not a formula. The model reads only the project's <b>description</b> and <b>project type</b>. It does not look at tasks, dates, dependencies or past projects. It is told to be calibrated and skeptical, to name the thinness of a short description in its rationale, and to answer with one of four tiers, a rough time range (for example "2-3 weeks" or "1-2 quarters") and a one-to-three sentence rationale. It runs at a low temperature, so repeat runs on the same text are fairly stable. If the model returns something invalid, the tier falls back to Medium.</p>
+    <div class="tablewrap"><table><thead><tr><th>Tier</th><th>What it means</th><th>Default workload weight</th></tr></thead><tbody>
+      <tr><td>Low</td><td>Well-trodden patterns, no integration risk, no new technology; days of work.</td><td>0.75</td></tr>
+      <tr><td>Medium</td><td>Some unknowns or integration work; weeks of effort; manageable scope.</td><td>1.0</td></tr>
+      <tr><td>High</td><td>Meaningful unknowns, new technology, multiple integrations; months of effort.</td><td>1.5</td></tr>
+      <tr><td>Very High</td><td>Significant unknowns, a novel approach, cross-team dependencies; quarters of effort.</td><td>2.0</td></tr>
+    </tbody></table></div>
+    <p>The score and time range are stored on the project, so viewing a project never calls the model. The tier also feeds the Resources workload calculation through the complexity multipliers (Admin, Configuration, Resources; Section 14), and the portfolio quadrants (Quick Win, Major Bet, Fill-In, Deprioritize) are computed from priority and complexity.</p>
+    <h4>When it recalculates</h4>
+    <ul class="plain">
+      <li><b>On create:</b> a new project is scored automatically.</li>
+      <li><b>On edit:</b> saving a change to the <b>name, description or project type</b> re-estimates and overwrites the stored score and time range. Editing any other field does not.</li>
+      <li><b>On demand:</b> "Regenerate AI estimate" on the project form.</li>
+    </ul>
+    <div class="callout"><b>Conditions and gotchas</b><span>Automatic scoring needs <code>AI_ENABLED=true</code> and a description of at least 20 characters. Otherwise it is skipped and the existing score is kept. A Bedrock failure is logged and also keeps the existing score; the save itself still succeeds. A complexity you set by hand is replaced if you change the name, description or type in the same save, so it only holds until the next edit of one of those fields.</span></div>
+  </div>
 </section>
 
 <!-- ============ APPENDIX A ============ -->
@@ -787,6 +804,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.1</span><span class="rel-note">2026-10-15</span></h3>
+      <ul>
+        <li><b>Added:</b> Section 18.3, how project complexity is calculated (inputs, the four tiers and their workload weights, when it recalculates, and the conditions under which it does not).</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.0</span><span class="rel-note">2026-10-14</span></h3>
       <ul>
         <li><b>Rebuilt as an interactive page</b> from the Word guide (v1.2, July 2026), with collapsible tasks, search and a section index.</li>
