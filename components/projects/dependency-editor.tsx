@@ -24,7 +24,7 @@
  * trip by hiding the obvious case.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { stagesForTrack, statusBadgeClass } from "@/lib/projects/display";
 import type {
@@ -57,6 +57,23 @@ export function DependencyEditor({
 }: DependencyEditorProps) {
   const [pickerValue, setPickerValue] = useState("");
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click and clear the query so the box shows the
+  // selected project again.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
 
   // Don't allow picking yourself or a project that's already in the list.
   const alreadyDependent = new Set(value.map((d) => d.upstream_id));
@@ -79,6 +96,40 @@ export function DependencyEditor({
     : pickable;
 
   const projectsById = new Map(allProjects.map((p) => [p.project_id, p]));
+
+  const pickedProject = pickerValue ? projectsById.get(pickerValue) : null;
+  const selectedLabel = pickedProject
+    ? `${pickedProject.name} · ${pickedProject.project_id}`
+    : "";
+
+  function choose(id: string) {
+    setPickerValue(id);
+    setOpen(false);
+    setSearch("");
+  }
+
+  function onPickerKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      if (open) {
+        // Dismiss only the dropdown, not the surrounding modal.
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        setSearch("");
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      else setActiveIdx((i) => Math.min(filtered.length - 1, i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+    } else if (e.key === "Enter" && open) {
+      // Never submit the surrounding form from the picker.
+      e.preventDefault();
+      if (filtered[activeIdx]) choose(filtered[activeIdx].project_id);
+    }
+  }
 
   function addDependency() {
     if (!pickerValue) return;
@@ -243,37 +294,63 @@ export function DependencyEditor({
             >
               Add upstream project
             </label>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPickerValue("");
-              }}
-              placeholder="Search by project name…"
-              aria-label="Search upstream projects"
-              className={`mt-1 ${inputCls}`}
-            />
-            <select
-              id="dep-picker"
-              value={pickerValue}
-              onChange={(e) => setPickerValue(e.target.value)}
-              onDoubleClick={addDependency}
-              size={Math.min(6, Math.max(2, filtered.length + 1))}
-              className={`mt-1 ${inputCls}`}
-            >
-              <option value="">— Choose a project —</option>
-              {filtered.map((p) => (
-                <option key={p.project_id} value={p.project_id}>
-                  {p.name} · {p.project_id}
-                </option>
-              ))}
-            </select>
-            {q && filtered.length === 0 ? (
-              <p className="mt-1 text-[11px] text-gray-500">
-                No matching projects.
-              </p>
-            ) : null}
+            <div className="relative mt-1" ref={pickerRef}>
+              <input
+                id="dep-picker"
+                type="text"
+                role="combobox"
+                aria-expanded={open}
+                aria-controls="dep-picker-listbox"
+                aria-autocomplete="list"
+                autoComplete="off"
+                value={open ? search : selectedLabel}
+                placeholder="— Choose a project —"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setActiveIdx(0);
+                  if (!open) setOpen(true);
+                }}
+                onFocus={() => setOpen(true)}
+                onClick={() => setOpen(true)}
+                onKeyDown={onPickerKeyDown}
+                className={inputCls}
+              />
+              {open ? (
+                <ul
+                  id="dep-picker-listbox"
+                  role="listbox"
+                  className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+                >
+                  {filtered.length === 0 ? (
+                    <li className="px-2 py-1.5 text-xs text-gray-500">
+                      No matching projects.
+                    </li>
+                  ) : (
+                    filtered.map((p, i) => (
+                      <li
+                        key={p.project_id}
+                        role="option"
+                        aria-selected={p.project_id === pickerValue}
+                        // onMouseDown so selection fires before blur closes the list.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          choose(p.project_id);
+                        }}
+                        onMouseEnter={() => setActiveIdx(i)}
+                        className={`flex cursor-pointer flex-col rounded px-2 py-1 ${
+                          i === activeIdx ? "bg-gray-100" : ""
+                        }`}
+                      >
+                        <span className="text-xs text-gray-900">{p.name}</span>
+                        <span className="font-mono text-[10px] text-gray-500">
+                          {p.project_id}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
