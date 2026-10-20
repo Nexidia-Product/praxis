@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-15","guide":"2.1","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-20","guide":"2.2","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -351,7 +351,7 @@ html{scroll-behavior:smooth}
         <li>Click "Update status", or "Add note" to attach a note without changing the status. The change appears in the history list with timestamp and author.</li></ol></div></details>
       <details class="how"><summary>How to: Add a dependency, an external dependency or a document link</summary><div class="body"><ol>
         <li>Open the project form (create or edit).</li>
-        <li>Internal dependency: in "Depends on", pick an upstream project and set its type, "Blocks Start" or "Blocks Stage" (for "Blocks Stage", also pick the required stage). Cycles are rejected.</li>
+        <li>Internal dependency: in "Depends on", use the "Add upstream project" list (projects are sorted alphabetically by name; type in the search box above it to filter by name or ID, then select a project and click "Add", or double-click it) and set its type, "Blocks Start" or "Blocks Stage" (for "Blocks Stage", also pick the required stage). Cycles are rejected.</li>
         <li>External dependency: in "External dependencies", fill the "Title" (and optionally owner, URL, target date, description; status defaults to "Open") and click "Add dependency".</li>
         <li>Document link: in "Document &amp; repository links", paste a URL (the link type is auto-detected), optionally add a label, and click "Add".</li>
         <li>Click "Save changes" (or "Create project") to persist.</li></ol></div></details>
@@ -804,6 +804,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.2</span><span class="rel-note">2026-10-20</span></h3>
+      <ul>
+        <li><b>Updated:</b> the "Add upstream project" picker in the project form now lists projects alphabetically by name and has a search box (matches name or ID).</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.1</span><span class="rel-note">2026-10-15</span></h3>
       <ul>
         <li><b>Added:</b> Section 18.3, how project complexity is calculated (inputs, the four tiers and their workload weights, when it recalculates, and the conditions under which it does not).</li>
