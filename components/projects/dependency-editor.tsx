@@ -56,14 +56,27 @@ export function DependencyEditor({
   disabled,
 }: DependencyEditorProps) {
   const [pickerValue, setPickerValue] = useState("");
+  const [search, setSearch] = useState("");
 
   // Don't allow picking yourself or a project that's already in the list.
   const alreadyDependent = new Set(value.map((d) => d.upstream_id));
   const pickable = allProjects.filter(
     (p) => p.project_id !== selfId && !alreadyDependent.has(p.project_id),
   );
-  // Sort by ID for predictable scrolling in the picker.
-  pickable.sort((a, b) => a.project_id.localeCompare(b.project_id));
+  // Alphabetical by project name (ID as tiebreaker) for predictable scrolling.
+  pickable.sort(
+    (a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
+      a.project_id.localeCompare(b.project_id),
+  );
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? pickable.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.project_id.toLowerCase().includes(q),
+      )
+    : pickable;
 
   const projectsById = new Map(allProjects.map((p) => [p.project_id, p]));
 
@@ -78,6 +91,7 @@ export function DependencyEditor({
       },
     ]);
     setPickerValue("");
+    setSearch("");
   }
 
   function updateRow(idx: number, patch: Partial<ProjectDependency>) {
@@ -229,19 +243,37 @@ export function DependencyEditor({
             >
               Add upstream project
             </label>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPickerValue("");
+              }}
+              placeholder="Search by project name…"
+              aria-label="Search upstream projects"
+              className={`mt-1 ${inputCls}`}
+            />
             <select
               id="dep-picker"
               value={pickerValue}
               onChange={(e) => setPickerValue(e.target.value)}
+              onDoubleClick={addDependency}
+              size={Math.min(6, Math.max(2, filtered.length + 1))}
               className={`mt-1 ${inputCls}`}
             >
               <option value="">— Choose a project —</option>
-              {pickable.map((p) => (
+              {filtered.map((p) => (
                 <option key={p.project_id} value={p.project_id}>
-                  {p.project_id} · {p.name}
+                  {p.name} · {p.project_id}
                 </option>
               ))}
             </select>
+            {q && filtered.length === 0 ? (
+              <p className="mt-1 text-[11px] text-gray-500">
+                No matching projects.
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
