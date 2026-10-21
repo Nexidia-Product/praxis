@@ -35,6 +35,10 @@ const ACTIVE_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Blocked",
   "On Hold",
   "Delayed",
+
+  "Deployed",
+
+  "Services Validation",
 ]);
 
 export type AssignmentRole = "Lead" | "Resource";

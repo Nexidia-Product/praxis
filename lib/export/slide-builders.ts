@@ -72,6 +72,8 @@ const STATUS_FILL: Record<ProjectStatus, string> = {
   Blocked: "FECACA", // red-200
   "On Hold": "FDE68A", // amber-200
   Delayed: "FED7AA", // orange-200
+  Deployed: "99F6E4", // teal-200
+  "Services Validation": "C7D2FE", // indigo-200
   Completed: "6EE7B7", // emerald-300
   Canceled: GRAY_300,
 };
@@ -835,12 +837,14 @@ const STATUS_ORDER: Record<ProjectStatus, number> = {
   Blocked: 0,
   Delayed: 1,
   "In Progress": 2,
-  "In Planning": 3,
-  "Pending Assignment": 4,
-  "Not Started": 5,
-  "On Hold": 6,
-  Completed: 7,
-  Canceled: 8,
+  Deployed: 3,
+  "Services Validation": 4,
+  "In Planning": 5,
+  "Pending Assignment": 6,
+  "Not Started": 7,
+  "On Hold": 8,
+  Completed: 9,
+  Canceled: 10,
 };
 
 function compareProjectsForStatus(a: Project, b: Project): number {

@@ -84,7 +84,9 @@ const STATUS_GROUP_FILTER: Record<StatusGroup, (s: ProjectStatus) => boolean> =
       s === "In Progress" ||
       s === "Blocked" ||
       s === "On Hold" ||
-      s === "Delayed",
+      s === "Delayed" ||
+      s === "Deployed" ||
+      s === "Services Validation",
     completed: (s) => s === "Completed",
     canceled: (s) => s === "Canceled",
     all: () => true,

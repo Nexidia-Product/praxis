@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-20","guide":"2.2","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-21","guide":"2.3","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -326,7 +326,7 @@ html{scroll-behavior:smooth}
   <div class="sub"><h3><span class="no">5.2</span>Status, track, stage and priority</h3>
     <p>Status, priority, program and track can be extended by administrators (Section 14). Stages are defined per track in code.</p>
     <div class="cards">
-      <div class="card"><span class="n">Status</span><p>Not Started, <b>Pending Assignment</b>, In Planning, In Progress, Blocked, On Hold, Delayed, Completed, Canceled. Pending Assignment sits between Not Started and In Planning and counts as open work.</p></div>
+      <div class="card"><span class="n">Status</span><p>Not Started, <b>Pending Assignment</b>, In Planning, In Progress, Blocked, On Hold, Delayed, <b>Deployed</b>, <b>Services Validation</b>, Completed, Canceled. Pending Assignment sits between Not Started and In Planning and counts as open work. Deployed is for a project that has been deployed in the application and is awaiting handover acceptance by the product teams; Services Validation follows Deployed for projects that need it (typically Cognigy projects) and precedes Completed. Both count as open work and appear under Now on the roadmap.</p></div>
       <div class="card"><span class="n">Track</span><p>Tracks A to I. A project's track decides which stages it can be in (Appendix B).</p></div>
       <div class="card"><span class="n">Stage</span><p>Every track starts with Qualification and Prioritization and delivers at Productization, with its own stages in between. Replaced the earlier "phase" field. Changing a stage by hand needs the change-stage permission; stages otherwise advance as a stage's tasks are completed.</p></div>
       <div class="card"><span class="n">Program</span><p>Innovation, Complaints, UI Maintenance. New projects default to Innovation.</p></div>
@@ -762,7 +762,7 @@ html{scroll-behavior:smooth}
 <section class="block" id="app-b" data-nav="B. Status &amp; stage reference" data-grp="Appendices">
   <div class="block-head"><span class="eyebrow">Appendix B · Reference</span><h2>Status, track, stage &amp; priority</h2></div>
   <div class="sub"><h3>Project status (built-in)</h3>
-    <div class="chips"><span class="chip">Not Started</span><span class="chip acc">Pending Assignment</span><span class="chip">In Planning</span><span class="chip ok">In Progress</span><span class="chip warn">Blocked</span><span class="chip">On Hold</span><span class="chip warn">Delayed</span><span class="chip ok">Completed</span><span class="chip">Canceled</span></div>
+    <div class="chips"><span class="chip">Not Started</span><span class="chip acc">Pending Assignment</span><span class="chip">In Planning</span><span class="chip ok">In Progress</span><span class="chip warn">Blocked</span><span class="chip">On Hold</span><span class="chip warn">Delayed</span><span class="chip acc">Deployed</span><span class="chip acc">Services Validation</span><span class="chip ok">Completed</span><span class="chip">Canceled</span></div>
     <p class="muted">Extensible by administrators; each custom status carries "is open" and "is terminal" flags. Every status except Completed and Canceled is open.</p></div>
   <div class="sub"><h3>Track and stage</h3>
     <p>Every track starts with Qualification and Prioritization and delivers at Productization. The stages below sit between Prioritization and Productization. Only Track B has stages after Productization. Tracks without defined stages have only the anchors for now.</p>
@@ -804,6 +804,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.3</span><span class="rel-note">2026-10-21</span></h3>
+      <ul>
+        <li><b>Added:</b> project statuses Deployed and Services Validation, listed between Delayed and Completed. A project moves from In Progress to Deployed once it is deployed in the application, stays there until handover is accepted by the product teams, and then moves to Completed. Projects that need Services Validation (typically Cognigy) move from Deployed to Services Validation before Completed. Both are open statuses.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.2</span><span class="rel-note">2026-10-20</span></h3>
       <ul>
         <li><b>Updated:</b> the "Add upstream project" picker in the project form is now a collapsed, searchable dropdown (same style as the New Task project picker) that lists projects alphabetically by name and filters by name or ID as you type.</li>

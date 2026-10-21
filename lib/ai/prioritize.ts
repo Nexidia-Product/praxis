@@ -34,6 +34,10 @@ const OPEN_STATUSES: ProjectStatus[] = [
   "Blocked",
   "On Hold",
   "Delayed",
+
+  "Deployed",
+
+  "Services Validation",
 ];
 
 export interface RankedProject {

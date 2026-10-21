@@ -119,6 +119,8 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   "Blocked",
   "On Hold",
   "Delayed",
+  "Deployed",
+  "Services Validation",
   "Completed",
   "Canceled",
 ];
@@ -132,6 +134,8 @@ export const OPEN_PROJECT_STATUSES: ProjectStatus[] = [
   "Blocked",
   "On Hold",
   "Delayed",
+  "Deployed",
+  "Services Validation",
 ];
 
 // ---------------------------------------------------------------------------

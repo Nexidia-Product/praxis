@@ -29,6 +29,8 @@ export function isPostDeployment(
 /** Section order for the Post-deployment page; other open statuses follow. */
 export const POST_DEPLOYMENT_STATUS_ORDER: readonly string[] = [
   "In Progress",
+  "Deployed",
+  "Services Validation",
   "In Planning",
   "Blocked",
   "Delayed",

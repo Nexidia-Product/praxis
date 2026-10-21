@@ -35,6 +35,8 @@ export const PROJECT_STATUSES: ProjectStatus[] = [
   "Blocked",
   "On Hold",
   "Delayed",
+  "Deployed",
+  "Services Validation",
   "Completed",
   "Canceled",
 ];
@@ -48,6 +50,10 @@ export const STATUS_BADGE: Record<ProjectStatus, string> = {
   Blocked: "bg-red-50 text-red-800 ring-1 ring-inset ring-red-200",
   "On Hold": "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200",
   Delayed: "bg-orange-50 text-orange-900 ring-1 ring-inset ring-orange-200",
+  Deployed:
+    "bg-teal-50 text-teal-800 ring-1 ring-inset ring-teal-200",
+  "Services Validation":
+    "bg-indigo-50 text-indigo-800 ring-1 ring-inset ring-indigo-200",
   Completed: "bg-emerald-100 text-emerald-900 ring-1 ring-inset ring-emerald-300",
   Canceled: "bg-gray-100 text-gray-500 ring-1 ring-inset ring-gray-200 line-through",
 };
