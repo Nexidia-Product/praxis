@@ -120,6 +120,8 @@ export type ProjectStatus =
   | "Blocked"
   | "On Hold"
   | "Delayed"
+  | "Deployed"
+  | "Services Validation"
   | "Completed"
   | "Canceled"
   | (string & {});

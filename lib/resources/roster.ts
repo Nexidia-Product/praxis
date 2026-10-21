@@ -43,6 +43,10 @@ const ACTIVE_PROJECT_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Blocked",
   "On Hold",
   "Delayed",
+
+  "Deployed",
+
+  "Services Validation",
 ]);
 
 /** Closed task statuses — used to filter performance population. */

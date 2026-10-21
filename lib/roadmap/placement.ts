@@ -58,6 +58,8 @@ export function suggestedBucket(project: Project): NowNextLaterBucket {
   // 1. Active-status projects are Now regardless of date.
   if (
     project.status === "In Progress" ||
+    project.status === "Deployed" ||
+    project.status === "Services Validation" ||
     project.status === "Blocked" ||
     project.status === "Delayed"
   ) {

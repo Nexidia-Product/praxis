@@ -83,6 +83,10 @@ const SYSTEM_OPEN_STATUSES: ReadonlySet<ProjectStatus> = new Set([
   "Blocked",
   "On Hold",
   "Delayed",
+
+  "Deployed",
+
+  "Services Validation",
 ]);
 
 const SYSTEM_TERMINAL_STATUSES: ReadonlySet<ProjectStatus> = new Set([
