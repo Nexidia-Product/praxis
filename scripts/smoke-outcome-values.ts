@@ -8,17 +8,34 @@
 
 import assert from "node:assert/strict";
 
-import { MAX_OUTCOME_VALUE_LEN, appendOutcomeValue } from "@/lib/projects/outcome-values";
+import {
+  MAX_OUTCOME_VALUE_LEN,
+  appendOutcomeValue,
+  sortOutcomeValues,
+} from "@/lib/projects/outcome-values";
 
 const list = ["Cognigy", "Quality Central"];
 
-// A new value is appended (trimmed), the original array untouched.
+// A new value is added (trimmed) in its alphabetical slot, the original array untouched.
 const added = appendOutcomeValue(list, "  Atlas ");
 assert.ok(added.ok);
-assert.deepEqual(added.ok && added.list, ["Cognigy", "Quality Central", "Atlas"]);
+assert.deepEqual(added.ok && added.list, ["Atlas", "Cognigy", "Quality Central"]);
 assert.equal(added.ok && added.value, "Atlas");
 assert.equal(added.ok && added.added, true);
 assert.deepEqual(list, ["Cognigy", "Quality Central"]);
+
+// Sorting: case-insensitive, numeric-aware, input untouched.
+assert.deepEqual(
+  sortOutcomeValues(["quality", "Cognigy", "atlas", "Tier 10", "Tier 2"]),
+  ["atlas", "Cognigy", "quality", "Tier 2", "Tier 10"],
+);
+const unsorted = ["b", "a"];
+sortOutcomeValues(unsorted);
+assert.deepEqual(unsorted, ["b", "a"], "sort does not mutate");
+
+// A value added to the middle/start lands alphabetically, not at the end.
+const mid = appendOutcomeValue(["Alpha", "Zeta"], "Mu");
+assert.deepEqual(mid.ok && mid.list, ["Alpha", "Mu", "Zeta"]);
 
 // Adding to an empty list.
 const first = appendOutcomeValue([], "automation");

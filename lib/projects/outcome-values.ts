@@ -10,6 +10,19 @@
 
 export const MAX_OUTCOME_VALUE_LEN = 100;
 
+/**
+ * Alphabetical order for a vocabulary list: case-insensitive, with digits
+ * compared numerically ("Tier 2" before "Tier 10"). Returns a new array.
+ * Applied everywhere a list is read or written so a newly added value lands
+ * in its alphabetical slot rather than at the end.
+ */
+export function sortOutcomeValues(list: readonly string[]): string[] {
+  return [...list].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }) ||
+    a.localeCompare(b),
+  );
+}
+
 export type AppendResult =
   | { ok: true; list: string[]; value: string; added: boolean }
   | { ok: false; error: string };
@@ -31,5 +44,5 @@ export function appendOutcomeValue(list: string[], raw: unknown): AppendResult {
   }
   const existing = list.find((v) => v.toLowerCase() === value.toLowerCase());
   if (existing) return { ok: true, list, value: existing, added: false };
-  return { ok: true, list: [...list, value], value, added: true };
+  return { ok: true, list: sortOutcomeValues([...list, value]), value, added: true };
 }

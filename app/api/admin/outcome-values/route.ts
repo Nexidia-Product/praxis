@@ -27,7 +27,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermission, withAuth } from "@/lib/auth/permissions";
 import { SettingsRepository } from "@/lib/db";
-import { appendOutcomeValue } from "@/lib/projects/outcome-values";
+import { appendOutcomeValue, sortOutcomeValues } from "@/lib/projects/outcome-values";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,7 +58,7 @@ function normalizeList(value: unknown, field: string): string[] {
     seen.add(v.toLowerCase());
     out.push(v);
   }
-  return out;
+  return sortOutcomeValues(out);
 }
 
 export const POST = withAuth(async (request: Request) => {

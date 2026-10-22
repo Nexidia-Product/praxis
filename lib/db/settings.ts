@@ -20,6 +20,7 @@ import {
   type ResourceSettings,
   type RolePermissionsMap,
 } from "./types";
+import { sortOutcomeValues } from "@/lib/projects/outcome-values";
 import { getServiceRoleClient } from "@/lib/supabase/server";
 
 const TABLE = "settings" as const;
@@ -221,13 +222,19 @@ export const SettingsRepository = {
         defaults.portfolio_quadrants,
       ),
       ai_config: mergeAiConfig(partial.ai_config, defaults.ai_config),
-      outcome_products: stringList(partial.outcome_products),
-      outcome_types: stringList(partial.outcome_types),
+      outcome_products: sortOutcomeValues(stringList(partial.outcome_products)),
+      outcome_types: sortOutcomeValues(stringList(partial.outcome_types)),
     };
   },
 
   /** Replace the entire settings row atomically. */
-  async set(settings: AppSettings): Promise<AppSettings> {
+  async set(input: AppSettings): Promise<AppSettings> {
+    // Keep the outcome vocabularies alphabetical no matter how a value got in.
+    const settings: AppSettings = {
+      ...input,
+      outcome_products: sortOutcomeValues(input.outcome_products),
+      outcome_types: sortOutcomeValues(input.outcome_types),
+    };
     const { error } = await getServiceRoleClient()
       .from(TABLE)
       .upsert({ id: SINGLETON_ID, ...settings });
