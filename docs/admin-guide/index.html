@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.5","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.6","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -312,7 +312,7 @@ html{scroll-behavior:smooth}
       <dt>Classification</dt><dd>Application/product, project type, program, track, priority, stage and status.</dd>
       <dt>Visualization</dt><dd>A visualization type (Data Only, Function Update, New Visualization, New Page, New Cognigy Build or None) and a visualization lead, shown in the quick view under the project lead.</dd>
       <dt>Alignment</dt><dd>A primary objective, optional secondary objectives, the use case the project belongs to, the use-case outcomes it supports, and the NiCE products it aligns to.</dd>
-      <dt>Value</dt><dd>Free-text supports and benefits, plus the project's own outcomes.</dd>
+      <dt>Value</dt><dd>Free-text supports and benefits, plus the project's own outcomes. Each outcome can name the project that delivers it ("Delivered by").</dd>
       <dt>People</dt><dd>A project lead (required), additional resources (registered users or free text), primary stakeholders and a per-resource allocation percentage.</dd>
       <dt>Dates</dt><dd>Target application deployment date, target executable deployment date, and a start date. The start date is set automatically the first time a project leaves Not Started or Pending Assignment for an active status, unless already set.</dd>
       <dt>Roadmap bucket</dt><dd>A free-text grouping used by the Now, Next, Later board. New projects default to "Unplaced".</dd>
@@ -344,6 +344,10 @@ html{scroll-behavior:smooth}
         <li>On the Projects page, click the project's row to open its quick-view panel.</li>
         <li>Click "Edit project". The form opens with the same fields as create.</li>
         <li>Make your changes and click "Save changes".</li></ol></div></details>
+      <details class="how"><summary>How to: See which project delivers an outcome</summary><div class="body"><ol>
+        <li>Open the project's quick-view panel and select the "Outcomes" tab.</li>
+        <li>Each outcome shows a "Delivered by" line: "This project" (with its stage), a linked delivery project (with its current stage), or "Not yet planned". Click a linked project's name to open its quick view.</li>
+        <li>To change who delivers an outcome, use Edit project, Outcomes, and pick a project in that outcome's "Delivered by" list.</li></ol></div></details>
       <details class="how"><summary>How to: Change a project's status and record a note</summary><div class="body"><ol>
         <li>Open the project's quick-view panel.</li>
         <li>Open the "Status" tab.</li>
@@ -804,6 +808,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.6</span><span class="rel-note">2026-10-22</span></h3>
+      <ul>
+        <li><b>Updated:</b> the quick-view Outcomes tab now shows "Delivered by" for each outcome: this project, a linked delivery project (clickable, with its stage), or Not yet planned.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.5</span><span class="rel-note">2026-10-22</span></h3>
       <ul>
         <li><b>Updated:</b> on the Projects page the header, toolbar, filters and table column headings now stay in place while you scroll; only the project list scrolls.</li>

@@ -54,6 +54,7 @@ import type {
   UseCase,
   NiceProduct,
   ProjectId,
+  ProjectOutcome,
   ProjectStatus,
   StatusHistoryEntry,
 } from "@/lib/db";
@@ -790,6 +791,12 @@ export function ProjectQuickView({
                           ) : null}
                         </div>
                       ) : null}
+                      <OutcomeDeliveredBy
+                        outcome={o}
+                        project={project}
+                        allProjects={allProjects}
+                        onSelectProject={onSelectRelatedProject}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -2067,3 +2074,68 @@ function ExternalDependenciesPanel({ project }: { project: Project }) {
     </section>
   );
 }
+
+/**
+ * "Delivered by" line for one outcome on the Outcomes tab: this project, a
+ * linked delivery project (clickable, with its stage), or "Not yet planned".
+ * Read-only — the link is edited in the project form.
+ */
+function OutcomeDeliveredBy({
+  outcome,
+  project,
+  allProjects,
+  onSelectProject,
+}: {
+  outcome: ProjectOutcome;
+  project: Project;
+  allProjects: Project[];
+  onSelectProject?: (id: ProjectId) => void;
+}) {
+  const d = outcome.delivery;
+  let value: React.ReactNode;
+  if (!d) {
+    value = <span className="italic text-gray-400">Not yet planned</span>;
+  } else if (d.kind === "self") {
+    value = (
+      <span className="text-gray-700">
+        This project
+        {project.stage ? (
+          <span className="text-gray-400"> · {project.stage}</span>
+        ) : null}
+      </span>
+    );
+  } else {
+    const target = allProjects.find((p) => p.project_id === d.project_id);
+    if (!target) {
+      value = (
+        <span className="text-gray-500">{d.project_id} (not found)</span>
+      );
+    } else {
+      const label = `${target.name} (${target.project_id})`;
+      value = (
+        <>
+          {onSelectProject ? (
+            <button
+              type="button"
+              onClick={() => onSelectProject(target.project_id)}
+              className="text-left font-medium text-blue-700 hover:underline"
+            >
+              {label}
+            </button>
+          ) : (
+            <span className="text-gray-700">{label}</span>
+          )}
+          {target.stage ? (
+            <span className="text-gray-400"> · {target.stage}</span>
+          ) : null}
+        </>
+      );
+    }
+  }
+  return (
+    <p className="mt-1.5 text-xs text-gray-500">
+      <span className="font-medium">Delivered by:</span> {value}
+    </p>
+  );
+}
+
