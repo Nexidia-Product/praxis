@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-21","guide":"2.3","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.4","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -567,7 +567,7 @@ html{scroll-behavior:smooth}
         <li>Click "Save changes". To retire a value later, "Archive" it (hidden from new dropdowns, kept on records that use it). "Delete" is only allowed for values never used. Treat the ID as permanent once in use.</li></ol></div></details>
       <details class="how"><summary>How to: Manage outcome values</summary><div class="body"><ol>
         <li>Open Admin, Configuration, "Outcomes".</li>
-        <li>Add or remove entries in the two lists that back the product and type dropdowns on project outcomes.</li>
+        <li>Add or remove entries in the two lists that back the product and type dropdowns on project outcomes. Both lists are kept in alphabetical order automatically: a new value drops into its alphabetical place, including values added from the "+ Add new…" option on the project form.</li>
         <li>Save. Both lists save together.</li></ol></div></details>
       <details class="how"><summary>How to: Rename the portfolio quadrant labels</summary><div class="body"><ol>
         <li>Open Admin, Configuration, "Portfolio quadrants".</li>
@@ -804,6 +804,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.4</span><span class="rel-note">2026-10-22</span></h3>
+      <ul>
+        <li><b>Updated:</b> the outcome product and type lists (Admin, Configuration, Outcomes) are now sorted alphabetically everywhere they appear, and a newly added value is placed alphabetically instead of at the end.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.3</span><span class="rel-note">2026-10-21</span></h3>
       <ul>
         <li><b>Added:</b> project statuses Deployed and Services Validation, listed between Delayed and Completed. A project moves from In Progress to Deployed once it is deployed in the application, stays there until handover is accepted by the product teams, and then moves to Completed. Projects that need Services Validation (typically Cognigy) move from Deployed to Services Validation before Completed. Both are open statuses.</li>

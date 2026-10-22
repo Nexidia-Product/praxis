@@ -10,6 +10,8 @@
 
 import { useMemo, useState } from "react";
 
+import { sortOutcomeValues } from "@/lib/projects/outcome-values";
+
 interface OutcomeValuesEditorProps {
   initialProducts: string[];
   initialTypes: string[];
@@ -19,10 +21,16 @@ export function OutcomeValuesEditor({
   initialProducts,
   initialTypes,
 }: OutcomeValuesEditorProps) {
-  const [products, setProducts] = useState<string[]>(initialProducts);
-  const [types, setTypes] = useState<string[]>(initialTypes);
-  const [savedProducts, setSavedProducts] = useState<string[]>(initialProducts);
-  const [savedTypes, setSavedTypes] = useState<string[]>(initialTypes);
+  const [products, setProducts] = useState<string[]>(
+    sortOutcomeValues(initialProducts),
+  );
+  const [types, setTypes] = useState<string[]>(sortOutcomeValues(initialTypes));
+  const [savedProducts, setSavedProducts] = useState<string[]>(
+    sortOutcomeValues(initialProducts),
+  );
+  const [savedTypes, setSavedTypes] = useState<string[]>(
+    sortOutcomeValues(initialTypes),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -157,7 +165,8 @@ function ListEditor({
       return;
     }
     setLocalError(null);
-    onChange([...values, v]);
+    // Keep the list alphabetical as values are added.
+    onChange(sortOutcomeValues([...values, v]));
     setDraft("");
   }
 
