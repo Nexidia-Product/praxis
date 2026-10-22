@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.4","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.5","base":"Praxis main after PR #70"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -336,7 +336,7 @@ html{scroll-behavior:smooth}
   <div class="sub"><h3><span class="no">5.3</span>Working with projects</h3>
     <div class="howlist">
       <details class="how"><summary>How to: Create a new project</summary><div class="body"><ol>
-        <li>In the sidebar, click "Projects".</li>
+        <li>In the sidebar, click "Projects". The page title, status toggle, filters and table column headings stay fixed at the top; only the list of projects scrolls.</li>
         <li>Click "+ New project" (top right of the toolbar). The "New project" form opens.</li>
         <li>Fill in the form. "Name" and "Application/Product" are required. The form also offers description, definition of done, type, program, track, priority, status, stage, visualization type, project lead, visualization lead, objectives, use case outcomes, supports, benefits, outcomes, dates, stakeholders, additional resources and allocations, and (when available) "Apply task template", "Depends on", document links, external dependencies and any custom fields.</li>
         <li>Click "Create project". The modal closes and the project appears in the table.</li></ol></div></details>
@@ -804,6 +804,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.5</span><span class="rel-note">2026-10-22</span></h3>
+      <ul>
+        <li><b>Updated:</b> on the Projects page the header, toolbar, filters and table column headings now stay in place while you scroll; only the project list scrolls.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.4</span><span class="rel-note">2026-10-22</span></h3>
       <ul>
         <li><b>Updated:</b> the outcome product and type lists (Admin, Configuration, Outcomes) are now sorted alphabetically everywhere they appear, and a newly added value is placed alphabetically instead of at the end.</li>

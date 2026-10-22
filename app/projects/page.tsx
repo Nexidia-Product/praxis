@@ -104,28 +104,32 @@ export default async function ProjectsPage() {
       navKey="projects"
       breadcrumbs={[{ label: "Projects" }]}
     >
-      <PolarisPageHeader
-        eyebrow="Workspace"
-        title="Projects"
-        subtitle="Track and manage every active and planned innovation project."
-      />
-      <ProjectsTable
-        initialProjects={projects}
-        customFields={settings.custom_field_definitions}
-        currentUserRole={session.user.role}
-        permissions={permissions}
-        templates={templates}
-        enumOptions={enumOptions}
-        quadrantLabels={settings.portfolio_quadrants}
-        aiEnabled={isAiEnabled()}
-        groups={groups}
-        useCases={useCases}
-        niceProducts={niceProducts}
-        activeUserNames={activeUserNames}
-        mentionableUsers={mentionableUsers}
-        outcomeProducts={settings.outcome_products}
-        outcomeTypes={settings.outcome_types}
-      />
+      {/* Fixed-height column: header, toolbar and filters stay in place and
+          only the project list scrolls (see ProjectsTable). */}
+      <div className="flex h-full min-h-0 flex-col">
+        <PolarisPageHeader
+          eyebrow="Workspace"
+          title="Projects"
+          subtitle="Track and manage every active and planned innovation project."
+        />
+        <ProjectsTable
+          initialProjects={projects}
+          customFields={settings.custom_field_definitions}
+          currentUserRole={session.user.role}
+          permissions={permissions}
+          templates={templates}
+          enumOptions={enumOptions}
+          quadrantLabels={settings.portfolio_quadrants}
+          aiEnabled={isAiEnabled()}
+          groups={groups}
+          useCases={useCases}
+          niceProducts={niceProducts}
+          activeUserNames={activeUserNames}
+          mentionableUsers={mentionableUsers}
+          outcomeProducts={settings.outcome_products}
+          outcomeTypes={settings.outcome_types}
+        />
+      </div>
     </PolarisShell>
   );
 }
