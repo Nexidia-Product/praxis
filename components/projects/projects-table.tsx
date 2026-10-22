@@ -855,7 +855,9 @@ export function ProjectsTable({
       : null;
 
   return (
-    <div className="space-y-3">
+    // Fills the page's content area: the toolbar and filters stay put and
+    // only the table body below scrolls.
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* Status group toggle + new button */}
       <div className="toolbar">
         <div
@@ -972,14 +974,21 @@ export function ProjectsTable({
           border: "1px solid var(--border)",
           borderRadius: "var(--pol-radius)",
           overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          flex: "1 1 auto",
+          minHeight: 240,
         }}
       >
-        <div className="overflow-x-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full text-left" style={{ fontSize: "var(--fs-sm)" }}>
             <thead
               style={{
                 background: "var(--bg)",
                 borderBottom: "2px solid var(--border)",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
               }}
             >
               <tr style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--tm)" }}>
