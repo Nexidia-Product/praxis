@@ -121,9 +121,8 @@ export function planOutcomeProject(
     project_type: "New Feature",
     program: source.program,
     track: trackForOutcome(source, outcome),
-    // Required by the create validator; differs from the source almost every
-    // time, so it starts as "None" for the admin to set.
-    visualization_type: "None",
+    // Delivery projects are function updates, not copied from the source.
+    visualization_type: "Function Update",
     primary_objective: source.primary_objective,
     secondary_objectives: source.secondary_objectives ?? [],
     priority: "Medium",
