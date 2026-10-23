@@ -130,6 +130,8 @@ export function planOutcomeProject(
     stage: "Qualification",
     primary_stakeholders: source.primary_stakeholders,
     outcomes,
+    // The source project is upstream of the project that builds its outcome.
+    depends_on: [source.project_id],
   };
   if (ctx.useCase) payload.use_case_id = ctx.useCase.use_case_id;
 
