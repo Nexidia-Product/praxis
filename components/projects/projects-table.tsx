@@ -1375,6 +1375,10 @@ export function ProjectsTable({
           outcomeProducts={outcomeProducts}
           outcomeTypes={outcomeTypes}
           onProjectImported={applyUpdated}
+          onOutcomeBuilt={({ project, source }) => {
+            applyCreated(project);
+            applyUpdated(source);
+          }}
           onClose={() => {
             setQuickViewId(null);
             setQuickViewInitialTab(undefined);

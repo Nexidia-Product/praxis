@@ -155,6 +155,11 @@ interface ProjectQuickViewProps {
    * `canEdit` is true), so callers that don't hold project state hide it.
    */
   onProjectImported?: (project: Project) => void;
+  /**
+   * Called after an Admin builds a delivery project for an outcome: the new
+   * project, and the source project with its outcome now linked to it.
+   */
+  onOutcomeBuilt?: (built: { project: Project; source: Project }) => void;
   onClose: () => void;
   onEdit: () => void;
   /**
@@ -216,6 +221,7 @@ export function ProjectQuickView({
   outcomeProducts = [],
   outcomeTypes = [],
   onProjectImported,
+  onOutcomeBuilt,
   onSelectRelatedProject,
   onClose,
   onEdit,
@@ -797,6 +803,13 @@ export function ProjectQuickView({
                         allProjects={allProjects}
                         onSelectProject={onSelectRelatedProject}
                       />
+                      {isAdmin && !o.delivery ? (
+                        <BuildOutcomeButton
+                          projectId={project.project_id}
+                          outcome={o}
+                          onBuilt={onOutcomeBuilt}
+                        />
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -2139,3 +2152,95 @@ function OutcomeDeliveredBy({
   );
 }
 
+/**
+ * Admin-only: create the project that delivers an outcome that has no
+ * delivery project yet. Two-step (click, then confirm) because it creates a
+ * record. The server fills the new project in from this project and the
+ * outcome (`lib/projects/outcome-build.ts`) and links the outcome to it.
+ */
+function BuildOutcomeButton({
+  projectId,
+  outcome,
+  onBuilt,
+}: {
+  projectId: ProjectId;
+  outcome: ProjectOutcome;
+  onBuilt?: (built: { project: Project; source: Project }) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function build() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/outcomes/${encodeURIComponent(outcome.id)}/build`,
+        { method: "POST" },
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        project?: Project;
+        source?: Project;
+        warnings?: string[];
+      };
+      if (!res.ok || !data.project || !data.source) {
+        setError(data.error ?? "Could not create the project.");
+        return;
+      }
+      setConfirming(false);
+      setNotice(
+        `Created ${data.project.project_id}.${data.warnings?.length ? " " + data.warnings.join(" ") : ""}`,
+      );
+      onBuilt?.({ project: data.project, source: data.source });
+    } catch {
+      setError("Could not create the project.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 text-xs">
+      {notice ? <p className="text-green-700">{notice}</p> : null}
+      {!confirming && !notice ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="rounded border border-blue-300 bg-blue-50 px-2 py-1 font-medium text-blue-700 hover:bg-blue-100"
+        >
+          Create delivery project
+        </button>
+      ) : null}
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-gray-600">
+            Create a new project that delivers this outcome?
+          </span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={build}
+            className="rounded bg-blue-600 px-2 py-1 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy ? "Creating…" : "Create"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setConfirming(false);
+              setError(null);
+            }}
+            className="rounded border border-gray-300 px-2 py-1 text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="mt-1 text-red-600">{error}</p> : null}
+    </div>
+  );
+}
