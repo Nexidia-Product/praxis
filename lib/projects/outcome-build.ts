@@ -121,13 +121,14 @@ export function planOutcomeProject(
     project_type: "New Feature",
     program: source.program,
     track: trackForOutcome(source, outcome),
-    visualization_type: source.visualization_type,
+    // Required by the create validator; differs from the source almost every
+    // time, so it starts as "None" for the admin to set.
+    visualization_type: "None",
     primary_objective: source.primary_objective,
     secondary_objectives: source.secondary_objectives ?? [],
     priority: "Medium",
     status: "Not Started",
     stage: "Qualification",
-    project_lead: source.project_lead,
     primary_stakeholders: source.primary_stakeholders,
     outcomes,
   };
