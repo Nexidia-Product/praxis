@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.6","base":"Praxis main after PR #70"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.7","base":"Praxis main after PR #77"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -348,6 +348,12 @@ html{scroll-behavior:smooth}
         <li>Open the project's quick-view panel and select the "Outcomes" tab.</li>
         <li>Each outcome shows a "Delivered by" line: "This project" (with its stage), a linked delivery project (with its current stage), or "Not yet planned". Click a linked project's name to open its quick view.</li>
         <li>To change who delivers an outcome, use Edit project, Outcomes, and pick a project in that outcome's "Delivered by" list.</li></ol></div></details>
+      <details class="how"><summary>How to: Create the project that delivers an outcome (Admin only)</summary><div class="body"><ol>
+        <li>Open the quick-view panel of the project that holds the outcome and select the "Outcomes" tab. Admins see a "Create delivery project" button under any outcome whose "Delivered by" is "Not yet planned".</li>
+        <li>Click "Create delivery project", then "Create" to confirm. Praxis creates the project and links the outcome to it, so "Delivered by" now names the new project.</li>
+        <li>The new project is filled in for you: a name and description built from the outcome and the source project, type New Feature, priority Medium, status Not Started, stage Qualification, and the source project's program, objectives and stakeholders. The project lead is left blank and the visualization type starts as None, since both usually differ from the source project; set them with Edit project. It joins the source project's use case, supports the use case outcome with the same name as the outcome (for example "Automated Coaching Plans"), and takes the source's NiCE products.</li>
+        <li>The outcome decides the track: a Quality Central coaching plan goes to Track I - Coaching Plan (and also gets an "Updated Automated Insights visualization" outcome), a Cognigy outcome to Track B - Cognigy bot inputs, and anything else keeps the source project's track.</li>
+        <li>Review the new project and adjust anything that differs, such as priority, dates or description, with Edit project. Non-Admin roles cannot do this and do not see the button.</li></ol></div></details>
       <details class="how"><summary>How to: Change a project's status and record a note</summary><div class="body"><ol>
         <li>Open the project's quick-view panel.</li>
         <li>Open the "Status" tab.</li>
@@ -808,6 +814,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.7</span><span class="rel-note">2026-10-23</span></h3>
+      <ul>
+        <li><b>Added:</b> a "Create delivery project" button (Admin only) under each unplanned outcome on the quick-view Outcomes tab. It creates the project that delivers the outcome, fills it in from the source project and the outcome, and links the outcome to it.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.6</span><span class="rel-note">2026-10-22</span></h3>
       <ul>
         <li><b>Updated:</b> the quick-view Outcomes tab now shows "Delivered by" for each outcome: this project, a linked delivery project (clickable, with its stage), or Not yet planned.</li>
