@@ -7,7 +7,7 @@
   Kept in the repo at docs/admin-guide/index.html and republished to the same artifact URL.
   When the app changes: edit the matching section, add a row to the Change log, bump "updated" in #build-info.
 -->
-<script id="build-info" type="application/json">{"updated":"2026-10-22","guide":"2.8","base":"Praxis main after PR #77"}</script>
+<script id="build-info" type="application/json">{"updated":"2026-10-26","guide":"2.9","base":"Praxis main after PR #77"}</script>
 <style>
 /* Layout concept: sticky section index on the left, single reading column on the right.
    Reference-style page: task accordions, matrices, callouts, release-style change log. */
@@ -425,7 +425,7 @@ html{scroll-behavior:smooth}
     <div class="chips"><span class="chip">New</span><span class="chip acc">Under Review</span><span class="chip ok">Approved</span><span class="chip warn">Rejected</span><span class="chip ok">Converted</span></div>
     <p class="muted">New, Under Review, Approved, Converted, with Rejected as an off-ramp (an idea can be reopened from Rejected). Converted is terminal.</p></div>
   <div class="sub"><h3><span class="no">7.2</span>Quality of Life and Bug / Defect flags</h3>
-    <p>Both flags work the same way. A submitter can set either at submission, and a reviewer can set or clear either on the review page until the idea is Converted. A flagged idea shows a badge in the review list ("QoL" or "Bug") and in the idea header. Use them to separate fixes and small tweaks from new feature requests when you triage.</p></div>
+    <p>Both flags work the same way. A submitter can set either at submission (but not both; the form disables one when the other is ticked), and a reviewer can set or clear either on the review page until the idea is Converted. A flagged idea shows a badge in the review list ("QoL" or "Bug") and in the idea header. Use them to separate fixes and small tweaks from new feature requests when you triage.</p></div>
   <div class="sub"><h3><span class="no">7.3</span>Submitting, reviewing, converting and merging</h3>
     <div class="howlist">
       <details class="how"><summary>How to: Submit an idea through the public portal</summary><div class="body"><ol>
@@ -433,7 +433,7 @@ html{scroll-behavior:smooth}
         <li>Fill in "Your name" (required) and optionally "Email (optional)", used to send an update when the idea is reviewed.</li>
         <li>Enter the "Idea title" and "Description" (both required) and choose an "Urgency" (Low, Medium, High or Critical).</li>
         <li>Optionally set "Requested target date", "Key stakeholders" and "Attachments" (up to five files, 50 MB combined).</li>
-        <li>Optionally tick "Quality of Life" (a minor usability tweak, not a new feature) or "Bug / Defect" (something not working as intended).</li>
+        <li>Optionally tick "Quality of Life" (a minor usability tweak, not a new feature) or "Bug / Defect" (something not working as intended). An idea can be one or the other, not both: ticking one disables the other.</li>
         <li>Click "Submit idea". A confirmation shows a reference ID.</li></ol></div></details>
       <details class="how"><summary>How to: Review an idea</summary><div class="body"><ol>
         <li>Open Insights, "Ideas". Use the filter buttons ("Open (New + Under Review)", "All", "New", "Under Review", "Approved", "Rejected", "Converted") to scope the list.</li>
@@ -814,6 +814,10 @@ html{scroll-behavior:smooth}
   <div class="block-head"><span class="eyebrow">History</span><h2>Change log</h2></div>
   <p class="muted">Newest first. Add an entry whenever the app or this guide changes.</p>
   <div class="rels">
+    <div class="rel"><h3><span class="rel-v">2.9</span><span class="rel-note">2026-10-26</span></h3>
+      <ul>
+        <li><b>Updated:</b> on the idea submission form, "Quality of Life" and "Bug / Defect" are now mutually exclusive. Ticking one disables the other until it is cleared.</li>
+      </ul></div>
     <div class="rel"><h3><span class="rel-v">2.8</span><span class="rel-note">2026-10-23</span></h3>
       <ul>
         <li><b>Updated:</b> a project created with "Create delivery project" now lists the source project as its upstream dependency ("Blocks Start"), and its visualization type is always Function Update.</li>
@@ -917,3 +921,4 @@ html{scroll-behavior:smooth}
   });
 })();
 </script>
+

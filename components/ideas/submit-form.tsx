@@ -412,10 +412,13 @@ export function IdeaSubmitForm() {
           type="checkbox"
           checked={state.is_quality_of_life}
           onChange={(e) => update("is_quality_of_life", e.target.checked)}
-          disabled={submitting}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          disabled={submitting || state.is_bug_defect}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <label htmlFor="is_quality_of_life" className="text-sm text-gray-900">
+        <label
+          htmlFor="is_quality_of_life"
+          className={`text-sm text-gray-900 ${state.is_bug_defect ? "opacity-50" : ""}`}
+        >
           This is a{" "}
           <span className="font-medium">Quality of Life</span> request — a
           minor tweak that would improve usability (e.g., for customer
@@ -430,10 +433,13 @@ export function IdeaSubmitForm() {
           type="checkbox"
           checked={state.is_bug_defect}
           onChange={(e) => update("is_bug_defect", e.target.checked)}
-          disabled={submitting}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+          disabled={submitting || state.is_quality_of_life}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <label htmlFor="is_bug_defect" className="text-sm text-gray-900">
+        <label
+          htmlFor="is_bug_defect"
+          className={`text-sm text-gray-900 ${state.is_quality_of_life ? "opacity-50" : ""}`}
+        >
           This is a <span className="font-medium">Bug / Defect</span> — something
           that isn&apos;t working as intended, not a new feature.
         </label>
